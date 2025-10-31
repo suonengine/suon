@@ -1,0 +1,24 @@
+name: Typos
+
+on:
+  push:
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  typos:
+    name: Running typos
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check for typos
+        uses: crate-ci/typos@v1.38.1
+
+      - name: Typos info
+        if: failure()
+        run: |
+          echo 'To automatically fix typos, run: `typos -w`'
+          echo 'To see a diff of typos, run: `typos`'
