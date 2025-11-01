@@ -1,6 +1,17 @@
+# Workspace
+[workspace]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0-dev"
+edition = "2024"
+
+[workspace.dependencies]
+
+# Root Package
 [package]
 name = "suon"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
 
 [dependencies]
