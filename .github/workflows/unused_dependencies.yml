@@ -19,4 +19,4 @@ jobs:
           crate: cargo-udeps
 
       - name: Run udeps
-        run: rustup run nightly cargo udeps --all --all-features
+        run: rustup run nightly cargo udeps --workspace --all-features
