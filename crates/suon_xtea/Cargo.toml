@@ -1,0 +1,8 @@
+[package]
+name = "suon_xtea"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bytes.workspace = true
+thiserror.workspace = true
