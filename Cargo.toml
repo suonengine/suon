@@ -22,3 +22,20 @@ bytes = "1.10.1"
 thiserror = "2.0.17"
 
 suon_xtea = { path = "crates/suon_xtea" }
+
+# Dev profile: use a small amount of optimization to keep compile times fast during development
+[profile.dev]
+opt-level = 1
+
+# Dev profile for all dependencies: use maximum optimization to improve dependency performance
+[profile.dev.package."*"]
+opt-level = 3
+
+# Release profile: increase optimization at the cost of longer compile times
+[profile.release]
+# Compile the entire crate as a single unit for better optimization
+# This may slow down compilation slightly but can improve performance
+codegen-units = 1
+# Enable Thin LTO (Link Time Optimization) for a second optimization pass
+# Improves runtime performance across the crate and dependencies
+lto = "thin"
