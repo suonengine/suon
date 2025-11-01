@@ -46,7 +46,7 @@ pub enum XTEADecryptError {
 ///   first two bytes exceeds the available buffer size.
 pub fn decrypt(ciphertext: &[u8], key: &XTEAKey) -> Result<Bytes, XTEADecryptError> {
     // Ensure the ciphertext length is a multiple of the XTEA block size.
-    if ciphertext.len() % XTEA_BLOCK_SIZE != 0 {
+    if !ciphertext.len().is_multiple_of(XTEA_BLOCK_SIZE) {
         return Err(XTEADecryptError::InvalidBlockSize);
     }
 
