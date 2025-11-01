@@ -6,6 +6,7 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
+bevy.workspace = true
 
 # Workspace
 [workspace]
@@ -18,6 +19,11 @@ edition = "2024"
 repository = "https://github.com/suonengine/suon"
 
 [workspace.dependencies]
+bevy = { version = "0.17.2", default-features = false, features = [
+  "multi_threaded",
+  "sysinfo_plugin",
+  "bevy_log",
+] }
 bytes = "1.10.1"
 thiserror = "2.0.17"
 
