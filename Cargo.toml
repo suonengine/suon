@@ -28,6 +28,7 @@ bytes = "1.10.1"
 thiserror = "2.0.17"
 
 suon_checksum = { path = "crates/suon_checksum" }
+suon_database = { path = "crates/suon_database" }
 suon_xtea = { path = "crates/suon_xtea" }
 
 # Dev profile: use a small amount of optimization to keep compile times fast during development
