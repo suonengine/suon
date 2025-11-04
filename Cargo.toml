@@ -33,6 +33,7 @@ syn = { version = "2.0.108" }
 suon_checksum = { path = "crates/suon_checksum" }
 suon_macros = { path = "crates/suon_macros" }
 suon_database = { path = "crates/suon_database" }
+suon_task = { path = "crates/suon_task" }
 suon_xtea = { path = "crates/suon_xtea" }
 
 # Dev profile: use a small amount of optimization to keep compile times fast during development

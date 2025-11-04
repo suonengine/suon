@@ -1,0 +1,7 @@
+[package]
+name = "suon_task"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bevy.workspace = true
