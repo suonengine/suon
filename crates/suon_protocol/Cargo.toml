@@ -1,0 +1,8 @@
+[package]
+name = "suon_protocol"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bytes.workspace = true
+thiserror.workspace = true

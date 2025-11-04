@@ -19,19 +19,21 @@ edition = "2024"
 repository = "https://github.com/suonengine/suon"
 
 [workspace.dependencies]
+anyhow = "1.0.100"
 bevy = { version = "0.17.2", default-features = false, features = [
   "multi_threaded",
   "sysinfo_plugin",
   "bevy_log",
 ] }
 bytes = "1.10.1"
-thiserror = "2.0.17"
 proc-macro2 = "1.0.103"
 quote = "1.0.41"
 syn = { version = "2.0.108" }
+thiserror = "2.0.17"
 
 suon_checksum = { path = "crates/suon_checksum" }
 suon_macros = { path = "crates/suon_macros" }
+suon_protocol = { path = "crates/suon_protocol" }
 suon_database = { path = "crates/suon_database" }
 suon_task = { path = "crates/suon_task" }
 suon_xtea = { path = "crates/suon_xtea" }
