@@ -24,6 +24,7 @@ bevy = { version = "0.17.2", default-features = false, features = [
   "multi_threaded",
   "sysinfo_plugin",
   "bevy_log",
+  "async_executor",
 ] }
 bytes = { version = "1.10.1", default-features = false }
 proc-macro2 = { version = "1.0.103", default-features = false }
