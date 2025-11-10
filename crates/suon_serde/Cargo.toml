@@ -1,0 +1,10 @@
+[package]
+name = "suon_serde"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+
+[dev-dependencies]
+serde_json = { workspace = true, features = ["std"] }

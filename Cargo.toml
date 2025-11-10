@@ -29,12 +29,15 @@ bevy = { version = "0.17.2", default-features = false, features = [
 bytes = { version = "1.10.1", default-features = false }
 proc-macro2 = { version = "1.0.103", default-features = false }
 quote = { version = "1.0.41", default-features = false }
+serde = { version = "1.0.228", default-features = false }
+serde_json = { version = "1.0.145", default-features = false }
 syn = { version = "2.0.108", default-features = false }
 thiserror = { version = "2.0.17", default-features = false }
 
 suon_checksum = { path = "crates/suon_checksum" }
 suon_macros = { path = "crates/suon_macros" }
 suon_protocol = { path = "crates/suon_protocol" }
+suon_serde = { path = "crates/suon_serde" }
 suon_database = { path = "crates/suon_database" }
 suon_task = { path = "crates/suon_task" }
 suon_xtea = { path = "crates/suon_xtea" }
