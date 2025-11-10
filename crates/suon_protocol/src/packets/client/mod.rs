@@ -76,6 +76,12 @@ pub enum PacketKind {
     KeepAlive = 30,
 }
 
+impl std::fmt::Display for PacketKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

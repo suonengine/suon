@@ -1,5 +1,7 @@
 use bytes::Bytes;
 
+use crate::packets::PACKET_KIND_SIZE;
+
 mod keep_alive;
 mod ping_latency;
 
@@ -57,6 +59,21 @@ pub trait Encodable: Sized {
         // No payload by default; only the packet kind is used
         None
     }
+
+    fn encode_with_kind(self) -> Bytes {
+        use crate::packets::encoder::Encoder;
+
+        if let Some(bytes) = self.encode() {
+            Encoder::with_capacity(PACKET_KIND_SIZE + bytes.len())
+                .put_u8(Self::KIND as u8)
+                .put_bytes(bytes)
+                .end()
+        } else {
+            Encoder::with_capacity(PACKET_KIND_SIZE)
+                .put_u8(Self::KIND as u8)
+                .end()
+        }
+    }
 }
 
 /// Defines the possible kinds or categories of network packets.
@@ -70,6 +87,12 @@ pub enum PacketKind {
     KeepAlive = 29,
     /// Sent to measure latency between client and server.
     PingLatency = 30,
+}
+
+impl std::fmt::Display for PacketKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
 }
 
 #[cfg(test)]
