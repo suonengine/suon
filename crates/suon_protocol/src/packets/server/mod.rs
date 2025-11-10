@@ -91,7 +91,7 @@ pub enum PacketKind {
 
 impl std::fmt::Display for PacketKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "{:?} (0x{:02X})", self, *self as u8)
     }
 }
 
