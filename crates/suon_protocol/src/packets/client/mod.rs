@@ -15,7 +15,7 @@ pub mod prelude {
 pub enum DecodableError {
     /// Wraps a lower-level decoding error.
     #[error("failed to decode packet: {0}")]
-    Decode(#[from] crate::packets::decoder::DecoderError),
+    Decoder(#[from] crate::packets::decoder::DecoderError),
 }
 
 /// Represents a packet that can be decoded from a binary buffer.
@@ -94,7 +94,7 @@ mod tests {
 
         fn decode(bytes: &mut &[u8]) -> Result<Self, DecodableError> {
             if bytes.is_empty() {
-                Err(DecodableError::Decode(
+                Err(DecodableError::Decoder(
                     crate::packets::decoder::DecoderError::Incomplete {
                         expected: 1,
                         available: 0,
@@ -114,7 +114,7 @@ mod tests {
             .expect_err("Expected DecoderError::Incomplete for empty buffer");
 
         match error {
-            DecodableError::Decode(crate::packets::decoder::DecoderError::Incomplete {
+            DecodableError::Decoder(crate::packets::decoder::DecoderError::Incomplete {
                 expected,
                 available,
             }) => {

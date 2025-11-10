@@ -12,7 +12,7 @@ use bytes::{BufMut, Bytes, BytesMut};
 /// let packet_bytes = Encoder::new()
 ///     .put_u8(42)
 ///     .put_str("Hello")
-///     .end();
+///     .finalize();
 /// ```
 pub struct Encoder {
     buffer: BytesMut,
@@ -99,7 +99,7 @@ impl Encoder {
     }
 
     /// Finalizes the buffer and returns an immutable [`Bytes`] instance suitable for sending.
-    pub fn end(&mut self) -> Bytes {
+    pub fn finalize(&mut self) -> Bytes {
         self.buffer.clone().freeze()
     }
 }
@@ -119,7 +119,7 @@ mod tests {
     fn encoder_put_u8_writes_expected_byte() {
         const VALUE: u8 = 42;
 
-        let result = Encoder::new().put_u8(VALUE).end();
+        let result = Encoder::new().put_u8(VALUE).finalize();
 
         assert_eq!(
             result.as_ref(),
@@ -133,7 +133,7 @@ mod tests {
         const FALSE: bool = false;
         const TRUE: bool = true;
 
-        let result = Encoder::new().put_bool(FALSE).put_bool(TRUE).end();
+        let result = Encoder::new().put_bool(FALSE).put_bool(TRUE).finalize();
 
         assert_eq!(
             result.as_ref(),
@@ -146,7 +146,7 @@ mod tests {
     fn encoder_put_i16_writes_little_endian_bytes() {
         const VALUE: i16 = 0x1234;
 
-        let result = Encoder::new().put_i16(VALUE).end();
+        let result = Encoder::new().put_i16(VALUE).finalize();
 
         const EXPECTED: [u8; 2] = [0x34, 0x12];
         assert_eq!(
@@ -160,7 +160,7 @@ mod tests {
     fn encoder_put_u16_writes_little_endian_bytes() {
         const VALUE: u16 = 0xABCD;
 
-        let result = Encoder::new().put_u16(VALUE).end();
+        let result = Encoder::new().put_u16(VALUE).finalize();
 
         const EXPECTED: [u8; 2] = [0xCD, 0xAB];
         assert_eq!(
@@ -175,7 +175,10 @@ mod tests {
         const I32_VALUE: i32 = 0x12345678;
         const U32_VALUE: u32 = 0x90ABCDEF;
 
-        let result = Encoder::new().put_i32(I32_VALUE).put_u32(U32_VALUE).end();
+        let result = Encoder::new()
+            .put_i32(I32_VALUE)
+            .put_u32(U32_VALUE)
+            .finalize();
 
         const EXPECTED: [u8; 8] = [0x78, 0x56, 0x34, 0x12, 0xEF, 0xCD, 0xAB, 0x90];
         assert_eq!(
@@ -189,7 +192,7 @@ mod tests {
     fn encoder_put_str_writes_length_and_bytes() {
         const VALUE: &str = "AB";
 
-        let result = Encoder::new().put_str(VALUE).end();
+        let result = Encoder::new().put_str(VALUE).finalize();
 
         const EXPECTED: [u8; 4] = [0x02, 0x00, 0x41, 0x42];
         assert_eq!(
@@ -203,7 +206,9 @@ mod tests {
     fn encoder_put_bytes_appends_raw_bytes() {
         const BYTES: &[u8] = &[0xDE, 0xAD, 0xBE, 0xEF];
 
-        let result = Encoder::new().put_bytes(Bytes::from_static(BYTES)).end();
+        let result = Encoder::new()
+            .put_bytes(Bytes::from_static(BYTES))
+            .finalize();
 
         assert_eq!(
             result.as_ref(),
@@ -216,7 +221,7 @@ mod tests {
     fn encoder_with_capacity_initializes_correctly() {
         const CAPACITY: usize = 128;
 
-        let encoder = Encoder::with_capacity(CAPACITY).end();
+        let encoder = Encoder::with_capacity(CAPACITY).finalize();
 
         assert!(
             encoder.is_empty(),
@@ -226,8 +231,8 @@ mod tests {
 
     #[test]
     fn default_encoder_is_equal_to_new() {
-        let default_encoder = Encoder::default().end();
-        let new_encoder = Encoder::new().end();
+        let default_encoder = Encoder::default().finalize();
+        let new_encoder = Encoder::new().finalize();
 
         assert_eq!(
             default_encoder.as_ref(),

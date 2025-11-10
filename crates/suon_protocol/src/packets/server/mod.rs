@@ -67,11 +67,11 @@ pub trait Encodable: Sized {
             Encoder::with_capacity(PACKET_KIND_SIZE + bytes.len())
                 .put_u8(Self::KIND as u8)
                 .put_bytes(bytes)
-                .end()
+                .finalize()
         } else {
             Encoder::with_capacity(PACKET_KIND_SIZE)
                 .put_u8(Self::KIND as u8)
-                .end()
+                .finalize()
         }
     }
 }
