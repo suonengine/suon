@@ -1,0 +1,27 @@
+[package]
+name = "suon_network"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+bevy.workspace = true
+bytes.workspace = true
+crossbeam-channel.workspace = true
+humantime = { workspace = true, default-features = false }
+serde.workspace = true
+serde_derive = { workspace = true, default-features = false }
+smol.workspace = true
+smol-timeout = { workspace = true, default-features = false }
+thiserror.workspace = true
+tokio = { workspace = true, default-features = false, features = ["sync"] }
+toml = { workspace = true, default-features = false, features = [
+  "serde",
+  "parse",
+  "display",
+] }
+
+suon_checksum = { path = "../suon_checksum" }
+suon_protocol = { path = "../suon_protocol" }
+suon_serde = { path = "../suon_serde" }
+suon_xtea = { path = "../suon_xtea" }

@@ -8,6 +8,7 @@ use bevy::{
     prelude::*,
 };
 use std::time::Duration;
+use suon_network::NetworkPlugins;
 
 const N_THREADS: usize = 2;
 const EVENT_LOOP: f64 = 1.0 / 60.0;
@@ -30,6 +31,7 @@ fn main() {
             EntityCountDiagnosticsPlugin::default(),
             SystemInformationDiagnosticsPlugin,
         ))
+        .add_plugins(NetworkPlugins)
         .insert_resource(Time::<Fixed>::from_seconds(FIXED_EVENT_LOOP))
         .run();
 }

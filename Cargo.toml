@@ -7,6 +7,7 @@ repository.workspace = true
 
 [dependencies]
 bevy.workspace = true
+suon_network.workspace = true
 
 # Workspace
 [workspace]
@@ -27,15 +28,23 @@ bevy = { version = "0.17.2", default-features = false, features = [
   "async_executor",
 ] }
 bytes = { version = "1.10.1", default-features = false }
+crossbeam-channel = { version = "0.5.15", default-features = false }
+humantime = { version = "2.3.0", default-features = false }
 proc-macro2 = { version = "1.0.103", default-features = false }
 quote = { version = "1.0.41", default-features = false }
 serde = { version = "1.0.228", default-features = false }
+serde_derive = { version = "1.0.228", default-features = false }
 serde_json = { version = "1.0.145", default-features = false }
+smol = { version = "2.0.2", default-features = false }
+smol-timeout = { version = "0.6.1", default-features = false }
 syn = { version = "2.0.108", default-features = false }
 thiserror = { version = "2.0.17", default-features = false }
+tokio = { version = "1.48.0", default-features = false }
+toml = { version = "0.9.8", default-features = false }
 
 suon_checksum = { path = "crates/suon_checksum" }
 suon_macros = { path = "crates/suon_macros" }
+suon_network = { path = "crates/suon_network" }
 suon_protocol = { path = "crates/suon_protocol" }
 suon_serde = { path = "crates/suon_serde" }
 suon_database = { path = "crates/suon_database" }

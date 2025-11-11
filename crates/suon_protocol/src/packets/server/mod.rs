@@ -2,12 +2,14 @@ use bytes::Bytes;
 
 use crate::packets::PACKET_KIND_SIZE;
 
+mod challenge;
 mod keep_alive;
 mod ping_latency;
 
 pub mod prelude {
     pub use super::{
-        Encodable, PacketKind, keep_alive::KeepAlivePacket, ping_latency::PingLatencyPacket,
+        Encodable, PacketKind, challenge::ChallengePacket, keep_alive::KeepAlivePacket,
+        ping_latency::PingLatencyPacket,
     };
 }
 
@@ -87,6 +89,9 @@ pub enum PacketKind {
     KeepAlive = 29,
     /// Sent to measure latency between client and server.
     PingLatency = 30,
+
+    /// Challenge during authentication
+    Challenge = 31,
 }
 
 impl std::fmt::Display for PacketKind {

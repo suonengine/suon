@@ -70,10 +70,33 @@ pub trait Decodable: Sized {
 /// deserialize and distinguish different packet variants.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PacketKind {
+    /// Internal packet sent by the client as the **first message**.
+    ServerName = 0,
+
+    /// Sent when a client attempts to log in.
+    Login = 10,
+    /// Sent when a client logs out.
+    Logout = 20,
+
     /// Sent to measure latency between client and server.
     PingLatency = 29,
     /// Keeps the connection alive.
     KeepAlive = 30,
+}
+
+impl TryFrom<u8> for PacketKind {
+    type Error = u8;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::ServerName),
+            10 => Ok(Self::Login),
+            20 => Ok(Self::Logout),
+            29 => Ok(Self::PingLatency),
+            30 => Ok(Self::KeepAlive),
+            _ => Err(value),
+        }
+    }
 }
 
 impl std::fmt::Display for PacketKind {
