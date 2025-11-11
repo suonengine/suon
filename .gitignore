@@ -1,5 +1,8 @@
 # Build artifacts
 target
 
+# Settings
+NetworkServerSettings.toml
+
 # Cargo
 Cargo.lock
