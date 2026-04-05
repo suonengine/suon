@@ -3,6 +3,3 @@ target
 
 # Settings
 NetworkServerSettings.toml
-
-# Cargo
-Cargo.lock
