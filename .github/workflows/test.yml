@@ -17,6 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@nightly
+      - uses: taiki-e/install-action@nextest
 
       - name: Run tests
-        run: cargo test --workspace --verbose
+        run: cargo nextest run --workspace --failure-output immediate-final
