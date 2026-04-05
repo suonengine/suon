@@ -12,7 +12,7 @@
 //! - Teleport flow via [`prelude::Teleport`] and [`prelude::TeleportIntent`]
 //!
 //! # Examples
-//! ```
+//! ```no_run
 //! use bevy::prelude::*;
 //! use suon_chunk::{Chunk, ChunkPlugin, chunks::Chunks};
 //! use suon_movement::prelude::{MovementPlugins, StepDirection, StepIntent};

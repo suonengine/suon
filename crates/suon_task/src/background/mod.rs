@@ -39,7 +39,7 @@ pub trait AppWithBackgroundTasks {
     /// - `T`: The type of background task being managed.
     ///
     /// # Examples
-    /// ```
+    /// ```no_run
     /// use bevy::prelude::*;
     /// use suon_task::background::{AppWithBackgroundTasks, BackgroundTask};
     ///

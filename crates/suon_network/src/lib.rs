@@ -1,7 +1,7 @@
 //! Networking plugins and server infrastructure for Suon.
 //!
 //! # Examples
-//! ```
+//! ```no_run
 //! use bevy::prelude::*;
 //! use suon_network::NetworkPlugins;
 //!

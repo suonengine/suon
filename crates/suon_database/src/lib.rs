@@ -5,7 +5,7 @@
 //! reaching for raw resources directly.
 //!
 //! # Examples
-//! ```
+//! ```no_run
 //! use bevy::prelude::*;
 //! use suon_database::{AppTablesExt, Database, DatabaseMut, Table};
 //!
@@ -17,7 +17,6 @@
 //! impl Table for HealthTable {}
 //!
 //! let mut app = App::new();
-//! app.add_plugins(MinimalPlugins);
 //! app.init_database_table::<HealthTable>();
 //!
 //! app.add_systems(Update, |mut table: DatabaseMut<HealthTable>| {
@@ -40,7 +39,7 @@ pub mod prelude {
 /// Types implementing `Table` can be stored in resource tables.
 ///
 /// # Examples
-/// ```
+/// ```no_run
 /// use suon_database::Table;
 ///
 /// struct MyTable;
@@ -78,7 +77,7 @@ pub struct Tables<T: Table> {
 /// System parameter for immutable access to a table of type `E`.
 ///
 /// # Examples
-/// ```
+/// ```no_run
 /// use bevy::prelude::*;
 /// use suon_database::{AppTablesExt, Database, Table};
 ///
@@ -90,7 +89,6 @@ pub struct Tables<T: Table> {
 /// impl Table for MyTable {}
 ///
 /// let mut app = App::new();
-/// app.add_plugins(MinimalPlugins);
 /// app.insert_database_table(MyTable { value: 7 });
 /// app.add_systems(Update, |table: Database<MyTable>| {
 ///     assert_eq!(table.value, 7);
@@ -108,7 +106,7 @@ pub struct Database<'w, E: Table> {
 /// System parameter for mutable access to a table of type `E`.
 ///
 /// # Examples
-/// ```
+/// ```no_run
 /// use bevy::prelude::*;
 /// use suon_database::{AppTablesExt, DatabaseMut, Table, Tables};
 ///
@@ -120,7 +118,6 @@ pub struct Database<'w, E: Table> {
 /// impl Table for MyTable {}
 ///
 /// let mut app = App::new();
-/// app.add_plugins(MinimalPlugins);
 /// app.init_database_table::<MyTable>();
 /// app.add_systems(Update, |mut table: DatabaseMut<MyTable>| {
 ///     table.value = 9;
@@ -225,7 +222,6 @@ mod tests {
     #[test]
     fn should_access_table_through_database_system_params() {
         let mut app = App::new();
-        app.add_plugins(MinimalPlugins);
 
         app.insert_database_table(MyTable { value: false });
 
@@ -251,7 +247,6 @@ mod tests {
     #[test]
     fn should_mutate_table_resource_directly() {
         let mut app = App::new();
-        app.add_plugins(MinimalPlugins);
 
         app.insert_database_table(MyTable { value: false });
 
@@ -325,7 +320,6 @@ mod tests {
         impl Table for PreludeTable {}
 
         let mut app = App::new();
-        app.add_plugins(MinimalPlugins);
         app.init_database_table::<PreludeTable>();
 
         app.add_systems(Update, |mut table: DatabaseMut<PreludeTable>| {

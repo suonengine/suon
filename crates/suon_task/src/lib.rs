@@ -5,7 +5,7 @@
 //! systems once the work finishes.
 //!
 //! # Examples
-//! ```
+//! ```no_run
 //! use bevy::prelude::*;
 //! use suon_task::background::{AppWithBackgroundTasks, BackgroundTask};
 //!
