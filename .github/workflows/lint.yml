@@ -17,5 +17,24 @@ jobs:
         with:
           components: clippy
 
+      - name: Restore cargo registry and git cache
+        uses: actions/cache@v4.3.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Restore workspace target cache
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-clippy-target-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-clippy-target-
+
       - name: Run clippy
         run: cargo clippy --workspace --no-deps --all-features --all-targets -- -D warnings

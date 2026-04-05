@@ -17,6 +17,17 @@ jobs:
         with:
           components: miri
 
+      - name: Restore cargo registry and git cache
+        uses: actions/cache@v4.3.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
       - name: Setup miri
         run: cargo miri setup
 

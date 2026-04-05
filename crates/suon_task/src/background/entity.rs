@@ -293,10 +293,7 @@ mod tests {
                     .world_mut()
                     .spawn_empty()
                     .spawn_background_task_with_system(
-                        DelayedEntityTask(
-                            i,
-                            Duration::from_millis((i + 1).try_into().unwrap()),
-                        ),
+                        DelayedEntityTask(i, Duration::from_millis((i + 1).try_into().unwrap())),
                         move |EntityIn(result): EntityIn<i32>| {
                             results_clone.lock().unwrap().push(result);
                         },

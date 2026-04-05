@@ -189,13 +189,15 @@ mod tests {
     const ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 8080);
 
     fn test_throttle() -> Throttle {
-        let mut settings = Settings::default();
-        settings.throttle_policy = ThrottlePolicy {
-            max_attempts: 5,
-            interval_window: Duration::from_millis(50),
-            fast_attempt_threshold: Duration::from_millis(1),
-            block_duration: Duration::from_millis(5),
-            penalty_backoff: Duration::from_millis(2),
+        let settings = Settings {
+            throttle_policy: ThrottlePolicy {
+                max_attempts: 5,
+                interval_window: Duration::from_millis(50),
+                fast_attempt_threshold: Duration::from_millis(1),
+                block_duration: Duration::from_millis(5),
+                penalty_backoff: Duration::from_millis(2),
+            },
+            ..Settings::default()
         };
 
         Throttle::new(settings)
