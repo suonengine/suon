@@ -1,26 +1,26 @@
 //! Queued step paths for movement planning.
 
-use crate::prelude::*;
 use bevy::prelude::*;
 use std::collections::*;
+use suon_position::direction::Direction;
 
 #[derive(Component, Default, Debug)]
 /// FIFO queue of pending step directions for an entity.
-pub struct StepPath(VecDeque<StepDirection>);
+pub struct StepPath(VecDeque<Direction>);
 
 impl StepPath {
     /// Appends a step direction to the back of the queue.
     ///
     /// # Examples
     /// ```
-    /// use suon_movement::prelude::{StepDirection, StepPath};
+    /// use suon_movement::prelude::{Direction, StepPath};
     ///
     /// let mut path = StepPath::default();
-    /// path.push(StepDirection::North);
+    /// path.push(Direction::North);
     ///
     /// assert_eq!(path.len(), 1);
     /// ```
-    pub fn push(&mut self, direction: StepDirection) {
+    pub fn push(&mut self, direction: Direction) {
         self.0.push_back(direction);
     }
 
@@ -28,14 +28,14 @@ impl StepPath {
     ///
     /// # Examples
     /// ```
-    /// use suon_movement::prelude::{StepDirection, StepPath};
+    /// use suon_movement::prelude::{Direction, StepPath};
     ///
     /// let mut path = StepPath::default();
-    /// path.push(StepDirection::East);
+    /// path.push(Direction::East);
     ///
-    /// assert_eq!(path.pop(), Some(StepDirection::East));
+    /// assert_eq!(path.pop(), Some(Direction::East));
     /// ```
-    pub fn pop(&mut self) -> Option<StepDirection> {
+    pub fn pop(&mut self) -> Option<Direction> {
         self.0.pop_front()
     }
 
@@ -61,8 +61,8 @@ mod tests {
 
     #[test]
     fn should_preserve_fifo_order_when_pushing_and_popping_steps() {
-        const FIRST_DIRECTION: StepDirection = StepDirection::North;
-        const SECOND_DIRECTION: StepDirection = StepDirection::South;
+        const FIRST_DIRECTION: Direction = Direction::North;
+        const SECOND_DIRECTION: Direction = Direction::South;
 
         let mut path = StepPath::default();
 
@@ -106,8 +106,8 @@ mod tests {
 
     #[test]
     fn should_clear_all_queued_steps() {
-        const DIRECTION_A: StepDirection = StepDirection::North;
-        const DIRECTION_B: StepDirection = StepDirection::East;
+        const DIRECTION_A: Direction = Direction::North;
+        const DIRECTION_B: Direction = Direction::East;
 
         let mut path = StepPath::default();
 
@@ -146,9 +146,9 @@ mod tests {
 
         for index in 0..TOTAL_ITERATIONS {
             let direction = if index % 2 == 0 {
-                StepDirection::North
+                Direction::North
             } else {
-                StepDirection::South
+                Direction::South
             };
 
             path.push(direction);
@@ -162,9 +162,9 @@ mod tests {
 
         for index in 0..TOTAL_ITERATIONS {
             let expected_direction = if index % 2 == 0 {
-                StepDirection::North
+                Direction::North
             } else {
-                StepDirection::South
+                Direction::South
             };
 
             assert_eq!(
@@ -183,7 +183,7 @@ mod tests {
 
     #[test]
     fn should_toggle_empty_state_as_steps_are_added_and_removed() {
-        const TEST_DIRECTION: StepDirection = StepDirection::East;
+        const TEST_DIRECTION: Direction = Direction::East;
         let mut path = StepPath::default();
 
         assert!(path.is_empty(), "StepPath should start in an empty state");
@@ -213,14 +213,14 @@ mod tests {
             "A default path should start with zero directions"
         );
 
-        path.push(StepDirection::North);
+        path.push(Direction::North);
         assert_eq!(
             path.len(),
             1,
             "Pushing one direction should increase the length to one"
         );
 
-        path.push(StepDirection::East);
+        path.push(Direction::East);
         assert_eq!(
             path.len(),
             2,

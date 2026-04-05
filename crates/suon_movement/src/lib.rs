@@ -15,8 +15,8 @@
 //! ```no_run
 //! use bevy::prelude::*;
 //! use suon_chunk::{Chunk, ChunkPlugin, chunks::Chunks};
-//! use suon_movement::prelude::{MovementPlugins, StepDirection, StepIntent};
-//! use suon_position::{floor::Floor, position::Position};
+//! use suon_movement::prelude::{MovementPlugins, StepIntent};
+//! use suon_position::{direction::Direction, floor::Floor, position::Position};
 //!
 //! let mut app = App::new();
 //! app.add_plugins(MinimalPlugins);
@@ -31,7 +31,7 @@
 //!
 //! let entity = app.world_mut().spawn((Position { x: 1, y: 1 }, Floor { z: 0 })).id();
 //! app.world_mut().trigger(StepIntent {
-//!     to: StepDirection::East,
+//!     to: Direction::East,
 //!     entity,
 //! });
 //! app.update();
@@ -50,7 +50,7 @@ mod teleport;
 pub mod prelude {
     pub use super::{
         MovementPlugins,
-        step::{Step, StepAcrossChunk, StepIntent, direction::StepDirection, path::StepPath},
+        step::{Step, StepAcrossChunk, StepIntent, path::StepPath},
         teleport::{Teleport, TeleportAcrossChunk, TeleportIntent},
     };
 
@@ -69,6 +69,7 @@ impl PluginGroup for MovementPlugins {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     #[test]
@@ -88,9 +89,10 @@ mod tests {
     #[test]
     fn should_allow_prelude_imports_for_public_movement_types() {
         use crate::prelude::{
-            MovementPlugins, Step, StepAcrossChunk, StepDirection, StepIntent, StepPath, Teleport,
+            MovementPlugins, Step, StepAcrossChunk, StepIntent, StepPath, Teleport,
             TeleportAcrossChunk, TeleportIntent,
         };
+        use suon_position::direction::Direction;
 
         let _ = std::mem::size_of::<MovementPlugins>();
         let _ = std::mem::size_of::<Step>();
@@ -102,7 +104,7 @@ mod tests {
         let _ = std::mem::size_of::<TeleportIntent>();
 
         assert_eq!(
-            StepDirection::North.offset(),
+            Direction::North.offset(),
             (0, 1),
             "The prelude should expose step direction helpers"
         );

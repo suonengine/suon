@@ -2989,6 +2989,7 @@ dependencies = [
  "smol",
  "smol-timeout",
  "suon_checksum",
+ "suon_position",
  "suon_protocol",
  "suon_serde",
  "suon_xtea",
@@ -3009,6 +3010,7 @@ name = "suon_protocol"
 version = "0.1.0-dev"
 dependencies = [
  "bytes",
+ "suon_position",
  "thiserror 2.0.18",
 ]
 

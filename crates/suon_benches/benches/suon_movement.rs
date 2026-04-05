@@ -1,16 +1,16 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
-use suon_movement::prelude::{StepDirection, StepPath};
-use suon_position::position::Position;
+use suon_movement::prelude::StepPath;
+use suon_position::{direction::Direction, position::Position};
 
 fn benchmark_direction_math(c: &mut Criterion) {
     let mut group = c.benchmark_group("movement/direction_math");
 
     for direction in [
-        StepDirection::North,
-        StepDirection::NorthEast,
-        StepDirection::East,
-        StepDirection::SouthWest,
+        Direction::North,
+        Direction::NorthEast,
+        Direction::East,
+        Direction::SouthWest,
     ] {
         group.bench_with_input(
             BenchmarkId::new("add_then_sub", format!("{direction:?}")),
@@ -40,9 +40,9 @@ fn benchmark_path_push_pop(c: &mut Criterion) {
                     let mut path = StepPath::default();
                     for index in 0..queued_steps {
                         let direction = if index % 2 == 0 {
-                            StepDirection::North
+                            Direction::North
                         } else {
-                            StepDirection::East
+                            Direction::East
                         };
                         path.push(direction);
                     }
@@ -62,9 +62,9 @@ fn benchmark_path_push_pop(c: &mut Criterion) {
                     let mut path = StepPath::default();
                     for index in 0..queued_steps {
                         let direction = if index % 2 == 0 {
-                            StepDirection::South
+                            Direction::South
                         } else {
-                            StepDirection::West
+                            Direction::West
                         };
                         path.push(direction);
                     }

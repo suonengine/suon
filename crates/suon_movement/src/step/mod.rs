@@ -1,6 +1,6 @@
 //! Step-based movement systems.
 //!
-//! Step intents move an entity by one tile according to a [`StepDirection`], while
+//! Step intents move an entity by one tile according to a [`Direction`], while
 //! path advancement consumes queued directions from [`path::StepPath`] using a
 //! per-entity [`timer::StepTimer`].
 
@@ -8,9 +8,10 @@ use crate::prelude::*;
 use bevy::prelude::*;
 use std::time::*;
 use suon_chunk::{chunks::Chunks, occupancy::Occupancy};
-use suon_position::{floor::Floor, position::Position, previous_position::PreviousPosition};
+use suon_position::{
+    direction::Direction, floor::Floor, position::Position, previous_position::PreviousPosition,
+};
 
-pub mod direction;
 pub mod path;
 pub mod timer;
 
@@ -27,7 +28,7 @@ impl Plugin for StepPlugin {
 /// Intent requesting a one-tile movement for the target entity.
 pub struct StepIntent {
     /// Direction to apply to the entity's current position.
-    pub to: StepDirection,
+    pub to: Direction,
     #[event_target]
     /// Entity that should receive the step.
     pub entity: Entity,
@@ -149,7 +150,7 @@ mod tests {
         app.add_systems(FixedUpdate, advance_step_paths);
 
         let mut path = StepPath::default();
-        path.push(StepDirection::North);
+        path.push(Direction::North);
 
         let entity = app
             .world_mut()
@@ -203,7 +204,7 @@ mod tests {
             y: CHUNK_SIZE as u16 - 1,
         };
         const FLOOR: Floor = Floor { z: 0 };
-        let expected_target = START_POSITION + StepDirection::North;
+        let expected_target = START_POSITION + Direction::North;
 
         let start_chunk = app.world_mut().spawn(Chunk).id();
         let target_chunk = app.world_mut().spawn(Chunk).id();
@@ -218,7 +219,7 @@ mod tests {
         // Trigger the intent event directly to verify the observer's state transition logic
         app.world_mut().trigger(StepIntent {
             entity,
-            to: StepDirection::North,
+            to: Direction::North,
         });
 
         app.update();
@@ -263,7 +264,7 @@ mod tests {
         app.add_plugins(ChunkPlugin);
         app.add_observer(on_step_intent);
 
-        const MOVE_DIRECTION: StepDirection = StepDirection::East;
+        const MOVE_DIRECTION: Direction = Direction::East;
         const START_POSITION: Position = Position { x: 5, y: 5 };
         const FLOOR: Floor = Floor { z: 0 };
         let target_position = START_POSITION + MOVE_DIRECTION;
@@ -304,7 +305,7 @@ mod tests {
         app.add_plugins(ChunkPlugin);
         app.add_observer(on_step_intent);
 
-        const MOVE_DIRECTION: StepDirection = StepDirection::North;
+        const MOVE_DIRECTION: Direction = Direction::North;
         const START_POSITION: Position = Position { x: 0, y: 0 };
         const FLOOR: Floor = Floor { z: 0 };
 
@@ -332,7 +333,7 @@ mod tests {
         app.add_systems(FixedUpdate, advance_step_paths);
 
         let mut path = StepPath::default();
-        path.push(StepDirection::East);
+        path.push(Direction::East);
 
         let entity = app
             .world_mut()
@@ -382,7 +383,7 @@ mod tests {
 
         app.world_mut().trigger(StepIntent {
             entity,
-            to: StepDirection::SouthWest,
+            to: Direction::SouthWest,
         });
 
         app.update();
@@ -412,7 +413,7 @@ mod tests {
 
         app.world_mut().trigger(StepIntent {
             entity,
-            to: StepDirection::East,
+            to: Direction::East,
         });
 
         app.update();

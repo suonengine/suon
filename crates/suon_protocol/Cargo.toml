@@ -7,3 +7,5 @@ repository.workspace = true
 [dependencies]
 bytes.workspace = true
 thiserror.workspace = true
+
+suon_position.workspace = true

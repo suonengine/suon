@@ -26,7 +26,7 @@ pub struct TeleportIntent {
     pub floor: Option<Floor>,
     #[event_target]
     /// Entity that should receive the teleport.
-    entity: Entity,
+    pub entity: Entity,
 }
 
 #[derive(EntityEvent)]

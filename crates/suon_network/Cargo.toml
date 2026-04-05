@@ -23,6 +23,7 @@ toml = { workspace = true, default-features = false, features = [
 ] }
 
 suon_checksum = { path = "../suon_checksum" }
+suon_position = { path = "../suon_position" }
 suon_protocol = { path = "../suon_protocol" }
 suon_serde = { path = "../suon_serde" }
 suon_xtea = { path = "../suon_xtea" }

@@ -8,7 +8,10 @@ mod create_market_offer;
 mod delete_buddy;
 mod keep_alive;
 mod leave_market;
+mod movement;
 mod ping_latency;
+mod stop_auto_walk;
+mod turn;
 mod update_buddy;
 
 pub mod prelude {
@@ -22,7 +25,10 @@ pub mod prelude {
         delete_buddy::DeleteBuddyPacket,
         keep_alive::KeepAlivePacket,
         leave_market::LeaveMarketPacket,
+        movement::MovePacket,
         ping_latency::PingLatencyPacket,
+        stop_auto_walk::StopAutoWalkPacket,
+        turn::TurnPacket,
         update_buddy::UpdateBuddyPacket,
     };
 }
@@ -88,11 +94,21 @@ pub trait Decodable: Sized {
     /// Unique kind identifier for this packet type.
     const KIND: PacketKind;
 
+    /// Returns whether this packet type can be decoded from the provided wire kind.
+    fn accepts_kind(kind: PacketKind) -> bool {
+        kind == Self::KIND
+    }
+
     /// Decodes the packet instance from a raw byte slice.
     ///
     /// Implementers should read the buffer according to the expected packet structure.
     /// Returns an error if the buffer is incomplete or contains invalid data.
     fn decode(bytes: &mut &[u8]) -> Result<Self, DecodableError>;
+
+    /// Decodes the packet instance while preserving the originating wire kind.
+    fn decode_with_kind(_: PacketKind, bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+        Self::decode(bytes)
+    }
 }
 
 /// Defines the possible kinds or categories of network packets.
@@ -109,6 +125,33 @@ pub enum PacketKind {
     Login = 10,
     /// Sent when a client logs out.
     Logout = 20,
+
+    /// Requests a one-tile move to the north.
+    MoveNorth = 101,
+    /// Requests a one-tile move to the east.
+    MoveEast = 102,
+    /// Requests a one-tile move to the south.
+    MoveSouth = 103,
+    /// Requests a one-tile move to the west.
+    MoveWest = 104,
+    /// Requests that any active auto-walk be stopped.
+    StopAutoWalk = 105,
+    /// Requests a one-tile move to the north-east.
+    MoveNorthEast = 106,
+    /// Requests a one-tile move to the south-east.
+    MoveSouthEast = 107,
+    /// Requests a one-tile move to the south-west.
+    MoveSouthWest = 108,
+    /// Requests a one-tile move to the north-west.
+    MoveNorthWest = 109,
+    /// Requests a turn to the north.
+    TurnNorth = 111,
+    /// Requests a turn to the east.
+    TurnEast = 112,
+    /// Requests a turn to the south.
+    TurnSouth = 113,
+    /// Requests a turn to the west.
+    TurnWest = 114,
 
     /// Sent to measure latency between client and server.
     PingLatency = 29,
@@ -142,6 +185,19 @@ impl TryFrom<u8> for PacketKind {
             0 => Ok(Self::ServerName),
             10 => Ok(Self::Login),
             20 => Ok(Self::Logout),
+            101 => Ok(Self::MoveNorth),
+            102 => Ok(Self::MoveEast),
+            103 => Ok(Self::MoveSouth),
+            104 => Ok(Self::MoveWest),
+            105 => Ok(Self::StopAutoWalk),
+            106 => Ok(Self::MoveNorthEast),
+            107 => Ok(Self::MoveSouthEast),
+            108 => Ok(Self::MoveSouthWest),
+            109 => Ok(Self::MoveNorthWest),
+            111 => Ok(Self::TurnNorth),
+            112 => Ok(Self::TurnEast),
+            113 => Ok(Self::TurnSouth),
+            114 => Ok(Self::TurnWest),
             29 => Ok(Self::PingLatency),
             30 => Ok(Self::KeepAlive),
             0xF4 => Ok(Self::LeaveMarket),
@@ -241,6 +297,11 @@ mod tests {
             PacketKind::try_from(30),
             Ok(PacketKind::KeepAlive),
             "Wire value 30 should decode to the keep-alive client packet kind"
+        );
+        assert_eq!(
+            PacketKind::try_from(101),
+            Ok(PacketKind::MoveNorth),
+            "Wire value 101 should decode to the move-north client packet kind"
         );
         assert_eq!(
             PacketKind::PingLatency.to_string(),

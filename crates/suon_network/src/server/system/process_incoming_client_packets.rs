@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use suon_protocol::packets::client::{
     Decodable, PacketKind,
-    prelude::{KeepAlivePacket, PingLatencyPacket},
+    prelude::{KeepAlivePacket, MovePacket, PingLatencyPacket, StopAutoWalkPacket, TurnPacket},
 };
 
 use crate::server::{
@@ -11,59 +11,66 @@ use crate::server::{
 
 macro_rules! dispatch_packet {
     ($commands:expr, $client:expr, $incoming_packet:expr; $( $packet_ty:ty ),* $(,)?) => {
-        match $incoming_packet.kind {
-            PacketKind::ServerName => {
-                // First packet sent by the client during the connection handshake.
-            }
-            $(
-                <$packet_ty>::KIND => {
-                    (|| {
-                        let incoming_packet = $incoming_packet;
-                        let kind = incoming_packet.kind;
-                        let timestamp = incoming_packet.timestamp;
-                        let checksum = incoming_packet.checksum;
-                        let mut bytes = incoming_packet.buffer.as_ref();
+        {
+            let incoming_packet = $incoming_packet;
 
-                        let packet = match <$packet_ty>::decode(&mut bytes) {
-                            Ok(packet) => packet,
-                            Err(err) => {
-                                error!("Failed to decode packet for client {}: {:?}", $client, err);
-                                let error = DecodeError::from(err);
+            if matches!(incoming_packet.kind, PacketKind::ServerName) {
+                // First packet sent by the client during the connection handshake.
+            } else {
+                let mut dispatched = false;
+
+                $(
+                    if !dispatched && <$packet_ty>::accepts_kind(incoming_packet.kind) {
+                        dispatched = true;
+
+                        (|| {
+                            let kind = incoming_packet.kind;
+                            let timestamp = incoming_packet.timestamp;
+                            let checksum = incoming_packet.checksum;
+                            let mut bytes = incoming_packet.buffer.as_ref();
+
+                            let packet = match <$packet_ty>::decode_with_kind(kind, &mut bytes) {
+                                Ok(packet) => packet,
+                                Err(err) => {
+                                    error!("Failed to decode packet for client {}: {:?}", $client, err);
+                                    let error = DecodeError::from(err);
+                                    warn!(
+                                        "Failed to dispatch typed packet event for client {} and kind {:?}: {}",
+                                        $client, kind, error
+                                    );
+                                    return None;
+                                }
+                            };
+
+                            if !bytes.is_empty() {
+                                let error = DecodeError::ExtraBytes(bytes.len());
                                 warn!(
                                     "Failed to dispatch typed packet event for client {} and kind {:?}: {}",
                                     $client, kind, error
                                 );
                                 return None;
                             }
-                        };
 
-                        if !bytes.is_empty() {
-                            let error = DecodeError::ExtraBytes(bytes.len());
-                            warn!(
-                                "Failed to dispatch typed packet event for client {} and kind {:?}: {}",
-                                $client, kind, error
-                            );
-                            return None;
-                        }
+                            debug!("Successfully decoded packet for client {}", $client);
 
-                        debug!("Successfully decoded packet for client {}", $client);
+                            Some(Packet {
+                                entity: $client,
+                                timestamp,
+                                checksum,
+                                packet,
+                            })
+                        })()
+                        .map(|packet| $commands.trigger(packet));
+                    }
+                )*
 
-                        Some(Packet {
-                            entity: $client,
-                            timestamp,
-                            checksum,
-                            packet,
-                        })
-                    })()
-                    .map(|packet| $commands.trigger(packet));
+                if !dispatched {
+                    trace!(
+                        "Skipping typed dispatch for client packet kind {:?} until a typed event \
+                        is registered",
+                        incoming_packet.kind
+                    );
                 }
-            )*
-            kind => {
-                trace!(
-                    "Skipping typed dispatch for client packet kind {:?} until a typed event \
-                    is registered",
-                    kind
-                );
             }
         }
     };
@@ -89,6 +96,9 @@ pub(crate) fn process_incoming_client_packets(
                 incoming_packet;
                 KeepAlivePacket,
                 PingLatencyPacket,
+                MovePacket,
+                TurnPacket,
+                StopAutoWalkPacket,
             );
         }
     }
@@ -115,6 +125,9 @@ mod tests {
 
     #[derive(Resource, Default, Debug, PartialEq, Eq)]
     struct PingLatencyMeta(Option<(Entity, Instant, Option<Adler32Checksum>)>);
+
+    #[derive(Resource, Default, Debug, PartialEq, Eq)]
+    struct MoveDirections(Vec<suon_position::direction::Direction>);
 
     #[derive(Debug)]
     struct FailingPacket;
@@ -156,6 +169,15 @@ mod tests {
         metadata.0 = Some((event.entity(), event.timestamp(), event.checksum()));
     }
 
+    fn observe_move_packet(
+        event: On<Packet<MovePacket>>,
+        mut observed: ResMut<ObservedPackets>,
+        mut directions: ResMut<MoveDirections>,
+    ) {
+        observed.0.push("move");
+        directions.0.push(event.packet().direction);
+    }
+
     fn build_connection(packets: impl IntoIterator<Item = IncomingPacket>) -> Connection {
         let (outgoing_sender, _outgoing_receiver) = crossbeam_channel::unbounded();
         let (incoming_sender, incoming_receiver) = crossbeam_channel::unbounded();
@@ -181,8 +203,10 @@ mod tests {
         app.add_plugins(MinimalPlugins);
         app.init_resource::<ObservedPackets>();
         app.init_resource::<PingLatencyMeta>();
+        app.init_resource::<MoveDirections>();
         app.add_observer(observe_keep_alive);
         app.add_observer(observe_ping_latency);
+        app.add_observer(observe_move_packet);
         app.add_systems(Update, process_incoming_client_packets);
         app
     }
@@ -266,6 +290,12 @@ mod tests {
                 kind: PacketKind::PingLatency,
                 buffer: Bytes::new(),
             },
+            IncomingPacket {
+                timestamp: Instant::now(),
+                checksum: None,
+                kind: PacketKind::MoveNorthWest,
+                buffer: Bytes::new(),
+            },
         ]);
 
         app.world_mut().spawn(connection);
@@ -276,7 +306,7 @@ mod tests {
 
         assert_eq!(
             observed.0,
-            vec!["keep_alive", "ping_latency"],
+            vec!["keep_alive", "ping_latency", "move"],
             "process_incoming_client_packets should dispatch all packets currently queued in \
              receive order"
         );
