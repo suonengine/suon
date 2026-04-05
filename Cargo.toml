@@ -8,6 +8,8 @@ repository.workspace = true
 [dependencies]
 bevy.workspace = true
 suon_network.workspace = true
+suon_chunk.workspace = true
+suon_position.workspace = true
 
 # Workspace
 [workspace]
@@ -29,6 +31,7 @@ bevy = { version = "0.18", default-features = false, features = [
 ] }
 bytes = { version = "1.10", default-features = false }
 crossbeam-channel = { version = "0.5", default-features = false }
+enumflags2 = { version = "0.7", default-features = false }
 humantime = { version = "2.3", default-features = false }
 proc-macro2 = { version = "1.0", default-features = false }
 quote = { version = "1.0", default-features = false }
@@ -49,21 +52,39 @@ suon_network = { path = "crates/suon_network" }
 suon_protocol = { path = "crates/suon_protocol" }
 suon_serde = { path = "crates/suon_serde" }
 suon_task = { path = "crates/suon_task" }
+suon_chunk = { path = "crates/suon_chunk" }
+suon_position = { path = "crates/suon_position" }
 suon_xtea = { path = "crates/suon_xtea" }
 
-# Dev profile: use a small amount of optimization to keep compile times fast during development
 [profile.dev]
+# Use a small amount of optimization to keep compile times fast during development
 opt-level = 1
 
-# Dev profile for all dependencies: use maximum optimization to improve dependency performance
 [profile.dev.package."*"]
+# Use maximum optimization to improve dependency performance
 opt-level = 3
 
 # Release profile: increase optimization at the cost of longer compile times
 [profile.release]
+# Use maximum optimization to improve dependency performance
+opt-level = 3
+
 # Compile the entire crate as a single unit for better optimization
 # This may slow down compilation slightly but can improve performance
 codegen-units = 1
+
 # Enable Thin LTO (Link Time Optimization) for a second optimization pass
 # Improves runtime performance across the crate and dependencies
-lto = "thin"
+lto = "fat"
+
+# Immediately terminate on panic to reduce binary size and overhead
+# Removes the need for stack unwinding code
+panic = "abort"
+
+# Strip symbols and debug information from the binary
+# Significantly reduces the final file size for distribution
+strip = true
+
+debug = false
+
+incremental = false

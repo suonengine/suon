@@ -1,0 +1,56 @@
+//! Current floor components.
+
+use bevy::prelude::*;
+use std::{cmp::*, hash::*};
+
+#[derive(Component, Hash, PartialEq, Eq, PartialOrd, Ord, Deref, Clone, Copy, Debug)]
+#[component(immutable)]
+/// Immutable vertical layer coordinate.
+pub struct Floor {
+    /// Floor index in the world.
+    pub z: u8,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::{BTreeSet, HashSet};
+
+    #[test]
+    fn should_order_floors_by_z() {
+        let mut floors = vec![Floor { z: 3 }, Floor { z: 1 }, Floor { z: 2 }];
+
+        floors.sort();
+
+        assert_eq!(
+            floors,
+            vec![Floor { z: 1 }, Floor { z: 2 }, Floor { z: 3 }],
+            "Derived ordering should sort floors by z"
+        );
+    }
+
+    #[test]
+    fn should_deref_to_floor_value() {
+        let floor = Floor { z: 7 };
+
+        assert_eq!(
+            *floor, 7,
+            "Deref should expose the inner floor value for ergonomic reads"
+        );
+    }
+
+    #[test]
+    fn should_hash_and_compare_equal_floors_consistently() {
+        let mut hashed = HashSet::new();
+        let mut ordered = BTreeSet::new();
+
+        hashed.insert(Floor { z: 4 });
+        hashed.insert(Floor { z: 4 });
+        ordered.insert(Floor { z: 4 });
+        ordered.insert(Floor { z: 4 });
+
+        assert_eq!(hashed.len(), 1, "Equal floors should hash to one set entry");
+
+        assert_eq!(ordered.len(), 1, "Equal floors should occupy one ordered set entry");
+    }
+}

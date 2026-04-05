@@ -1,0 +1,10 @@
+[package]
+name = "suon_chunk"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bevy.workspace = true
+enumflags2.workspace = true
+
+suon_position.workspace = true
