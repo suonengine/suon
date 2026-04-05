@@ -29,6 +29,26 @@ impl AtChunk {
     }
 
     /// Returns the chunk entity currently linked to this component.
+    ///
+    /// # Examples
+    /// ```
+    /// use bevy::prelude::*;
+    /// use suon_chunk::{Chunk, ChunkPlugin, chunks::Chunks, content::AtChunk};
+    /// use suon_position::position::Position;
+    ///
+    /// let mut app = App::new();
+    /// app.add_plugins(MinimalPlugins);
+    /// app.add_plugins(ChunkPlugin);
+    ///
+    /// let chunk = app.world_mut().spawn(Chunk).id();
+    /// app.insert_resource(Chunks::from_iter([(Position { x: 1, y: 1 }, chunk)]));
+    ///
+    /// let entity = app.world_mut().spawn(Position { x: 1, y: 1 }).id();
+    /// app.update();
+    ///
+    /// let at_chunk = app.world().get::<AtChunk>(entity).unwrap();
+    /// assert_eq!(at_chunk.entity(), chunk);
+    /// ```
     pub fn entity(&self) -> Entity {
         self.0
     }

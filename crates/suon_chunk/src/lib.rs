@@ -47,6 +47,26 @@
 //! At the moment, the end-to-end runtime flow is centered on [`Chunks`],
 //! [`content::AtChunk`], [`Occupancy`], and [`terrain::Navigation`].
 //!
+//! # Examples
+//! ```
+//! use bevy::prelude::*;
+//! use suon_chunk::{Chunk, ChunkPlugin, chunks::Chunks, content::AtChunk};
+//! use suon_position::position::Position;
+//!
+//! let mut app = App::new();
+//! app.add_plugins(MinimalPlugins);
+//! app.add_plugins(ChunkPlugin);
+//!
+//! let chunk = app.world_mut().spawn(Chunk).id();
+//! app.insert_resource(Chunks::from_iter([(Position { x: 4, y: 4 }, chunk)]));
+//!
+//! let entity = app.world_mut().spawn(Position { x: 4, y: 4 }).id();
+//! app.update();
+//!
+//! let at_chunk = app.world().get::<AtChunk>(entity).unwrap();
+//! assert_eq!(at_chunk.entity(), chunk);
+//! ```
+//!
 use crate::{
     chunks::Chunks,
     content::sync_at_chunk_from_position,
@@ -190,6 +210,23 @@ mod tests {
         assert!(
             world.entity(entity).contains::<Navigation>(),
             "Spawning Chunk should automatically attach Navigation"
+        );
+    }
+
+    #[test]
+    fn should_spawn_active_and_inactive_marker_components() {
+        let mut world = World::new();
+        let active = world.spawn(Active).id();
+        let inactive = world.spawn(Inactive).id();
+
+        assert!(
+            world.entity(active).contains::<Active>(),
+            "Active should behave like a plain marker component when spawned"
+        );
+
+        assert!(
+            world.entity(inactive).contains::<Inactive>(),
+            "Inactive should behave like a plain marker component when spawned"
         );
     }
 

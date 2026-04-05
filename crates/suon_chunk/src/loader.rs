@@ -7,6 +7,17 @@ use bevy::prelude::*;
 
 #[derive(Resource, Default)]
 /// Resource reserved for future chunk loading orchestration.
+///
+/// # Examples
+/// ```
+/// use bevy::prelude::*;
+/// use suon_chunk::loader::ChunkLoader;
+///
+/// let mut world = World::new();
+/// world.init_resource::<ChunkLoader>();
+///
+/// assert!(world.contains_resource::<ChunkLoader>());
+/// ```
 pub struct ChunkLoader {}
 
 #[cfg(test)]

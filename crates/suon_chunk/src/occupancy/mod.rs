@@ -31,6 +31,25 @@ impl Occupancy {
     }
 
     /// Returns whether the provided floor-position pair is currently occupied.
+    ///
+    /// # Examples
+    /// ```
+    /// use suon_chunk::{Chunk, ChunkPlugin, chunks::Chunks, occupancy::{Occupancy, occupied::Occupied}};
+    /// use bevy::prelude::*;
+    /// use suon_position::{floor::Floor, position::Position};
+    ///
+    /// let mut app = App::new();
+    /// app.add_plugins(MinimalPlugins);
+    /// app.add_plugins(ChunkPlugin);
+    ///
+    /// let chunk = app.world_mut().spawn(Chunk).id();
+    /// app.insert_resource(Chunks::from_iter([(Position { x: 4, y: 4 }, chunk)]));
+    /// app.world_mut().spawn((Position { x: 4, y: 4 }, Floor { z: 0 }, Occupied));
+    /// app.update();
+    ///
+    /// let occupancy = app.world().get::<Occupancy>(chunk).unwrap();
+    /// assert!(occupancy.contains(&Floor { z: 0 }, &Position { x: 4, y: 4 }));
+    /// ```
     pub fn contains(&self, floor: &Floor, position: &Position) -> bool {
         self.floors
             .get(floor)
@@ -597,6 +616,19 @@ mod tests {
             !occupancy.contains(&Floor { z: 0 }, &position),
             "When previous and current positions match, removal should still release the current \
              occupancy"
+        );
+    }
+
+    #[test]
+    fn should_treat_other_floors_as_unoccupied() {
+        let mut occupancy = Occupancy::default();
+        let position = Position { x: 10, y: 10 };
+
+        occupancy.occupy(Floor { z: 2 }, position);
+
+        assert!(
+            !occupancy.contains(&Floor { z: 3 }, &position),
+            "contains should remain false for floors that were never occupied"
         );
     }
 }

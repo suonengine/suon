@@ -18,6 +18,18 @@ pub struct Chunks {
 
 impl Chunks {
     /// Resolves the chunk entity responsible for the provided world position.
+    ///
+    /// # Examples
+    /// ```
+    /// use bevy::prelude::Entity;
+    /// use suon_chunk::chunks::Chunks;
+    /// use suon_position::position::Position;
+    ///
+    /// let chunk = Entity::from_bits(7);
+    /// let chunks = Chunks::from_iter([(Position { x: 12, y: 20 }, chunk)]);
+    ///
+    /// assert_eq!(chunks.get(&Position { x: 15, y: 23 }), Some(chunk));
+    /// ```
     pub fn get(&self, position: &Position) -> Option<Entity> {
         self.inner.get(&position.into()).cloned()
     }
@@ -34,16 +46,55 @@ impl Chunks {
     }
 
     /// Returns whether the provided world position is mapped to a chunk.
+    ///
+    /// # Examples
+    /// ```
+    /// use bevy::prelude::Entity;
+    /// use suon_chunk::chunks::Chunks;
+    /// use suon_position::position::Position;
+    ///
+    /// let chunks = Chunks::from_iter([(Position { x: 8, y: 8 }, Entity::from_bits(1))]);
+    ///
+    /// assert!(chunks.contains(&Position { x: 15, y: 15 }));
+    /// assert!(!chunks.contains(&Position { x: 16, y: 16 }));
+    /// ```
     pub fn contains(&self, position: &Position) -> bool {
         self.inner.contains_key(&position.into())
     }
 
     /// Returns the number of tracked chunk keys.
+    ///
+    /// # Examples
+    /// ```
+    /// use bevy::prelude::Entity;
+    /// use suon_chunk::chunks::Chunks;
+    /// use suon_position::position::Position;
+    ///
+    /// let chunks = Chunks::from_iter([
+    ///     (Position { x: 0, y: 0 }, Entity::from_bits(1)),
+    ///     (Position { x: 8, y: 0 }, Entity::from_bits(2)),
+    /// ]);
+    ///
+    /// assert_eq!(chunks.len(), 2);
+    /// ```
     pub fn len(&self) -> usize {
         self.inner.len()
     }
 
     /// Returns whether no chunk keys are currently tracked.
+    ///
+    /// # Examples
+    /// ```
+    /// use bevy::prelude::Entity;
+    /// use suon_chunk::chunks::Chunks;
+    /// use suon_position::position::Position;
+    ///
+    /// let empty = Chunks::default();
+    /// let filled = Chunks::from_iter([(Position { x: 0, y: 0 }, Entity::from_bits(1))]);
+    ///
+    /// assert!(empty.is_empty());
+    /// assert!(!filled.is_empty());
+    /// ```
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
@@ -56,6 +107,18 @@ impl Chunks {
 
 impl FromIterator<(Position, Entity)> for Chunks {
     /// Builds a chunk registry from `(position, chunk_entity)` pairs.
+    ///
+    /// # Examples
+    /// ```
+    /// use bevy::prelude::Entity;
+    /// use suon_chunk::chunks::Chunks;
+    /// use suon_position::position::Position;
+    ///
+    /// let chunk = Entity::from_bits(99);
+    /// let chunks = Chunks::from_iter([(Position { x: 4, y: 4 }, chunk)]);
+    ///
+    /// assert_eq!(chunks.get(&Position { x: 7, y: 7 }), Some(chunk));
+    /// ```
     fn from_iter<T: IntoIterator<Item = (Position, Entity)>>(iter: T) -> Self {
         let mut chunks = Self::default();
 
@@ -157,6 +220,29 @@ mod tests {
         assert!(
             chunks.is_empty(),
             "clear should drop all registered mappings"
+        );
+    }
+
+    #[test]
+    fn should_build_registry_from_iterator() {
+        const FIRST: Entity = Entity::from_bits(1);
+        const SECOND: Entity = Entity::from_bits(2);
+
+        let chunks = Chunks::from_iter([
+            (Position { x: 0, y: 0 }, FIRST),
+            (Position { x: 8, y: 0 }, SECOND),
+        ]);
+
+        assert_eq!(
+            chunks.get(&Position { x: 7, y: 7 }),
+            Some(FIRST),
+            "FromIterator should register the first chunk mapping"
+        );
+
+        assert_eq!(
+            chunks.get(&Position { x: 8, y: 0 }),
+            Some(SECOND),
+            "FromIterator should register each provided chunk mapping"
         );
     }
 }

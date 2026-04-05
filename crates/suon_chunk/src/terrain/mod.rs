@@ -49,6 +49,26 @@ impl Navigation {
     }
 
     /// Returns whether the node exists in navigation and is currently passable.
+    ///
+    /// # Examples
+    /// ```
+    /// use bevy::prelude::*;
+    /// use suon_chunk::{Chunk, ChunkPlugin, chunks::Chunks, occupancy::occupied::Occupied, terrain::Navigation};
+    /// use suon_position::{floor::Floor, position::Position};
+    ///
+    /// let mut app = App::new();
+    /// app.add_plugins(MinimalPlugins);
+    /// app.add_plugins(ChunkPlugin);
+    ///
+    /// let chunk = app.world_mut().spawn(Chunk).id();
+    /// app.insert_resource(Chunks::from_iter([(Position { x: 4, y: 4 }, chunk)]));
+    ///
+    /// app.world_mut().spawn((Position { x: 4, y: 4 }, Floor { z: 0 }, Occupied));
+    /// app.update();
+    ///
+    /// let navigation = app.world().get::<Navigation>(chunk).unwrap();
+    /// assert!(!navigation.is_passable(Floor { z: 0 }, Position { x: 4, y: 4 }));
+    /// ```
     pub fn is_passable(&self, floor: Floor, position: Position) -> bool {
         self.nodes.get(&(floor, position)).is_some_and(|flags| {
             flags.contains(NavigationState::Registered)
@@ -282,6 +302,16 @@ mod tests {
         assert!(
             !target_navigation.is_passable(Floor { z: 0 }, target),
             "Moving onto a target node should block it"
+        );
+    }
+
+    #[test]
+    fn should_keep_unregistered_nodes_impassable() {
+        let navigation = Navigation::default();
+
+        assert!(
+            !navigation.is_passable(Floor { z: 4 }, Position { x: 99, y: 99 }),
+            "Unknown nodes should remain impassable until they are registered by runtime sync"
         );
     }
 }
