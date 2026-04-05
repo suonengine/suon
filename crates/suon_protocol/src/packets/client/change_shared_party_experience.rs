@@ -39,9 +39,8 @@ mod tests {
     fn should_decode_change_shared_party_experience() {
         let mut payload: &[u8] = &[1];
 
-        let packet = ChangeSharedPartyExperiencePacket::decode(&mut payload).expect(
-            "ChangeSharedPartyExperience packets should decode the shared experience flag",
-        );
+        let packet = ChangeSharedPartyExperiencePacket::decode(&mut payload)
+            .expect("ChangeSharedPartyExperience packets should decode the shared experience flag");
 
         assert!(packet.is_enabled);
         assert!(

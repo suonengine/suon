@@ -1,14 +1,17 @@
 use thiserror::Error;
 
 mod accept_market_offer;
+mod accept_trade;
 mod browse_market;
 mod cancel_market_offer;
 mod cancel_steps;
 mod change_shared_party_experience;
+mod close_trade;
 mod create_buddy;
 mod create_market_offer;
 mod delete_buddy;
 mod face;
+mod inspect_trade;
 mod invite_to_party;
 mod join_party;
 mod keep_alive;
@@ -17,6 +20,7 @@ mod leave_party;
 mod movement;
 mod pass_party_leadership;
 mod ping_latency;
+mod request_trade;
 mod revoke_party_invite;
 mod steps;
 mod update_buddy;
@@ -25,14 +29,17 @@ pub mod prelude {
     pub use super::{
         Decodable, DecodableError, PacketKind,
         accept_market_offer::AcceptMarketOfferPacket,
+        accept_trade::AcceptTradePacket,
         browse_market::BrowseMarketPacket,
         cancel_market_offer::CancelMarketOfferPacket,
         cancel_steps::CancelStepsPacket,
         change_shared_party_experience::ChangeSharedPartyExperiencePacket,
+        close_trade::CloseTradePacket,
         create_buddy::CreateBuddyPacket,
         create_market_offer::{CreateMarketOfferPacket, MarketOfferKind},
         delete_buddy::DeleteBuddyPacket,
         face::FacePacket,
+        inspect_trade::InspectTradePacket,
         invite_to_party::InviteToPartyPacket,
         join_party::JoinPartyPacket,
         keep_alive::KeepAlivePacket,
@@ -41,6 +48,7 @@ pub mod prelude {
         movement::StepPacket,
         pass_party_leadership::PassPartyLeadershipPacket,
         ping_latency::PingLatencyPacket,
+        request_trade::RequestTradePacket,
         revoke_party_invite::RevokePartyInvitePacket,
         steps::StepsPacket,
         update_buddy::UpdateBuddyPacket,
@@ -175,6 +183,15 @@ pub enum PacketKind {
     /// Keeps the connection alive.
     KeepAlive = 30,
 
+    /// Requests a trade with another player for a specific item.
+    RequestTrade = 125,
+    /// Inspects one of the items shown in the trade window.
+    InspectTrade = 126,
+    /// Accepts the current trade.
+    AcceptTrade = 127,
+    /// Closes the current trade.
+    CloseTrade = 128,
+
     /// Creates a buddy entry.
     CreateBuddy = 220,
     /// Deletes a buddy entry.
@@ -235,6 +252,11 @@ impl TryFrom<u8> for PacketKind {
             112 => Ok(Self::FaceEast),
             113 => Ok(Self::FaceSouth),
             114 => Ok(Self::FaceWest),
+
+            125 => Ok(Self::RequestTrade),
+            126 => Ok(Self::InspectTrade),
+            127 => Ok(Self::AcceptTrade),
+            128 => Ok(Self::CloseTrade),
 
             163 => Ok(Self::InviteToParty),
             164 => Ok(Self::JoinParty),
