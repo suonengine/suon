@@ -1,13 +1,15 @@
-//! Chunk-local terrain navigation data.
+//! Chunk-local navigation passability tracking.
 //!
-//! This module models whether registered terrain nodes are temporarily blocked,
-//! but it is currently independent from the runtime occupancy sync used by
-//! [`crate::ChunkPlugin`].
+//! [`Navigation`] mirrors occupied floor-position pairs into a passability map
+//! stored on each chunk. Known nodes are registered as they are seen by the
+//! runtime synchronization flow and are marked blocked while an
+//! [`crate::occupancy::occupied::Occupied`] entity is present on that tile.
 
+use crate::{chunks::Chunks, occupancy::occupied::Occupied};
 use bevy::prelude::*;
 use enumflags2::{BitFlags, bitflags};
-use std::collections::*;
-use suon_position::{floor::Floor, position::Position};
+use std::collections::HashMap;
+use suon_position::{floor::Floor, position::Position, previous_position::PreviousPosition};
 
 #[bitflags]
 #[repr(u8)]
@@ -18,14 +20,14 @@ enum NavigationState {
 }
 
 #[derive(Component, Default, Debug)]
-/// Passability map for registered terrain nodes within a chunk.
+/// Passability map for known floor-position pairs within a chunk.
 pub struct Navigation {
     nodes: HashMap<(Floor, Position), BitFlags<NavigationState>>,
 }
 
 impl Navigation {
-    /// Registers a terrain node as part of the navigable map.
-    pub fn add_node(&mut self, floor: Floor, position: Position) {
+    /// Registers a floor-position pair as part of the chunk navigation map.
+    fn add_node(&mut self, floor: Floor, position: Position) {
         self.nodes
             .entry((floor, position))
             .and_modify(|flags| *flags |= NavigationState::Registered)
@@ -33,14 +35,14 @@ impl Navigation {
     }
 
     /// Marks a registered node as currently occupied.
-    pub fn occupy(&mut self, floor: Floor, position: Position) {
+    fn occupy(&mut self, floor: Floor, position: Position) {
         if let Some(flags) = self.nodes.get_mut(&(floor, position)) {
             *flags |= NavigationState::Occupied;
         }
     }
 
     /// Releases the occupied state of a registered node.
-    pub fn release(&mut self, floor: Floor, position: Position) {
+    fn release(&mut self, floor: Floor, position: Position) {
         if let Some(flags) = self.nodes.get_mut(&(floor, position)) {
             flags.remove(NavigationState::Occupied);
         }
@@ -55,9 +57,106 @@ impl Navigation {
     }
 }
 
+/// Registers and blocks a navigation node when an entity gains [`Occupied`].
+pub(crate) fn sync_navigation_register(
+    event: On<Add, Occupied>,
+    entities: Query<(&Position, &Floor)>,
+    mut navigation: Query<&mut Navigation>,
+    chunks: Res<Chunks>,
+) {
+    let entity = event.event_target();
+
+    let Ok((position, floor)) = entities.get(entity) else {
+        return;
+    };
+
+    let Some(chunk) = chunks.get(position) else {
+        return;
+    };
+
+    if let Ok(mut navigation) = navigation.get_mut(chunk) {
+        navigation.add_node(*floor, *position);
+        navigation.occupy(*floor, *position);
+    }
+}
+
+/// Releases the navigation block when an entity loses [`Occupied`].
+pub(crate) fn sync_navigation_unregister(
+    event: On<Remove, Occupied>,
+    entities: Query<(&Position, &Floor, Option<&PreviousPosition>)>,
+    mut navigation: Query<&mut Navigation>,
+    chunks: Res<Chunks>,
+) {
+    let entity = event.event_target();
+
+    let Ok((position, floor, previous_position)) = entities.get(entity) else {
+        return;
+    };
+
+    if let Some(chunk) = chunks.get(position)
+        && let Ok(mut navigation) = navigation.get_mut(chunk)
+    {
+        navigation.release(*floor, *position);
+    }
+
+    let Some(previous_position) = previous_position else {
+        return;
+    };
+
+    let previous_position = Position {
+        x: previous_position.x,
+        y: previous_position.y,
+    };
+
+    if previous_position == *position {
+        return;
+    }
+
+    if let Some(previous_chunk) = chunks.get(&previous_position)
+        && let Ok(mut navigation) = navigation.get_mut(previous_chunk)
+    {
+        navigation.release(*floor, previous_position);
+    }
+}
+
+/// Reconciles navigation after an occupied [`Position`] is inserted or replaced.
+pub(crate) fn resync_navigation_positions(
+    event: On<Insert, Position>,
+    entities: Query<(&Position, &PreviousPosition, &Floor), With<Occupied>>,
+    mut navigation: Query<&mut Navigation>,
+    chunks: Res<Chunks>,
+) {
+    let entity = event.event_target();
+
+    let Ok((position, previous_position, floor)) = entities.get(entity) else {
+        return;
+    };
+
+    let previous_position = Position {
+        x: previous_position.x,
+        y: previous_position.y,
+    };
+
+    if let Some(previous_chunk) = chunks.get(&previous_position)
+        && let Ok(mut navigation) = navigation.get_mut(previous_chunk)
+    {
+        navigation.release(*floor, previous_position);
+    }
+
+    let Some(current_chunk) = chunks.get(position) else {
+        return;
+    };
+
+    if let Ok(mut navigation) = navigation.get_mut(current_chunk) {
+        navigation.add_node(*floor, *position);
+        navigation.occupy(*floor, *position);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Chunk, ChunkPlugin};
 
     #[test]
     fn should_mark_registered_nodes_as_passable() {
@@ -65,7 +164,6 @@ mod tests {
         const FLOOR: Floor = Floor { z: 0 };
         const POSITION: Position = Position { x: 5, y: 8 };
 
-        // Registered nodes become traversable until explicitly occupied.
         navigation.add_node(FLOOR, POSITION);
 
         assert!(
@@ -75,97 +173,115 @@ mod tests {
     }
 
     #[test]
-    fn should_block_passability_when_registered_node_is_occupied() {
-        let mut navigation = Navigation::default();
-        const FLOOR: Floor = Floor { z: 1 };
-        const POSITION: Position = Position { x: 9, y: 3 };
+    fn should_block_navigation_when_occupied_is_added() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(ChunkPlugin);
 
-        // Occupancy should temporarily disable traversal of an existing node.
-        navigation.add_node(FLOOR, POSITION);
-        navigation.occupy(FLOOR, POSITION);
+        let chunk_entity = app.world_mut().spawn(Chunk).id();
+        app.world_mut()
+            .resource_mut::<Chunks>()
+            .insert(&Position { x: 4, y: 4 }, chunk_entity);
+
+        app.world_mut()
+            .spawn((Position { x: 4, y: 4 }, Floor { z: 0 }, Occupied));
+
+        app.update();
+
+        let navigation = app
+            .world()
+            .get::<Navigation>(chunk_entity)
+            .expect("Chunk should carry Navigation");
 
         assert!(
-            !navigation.is_passable(FLOOR, POSITION),
-            "Occupied nodes should not be passable"
+            !navigation.is_passable(Floor { z: 0 }, Position { x: 4, y: 4 }),
+            "Adding Occupied should block the matching navigation node"
         );
     }
 
     #[test]
-    fn should_restore_passability_after_release() {
-        let mut navigation = Navigation::default();
-        const FLOOR: Floor = Floor { z: 2 };
-        const POSITION: Position = Position { x: 4, y: 4 };
+    fn should_restore_navigation_when_occupied_is_removed() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(ChunkPlugin);
 
-        // Releasing occupancy should return the node to its registered state.
-        navigation.add_node(FLOOR, POSITION);
-        navigation.occupy(FLOOR, POSITION);
-        navigation.release(FLOOR, POSITION);
+        let chunk_entity = app.world_mut().spawn(Chunk).id();
+        app.world_mut()
+            .resource_mut::<Chunks>()
+            .insert(&Position { x: 9, y: 9 }, chunk_entity);
+
+        let entity = app
+            .world_mut()
+            .spawn((Position { x: 9, y: 9 }, Floor { z: 1 }, Occupied))
+            .id();
+
+        app.update();
+        app.world_mut().entity_mut(entity).remove::<Occupied>();
+        app.update();
+
+        let navigation = app
+            .world()
+            .get::<Navigation>(chunk_entity)
+            .expect("Chunk should carry Navigation");
 
         assert!(
-            navigation.is_passable(FLOOR, POSITION),
-            "Releasing a registered node should make it passable again"
+            navigation.is_passable(Floor { z: 1 }, Position { x: 9, y: 9 }),
+            "Removing Occupied should make the known node passable again"
         );
     }
 
     #[test]
-    fn should_keep_unregistered_nodes_impassable() {
-        let mut navigation = Navigation::default();
-        const FLOOR: Floor = Floor { z: 0 };
-        const POSITION: Position = Position { x: 1, y: 1 };
+    fn should_move_navigation_block_when_occupied_entity_moves() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(ChunkPlugin);
 
-        // Occupy and release should not implicitly create navigable nodes.
-        navigation.occupy(FLOOR, POSITION);
-        navigation.release(FLOOR, POSITION);
+        let start = Position { x: 7, y: 7 };
+        let target = Position { x: 8, y: 7 };
+        let start_chunk = app.world_mut().spawn(Chunk).id();
+        let target_chunk = app.world_mut().spawn(Chunk).id();
 
-        assert!(
-            !navigation.is_passable(FLOOR, POSITION),
-            "Unregistered nodes should remain impassable even after occupy/release calls"
-        );
-    }
+        app.world_mut()
+            .resource_mut::<Chunks>()
+            .insert(&start, start_chunk);
+        app.world_mut()
+            .resource_mut::<Chunks>()
+            .insert(&target, target_chunk);
 
-    #[test]
-    fn should_keep_other_nodes_unchanged_when_one_node_is_occupied_or_released() {
-        let mut navigation = Navigation::default();
-        const FLOOR: Floor = Floor { z: 0 };
-        const FIRST: Position = Position { x: 1, y: 1 };
-        const SECOND: Position = Position { x: 2, y: 2 };
+        let entity = app
+            .world_mut()
+            .spawn((start, Floor { z: 0 }, Occupied))
+            .id();
 
-        navigation.add_node(FLOOR, FIRST);
-        navigation.add_node(FLOOR, SECOND);
-        navigation.occupy(FLOOR, FIRST);
-        navigation.release(FLOOR, FIRST);
+        app.update();
 
-        assert!(
-            navigation.is_passable(FLOOR, FIRST),
-            "The released node should become passable again"
-        );
+        app.world_mut().entity_mut(entity).insert((
+            PreviousPosition {
+                x: start.x,
+                y: start.y,
+            },
+            target,
+        ));
 
-        assert!(
-            navigation.is_passable(FLOOR, SECOND),
-            "Updating one node should not affect the passability of another node"
-        );
-    }
+        app.update();
 
-    #[test]
-    fn should_keep_node_blocked_after_repeated_occupy_calls_until_release() {
-        let mut navigation = Navigation::default();
-        const FLOOR: Floor = Floor { z: 3 };
-        const POSITION: Position = Position { x: 6, y: 6 };
-
-        navigation.add_node(FLOOR, POSITION);
-        navigation.occupy(FLOOR, POSITION);
-        navigation.occupy(FLOOR, POSITION);
+        let start_navigation = app
+            .world()
+            .get::<Navigation>(start_chunk)
+            .expect("Start chunk should carry Navigation");
+        let target_navigation = app
+            .world()
+            .get::<Navigation>(target_chunk)
+            .expect("Target chunk should carry Navigation");
 
         assert!(
-            !navigation.is_passable(FLOOR, POSITION),
-            "Repeated occupy calls should leave the node blocked"
+            start_navigation.is_passable(Floor { z: 0 }, start),
+            "Moving away should release the previous node"
         );
 
-        navigation.release(FLOOR, POSITION);
-
         assert!(
-            navigation.is_passable(FLOOR, POSITION),
-            "A single release should clear the occupied state after repeated occupy calls"
+            !target_navigation.is_passable(Floor { z: 0 }, target),
+            "Moving onto a target node should block it"
         );
     }
 }

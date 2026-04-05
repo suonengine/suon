@@ -42,12 +42,10 @@
 //! - [`content`]: entity-to-chunk relationship components
 //! - [`loader`]: placeholder resource for chunk loading orchestration
 //! - [`occupancy`]: per-chunk blocked-tile tracking and synchronization
-//! - [`terrain`]: navigation-oriented passability data structures
+//! - [`terrain`]: per-chunk passability state synchronized from occupied tiles
 //!
 //! At the moment, the end-to-end runtime flow is centered on [`Chunks`],
-//! [`content::AtChunk`], and [`Occupancy`]. The [`terrain`] module provides
-//! chunk-local navigation structures, but it is not yet wired into
-//! [`ChunkPlugin`].
+//! [`content::AtChunk`], [`Occupancy`], and [`terrain::Navigation`].
 //!
 use crate::{
     chunks::Chunks,
@@ -55,6 +53,10 @@ use crate::{
     loader::ChunkLoader,
     occupancy::{
         Occupancy, resync_occupied_positions, sync_occupancy_register, sync_occupancy_unregister,
+    },
+    terrain::{
+        Navigation, resync_navigation_positions, sync_navigation_register,
+        sync_navigation_unregister,
     },
 };
 use bevy::prelude::*;
@@ -67,9 +69,8 @@ pub mod content;
 pub mod loader;
 /// Occupancy state and synchronization systems for chunk-contained entities.
 pub mod occupancy;
-/// Terrain navigation data structures for passability checks.
+/// Terrain navigation data structures synchronized from occupied tiles.
 pub mod terrain;
-
 /// The bit exponent used to define the power-of-two dimensions of a chunk.
 pub const CHUNK_EXP: usize = 3;
 
@@ -82,7 +83,7 @@ pub const CHUNK_AREA: usize = CHUNK_SIZE * CHUNK_SIZE;
 /// A bitmask used to extract local coordinates from global positions.
 pub const CHUNK_MASK: usize = CHUNK_SIZE - 1;
 
-/// Plugin responsible for chunk resources, chunk derivation, and occupancy synchronization.
+/// Plugin responsible for chunk resources and chunk-local synchronization.
 pub struct ChunkPlugin;
 
 impl Plugin for ChunkPlugin {
@@ -92,7 +93,10 @@ impl Plugin for ChunkPlugin {
         app.add_observer(sync_occupancy_register)
             .add_observer(sync_occupancy_unregister)
             .add_observer(sync_at_chunk_from_position)
-            .add_observer(resync_occupied_positions);
+            .add_observer(resync_occupied_positions)
+            .add_observer(sync_navigation_register)
+            .add_observer(sync_navigation_unregister)
+            .add_observer(resync_navigation_positions);
     }
 }
 
@@ -108,7 +112,7 @@ pub struct Inactive;
 
 #[derive(Component)]
 #[component(immutable)]
-#[require(Occupancy)]
+#[require(Occupancy, Navigation)]
 /// Marker component identifying an entity as a chunk container.
 pub struct Chunk;
 
@@ -174,6 +178,18 @@ mod tests {
         assert!(
             world.entity(entity).contains::<Occupancy>(),
             "Spawning Chunk should automatically attach Occupancy"
+        );
+    }
+
+    #[test]
+    fn should_require_navigation_when_spawning_chunk_component() {
+        let mut world = World::new();
+
+        let entity = world.spawn(Chunk).id();
+
+        assert!(
+            world.entity(entity).contains::<Navigation>(),
+            "Spawning Chunk should automatically attach Navigation"
         );
     }
 
