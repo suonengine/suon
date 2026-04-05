@@ -253,6 +253,46 @@ impl Default for OutgoingPacketPolicy {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{
+        env,
+        path::PathBuf,
+        process,
+        sync::{Mutex, OnceLock},
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    fn cwd_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    struct CurrentDirGuard {
+        previous: PathBuf,
+    }
+
+    impl CurrentDirGuard {
+        fn enter(path: &PathBuf) -> Self {
+            let previous = env::current_dir().expect("The test should read the current directory");
+            env::set_current_dir(path).expect("The test should switch into the temp directory");
+            Self { previous }
+        }
+    }
+
+    impl Drop for CurrentDirGuard {
+        fn drop(&mut self) {
+            env::set_current_dir(&self.previous)
+                .expect("The test should restore the previous current directory");
+        }
+    }
+
+    fn unique_temp_dir() -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("System time should be after the unix epoch")
+            .as_nanos();
+
+        env::temp_dir().join(format!("suon-network-settings-{}-{nanos}", process::id()))
+    }
 
     #[test]
     fn default_settings_use_expected_localhost_address_and_port() {
@@ -320,6 +360,107 @@ mod tests {
             policy.incoming.overflow_penalty,
             PacketPolicyPenalty::Disconnect,
             "Incoming packet overflow should default to disconnecting abusive sessions"
+        );
+    }
+
+    #[test]
+    fn load_or_default_should_create_the_configuration_file_when_it_is_missing() {
+        let _lock = cwd_lock()
+            .lock()
+            .expect("The settings test should acquire the cwd lock");
+        let temp_dir = unique_temp_dir();
+        fs::create_dir_all(&temp_dir).expect("The temp test directory should be created");
+        let _cwd_guard = CurrentDirGuard::enter(&temp_dir);
+
+        let settings = Settings::load_or_default()
+            .expect("load_or_default should create and load the default settings");
+
+        assert!(
+            temp_dir.join(Settings::PATH).exists(),
+            "load_or_default should create the settings file when it does not exist"
+        );
+        assert_eq!(
+            settings.address,
+            Settings::default().address,
+            "The created configuration should match the default settings"
+        );
+    }
+
+    #[test]
+    fn load_or_default_should_load_an_existing_configuration_file() {
+        let _lock = cwd_lock()
+            .lock()
+            .expect("The settings test should acquire the cwd lock");
+        let temp_dir = unique_temp_dir();
+        fs::create_dir_all(&temp_dir).expect("The temp test directory should be created");
+        let _cwd_guard = CurrentDirGuard::enter(&temp_dir);
+
+        let expected = Settings {
+            address: SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(10, 0, 0, 5), 9000)),
+            use_nagle_algorithm: true,
+            session_quota: SessionQuota {
+                max_total: 3,
+                max_per_address: 1,
+            },
+            throttle_policy: ThrottlePolicy {
+                max_attempts: 2,
+                interval_window: Duration::from_millis(1234),
+                fast_attempt_threshold: Duration::from_millis(55),
+                block_duration: Duration::from_millis(777),
+                penalty_backoff: Duration::from_millis(99),
+            },
+            packet_policy: PacketPolicy {
+                incoming: IncomingPacketPolicy {
+                    timeout: Duration::from_millis(333),
+                    server_name_max_length: 11,
+                    login_max_length: 22,
+                    subsequent_max_length: 33,
+                    subsequent_max_per_address: 44,
+                    enforcement_window: Duration::from_millis(555),
+                    tolerance_overflow: 6,
+                    overflow_penalty: PacketPolicyPenalty::Ignore,
+                },
+                outgoing: OutgoingPacketPolicy {
+                    timeout: Duration::from_millis(444),
+                    max_length: 88,
+                },
+            },
+        };
+
+        fs::write(
+            temp_dir.join(Settings::PATH),
+            toml::to_string_pretty(&expected)
+                .expect("The expected settings should serialize to TOML"),
+        )
+        .expect("The test should write a custom settings file");
+
+        let loaded = Settings::load_or_default()
+            .expect("load_or_default should load the existing configuration");
+
+        assert_eq!(
+            loaded.address,
+            expected.address,
+            "load_or_default should preserve the configured bind address"
+        );
+        assert_eq!(
+            loaded.use_nagle_algorithm,
+            expected.use_nagle_algorithm,
+            "load_or_default should preserve the configured Nagle setting"
+        );
+        assert_eq!(
+            loaded.session_quota.max_total,
+            expected.session_quota.max_total,
+            "load_or_default should preserve the configured total session quota"
+        );
+        assert_eq!(
+            loaded.packet_policy.incoming.overflow_penalty,
+            expected.packet_policy.incoming.overflow_penalty,
+            "load_or_default should preserve the configured incoming overflow policy"
+        );
+        assert_eq!(
+            loaded.packet_policy.outgoing.max_length,
+            expected.packet_policy.outgoing.max_length,
+            "load_or_default should preserve the configured outgoing packet limit"
         );
     }
 }

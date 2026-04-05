@@ -94,4 +94,27 @@ mod tests {
             "cleanup_finished_connections should ignore queued addresses that do not match"
         );
     }
+
+    #[test]
+    fn should_ignore_finished_connections_for_entities_that_no_longer_exist() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<OutgoingConnections>();
+        app.add_systems(Update, cleanup_finished_connections);
+
+        let missing_client = Entity::from_bits(99);
+        let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 7172));
+
+        app.world()
+            .resource::<OutgoingConnections>()
+            .send((missing_client, addr))
+            .expect("The finished connection queue should accept events for missing entities");
+
+        app.update();
+
+        assert!(
+            app.world().get_entity(missing_client).is_err(),
+            "cleanup_finished_connections should leave missing entities untouched"
+        );
+    }
 }

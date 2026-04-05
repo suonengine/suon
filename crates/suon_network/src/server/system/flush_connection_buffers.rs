@@ -81,4 +81,21 @@ mod tests {
             "The flushed packet should contain encoded bytes ready for transmission"
         );
     }
+
+    #[test]
+    fn should_not_emit_packets_when_the_connection_buffer_is_empty() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_systems(Update, flush_connection_buffers);
+
+        let (connection, outgoing_receiver) = build_connection();
+
+        app.world_mut().spawn(connection);
+        app.update();
+
+        assert!(
+            outgoing_receiver.try_recv().is_err(),
+            "flush_connection_buffers should not emit packets for empty buffers"
+        );
+    }
 }

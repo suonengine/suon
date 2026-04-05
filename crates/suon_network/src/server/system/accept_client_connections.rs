@@ -300,3 +300,304 @@ fn spawn_reader_task(
         })
         .detach();
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::{app::App, tasks::TaskPool};
+    use bytes::Bytes;
+    use smol::io::AsyncReadExt;
+    use std::{
+        net::SocketAddr,
+        thread,
+        time::{Duration, Instant},
+    };
+    use suon_protocol::packets::client::PacketKind;
+
+    const XTEA_KEY: XTEAKey = [0xA56BABCD, 0x00000000, 0xFFFFFFFF, 0x12345678];
+
+    fn init_io_task_pool() {
+        IoTaskPool::get_or_init(TaskPool::new);
+    }
+
+    fn test_settings() -> Settings {
+        Settings {
+            packet_policy: crate::server::settings::PacketPolicy {
+                incoming: IncomingPacketPolicy {
+                    timeout: Duration::from_millis(100),
+                    server_name_max_length: 256,
+                    login_max_length: 256,
+                    subsequent_max_length: 256,
+                    ..IncomingPacketPolicy::default()
+                },
+                outgoing: OutgoingPacketPolicy {
+                    timeout: Duration::from_millis(100),
+                    max_length: 256,
+                },
+            },
+            ..Settings::default()
+        }
+    }
+
+    fn wait_for<T>(mut f: impl FnMut() -> Option<T>) -> T {
+        let deadline = Instant::now() + Duration::from_secs(2);
+
+        loop {
+            if let Some(value) = f() {
+                return value;
+            }
+
+            assert!(
+                Instant::now() < deadline,
+                "timed out while waiting for async network task to produce a result"
+            );
+
+            thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    fn build_login_packet_bytes(payload: &[u8], checksum: u32) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(7 + payload.len());
+        bytes.extend_from_slice(
+            &((crate::server::packet::PACKET_CHECKSUM_SIZE + 1 + payload.len()) as u16)
+                .to_le_bytes(),
+        );
+        bytes.extend_from_slice(&checksum.to_le_bytes());
+        bytes.push(PacketKind::Login as u8);
+        bytes.extend_from_slice(payload);
+        bytes
+    }
+
+    fn build_subsequent_packet_bytes(payload: &[u8], checksum: u32) -> Vec<u8> {
+        let mut plaintext = Vec::with_capacity(crate::server::packet::PACKET_HEADER_SIZE + payload.len());
+        plaintext.extend_from_slice(&(payload.len() as u16).to_le_bytes());
+        plaintext.extend_from_slice(payload);
+
+        let encrypted = suon_xtea::encrypt(&plaintext, &XTEA_KEY);
+        let mut bytes = Vec::with_capacity(
+            crate::server::packet::PACKET_HEADER_SIZE
+                + crate::server::packet::PACKET_CHECKSUM_SIZE
+                + encrypted.len(),
+        );
+        bytes.extend_from_slice(
+            &((crate::server::packet::PACKET_CHECKSUM_SIZE + encrypted.len()) as u16).to_le_bytes(),
+        );
+        bytes.extend_from_slice(&checksum.to_le_bytes());
+        bytes.extend_from_slice(&encrypted);
+        bytes
+    }
+
+    fn connected_streams() -> (smol::net::TcpStream, smol::net::TcpStream, SocketAddr) {
+        smol::block_on(async {
+            let listener = smol::net::TcpListener::bind(("127.0.0.1", 0))
+                .await
+                .expect("the test listener should bind successfully");
+            let addr = listener
+                .local_addr()
+                .expect("the test listener should expose a local address");
+
+            let accept_task = smol::spawn(async move {
+                listener
+                    .accept()
+                    .await
+                    .expect("the test listener should accept one connection")
+                    .0
+            });
+
+            let client = smol::net::TcpStream::connect(addr)
+                .await
+                .expect("the test client should connect successfully");
+            let server = accept_task.await;
+            let peer_addr = client
+                .local_addr()
+                .expect("the test client should expose its local address");
+
+            (server, client, peer_addr)
+        })
+    }
+
+    #[test]
+    fn should_spawn_a_connection_entity_for_each_queued_incoming_stream() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<IncomingConnections>();
+        app.init_resource::<OutgoingConnections>();
+        app.insert_resource(test_settings());
+        app.add_systems(Update, accept_client_connections);
+
+        let (server_stream, client_stream, client_addr) = connected_streams();
+        app.world()
+            .resource::<IncomingConnections>()
+            .send(server_stream)
+            .expect("the incoming queue should accept the test connection");
+
+        app.update();
+
+        let mut connections = app.world_mut().query::<&Connection>();
+        let connection = connections
+            .iter(app.world())
+            .next()
+            .expect("accept_client_connections should spawn one connection component");
+
+        assert_eq!(
+            connection.addr(),
+            client_addr,
+            "the spawned connection should keep the peer address from the accepted socket"
+        );
+
+        drop(client_stream);
+    }
+
+    #[test]
+    fn should_write_encoded_packets_and_mark_the_connection_as_finished_when_the_channel_closes() {
+        init_io_task_pool();
+
+        let (server_stream, mut client_stream, client_addr) = connected_streams();
+        let client = Entity::from_bits(11);
+        let outgoing_connections = OutgoingConnections::default();
+        let (outgoing_sender, outgoing_receiver) = crossbeam_channel::unbounded();
+        let expected = crate::server::packet::outgoing::OutgoingPacket::new(Bytes::from_static(b"\x01\x02"))
+            .encode();
+
+        spawn_writer_task(
+            server_stream,
+            client_addr,
+            client,
+            outgoing_receiver,
+            outgoing_connections.clone(),
+            test_settings().packet_policy.outgoing,
+        );
+
+        outgoing_sender
+            .send(crate::server::packet::outgoing::OutgoingPacket::new(Bytes::from_static(
+                b"\x01\x02",
+            )))
+            .expect("the writer task should accept one outgoing packet");
+        drop(outgoing_sender);
+
+        let mut encoded = vec![0; expected.len()];
+        smol::block_on(async {
+            client_stream
+                .read_exact(&mut encoded)
+                .await
+                .expect("the client side should receive the encoded packet bytes");
+        });
+
+        assert_eq!(
+            encoded,
+            expected,
+            "spawn_writer_task should write the packet bytes exactly as encoded"
+        );
+
+        let closed = wait_for(|| outgoing_connections.read().into_iter().next());
+        assert_eq!(
+            closed,
+            (client, client_addr),
+            "spawn_writer_task should enqueue the closed connection after the sender is dropped"
+        );
+    }
+
+    #[test]
+    fn should_forward_initial_and_subsequent_packets_then_close_the_connection() {
+        init_io_task_pool();
+
+        let (server_stream, mut client_stream, client_addr) = connected_streams();
+        let client = Entity::from_bits(22);
+        let outgoing_connections = OutgoingConnections::default();
+        let (incoming_sender, incoming_receiver) = crossbeam_channel::unbounded();
+        let (xtea_sender, xtea_receiver) = tokio::sync::watch::channel(None);
+
+        spawn_reader_task(
+            server_stream,
+            client_addr,
+            client,
+            incoming_sender,
+            outgoing_connections.clone(),
+            xtea_receiver,
+            test_settings().packet_policy.incoming,
+        );
+
+        smol::block_on(async {
+            use smol::io::AsyncWriteExt;
+
+            client_stream
+                .write_all(b"suon\n")
+                .await
+                .expect("the client should send the server-name packet");
+            client_stream
+                .flush()
+                .await
+                .expect("the server-name packet should be flushed to the socket");
+        });
+
+        let server_name = wait_for(|| incoming_receiver.try_recv().ok());
+
+        assert_eq!(
+            server_name.kind,
+            PacketKind::ServerName,
+            "spawn_reader_task should forward the first server-name packet"
+        );
+
+        smol::block_on(async {
+            use smol::io::AsyncWriteExt;
+
+            client_stream
+                .write_all(&build_login_packet_bytes(b"login", 0))
+                .await
+                .expect("the client should send the login packet");
+            client_stream
+                .flush()
+                .await
+                .expect("the login packet should be flushed to the socket");
+        });
+
+        let login = wait_for(|| incoming_receiver.try_recv().ok());
+        assert_eq!(
+            login.kind,
+            PacketKind::Login,
+            "spawn_reader_task should forward the login packet after the server name"
+        );
+
+        xtea_sender
+            .send(Some(XTEA_KEY))
+            .expect("the test should be able to publish an XTEA key");
+
+        smol::block_on(async {
+            use smol::io::AsyncWriteExt;
+
+            client_stream
+                .write_all(&build_subsequent_packet_bytes(
+                    &[PacketKind::PingLatency as u8, 1, 2],
+                    0,
+                ))
+                .await
+                .expect("the client should send one encrypted subsequent packet");
+            client_stream
+                .flush()
+                .await
+                .expect("the subsequent packet should be flushed to the socket");
+        });
+
+        let subsequent = wait_for(|| incoming_receiver.try_recv().ok());
+        assert_eq!(
+            subsequent.kind,
+            PacketKind::PingLatency,
+            "spawn_reader_task should decode and forward encrypted subsequent packets"
+        );
+        assert_eq!(
+            subsequent.buffer.as_ref(),
+            &[1, 2],
+            "spawn_reader_task should preserve the decrypted subsequent payload"
+        );
+
+        drop(xtea_sender);
+        drop(client_stream);
+
+        let closed = wait_for(|| outgoing_connections.read().into_iter().next());
+        assert_eq!(
+            closed,
+            (client, client_addr),
+            "spawn_reader_task should notify the finished connection when the stream ends"
+        );
+    }
+}

@@ -118,4 +118,99 @@ mod tests {
             "Forwarded packet messages should preserve the incoming payload"
         );
     }
+
+    #[test]
+    fn should_not_emit_messages_when_connections_have_no_incoming_packets() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<Packet>();
+        app.add_systems(Update, process_incoming_client_packets);
+
+        let (outgoing_sender, _outgoing_receiver) = crossbeam_channel::unbounded();
+        let (_incoming_sender, incoming_receiver) = crossbeam_channel::unbounded();
+        let (xtea_sender, _xtea_receiver) = tokio::sync::watch::channel(None);
+
+        let connection = Connection::new(
+            outgoing_sender,
+            incoming_receiver,
+            SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 7172)),
+            xtea_sender,
+            PacketPolicy::default(),
+        );
+
+        app.world_mut().spawn(connection);
+        app.update();
+
+        let messages = app.world().resource::<Messages<Packet>>();
+        assert_eq!(
+            messages.iter_current_update_messages().count(),
+            0,
+            "process_incoming_client_packets should skip connections without queued packets"
+        );
+    }
+
+    #[test]
+    fn should_forward_every_packet_currently_queued_on_the_connection() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<Packet>();
+        app.add_systems(Update, process_incoming_client_packets);
+
+        let (outgoing_sender, _outgoing_receiver) = crossbeam_channel::unbounded();
+        let (incoming_sender, incoming_receiver) = crossbeam_channel::unbounded();
+        let (xtea_sender, _xtea_receiver) = tokio::sync::watch::channel(None);
+
+        let packets = [
+            IncomingPacket {
+                timestamp: Instant::now(),
+                checksum: None,
+                kind: PacketKind::KeepAlive,
+                buffer: Bytes::from_static(&[]),
+            },
+            IncomingPacket {
+                timestamp: Instant::now(),
+                checksum: None,
+                kind: PacketKind::PingLatency,
+                buffer: Bytes::from_static(&[7, 8]),
+            },
+        ];
+
+        for packet in packets {
+            incoming_sender
+                .send(packet)
+                .expect("The incoming channel should accept all queued test packets");
+        }
+
+        let connection = Connection::new(
+            outgoing_sender,
+            incoming_receiver,
+            SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 7172)),
+            xtea_sender,
+            PacketPolicy::default(),
+        );
+
+        app.world_mut().spawn(connection);
+        app.update();
+
+        let messages = app.world().resource::<Messages<Packet>>();
+        let forwarded = messages
+            .iter_current_update_messages()
+            .collect::<Vec<&Packet>>();
+
+        assert_eq!(
+            forwarded.len(),
+            2,
+            "process_incoming_client_packets should forward all packets currently queued"
+        );
+        assert_eq!(
+            forwarded[0].kind,
+            PacketKind::KeepAlive,
+            "The first forwarded message should preserve the first queued packet kind"
+        );
+        assert_eq!(
+            forwarded[1].kind,
+            PacketKind::PingLatency,
+            "The second forwarded message should preserve the second queued packet kind"
+        );
+    }
 }
