@@ -3,6 +3,13 @@
 use super::prelude::*;
 
 /// Packet sent by the server to keep the connection active without payload data.
+///
+/// # Examples
+/// ```
+/// use suon_protocol::packets::server::{Encodable, prelude::KeepAlivePacket};
+///
+/// assert_eq!(KeepAlivePacket.encode_with_kind().as_ref(), &[29]);
+/// ```
 pub struct KeepAlivePacket;
 
 impl Encodable for KeepAlivePacket {

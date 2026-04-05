@@ -3,6 +3,16 @@
 use super::prelude::*;
 
 /// Packet sent by the client to keep the session active without payload data.
+///
+/// # Examples
+/// ```
+/// use suon_protocol::packets::client::{Decodable, prelude::KeepAlivePacket};
+///
+/// let mut payload: &[u8] = &[];
+/// let packet = KeepAlivePacket::decode(&mut payload).unwrap();
+///
+/// assert!(matches!(packet, KeepAlivePacket));
+/// ```
 pub struct KeepAlivePacket;
 
 impl Decodable for KeepAlivePacket {

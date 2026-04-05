@@ -3,6 +3,13 @@
 use super::prelude::*;
 
 /// Packet sent by the server to respond to latency checks without payload data.
+///
+/// # Examples
+/// ```
+/// use suon_protocol::packets::server::{Encodable, prelude::PingLatencyPacket};
+///
+/// assert_eq!(PingLatencyPacket.encode_with_kind().as_ref(), &[30]);
+/// ```
 pub struct PingLatencyPacket;
 
 impl Encodable for PingLatencyPacket {

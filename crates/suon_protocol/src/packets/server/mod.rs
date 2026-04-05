@@ -27,24 +27,31 @@ pub mod prelude {
 /// - [`Self::encode`]: Encodes the packet payload into a [`Bytes`] buffer.
 ///
 /// # Example
-/// ```ignore
+/// ```
+/// use bytes::Bytes;
+/// use suon_protocol::packets::{
+///     encoder::Encoder,
+///     server::{Encodable, PacketKind},
+/// };
+///
 /// struct LoginPacket {
 ///     username: String,
 /// }
 ///
 /// impl Encodable for LoginPacket {
-///     const KIND: PacketKind = PacketKind::Login;
+///     const KIND: PacketKind = PacketKind::Challenge;
 ///
 ///     fn encode(self) -> Option<Bytes> {
 ///         let mut encoder = Encoder::new();
-///         encoder.put_string(&self.username);
-///         Some(encoder.end())
+///         encoder.put_str(&self.username);
+///         Some(encoder.finalize())
 ///     }
 /// }
 ///
-/// // Produces a byte buffer for transmission
 /// let packet = LoginPacket { username: "Alice".into() };
-/// let encoded = packet.encode();
+/// let encoded = packet.encode_with_kind();
+///
+/// assert_eq!(encoded.as_ref(), &[31, 5, 0, 65, 108, 105, 99, 101]);
 /// ```
 ///
 /// This trait is typically paired with a corresponding `Decodable` trait to
@@ -127,6 +134,26 @@ mod tests {
             encoded.as_ref(),
             PAYLOAD,
             "Encoded bytes should match the predefined payload"
+        );
+    }
+
+    #[test]
+    fn encode_with_kind_should_prefix_payload_with_packet_kind() {
+        let encoded = Packet.encode_with_kind();
+
+        assert_eq!(
+            encoded.as_ref(),
+            &[PacketKind::PingLatency as u8, 1, 2, 3, 4],
+            "encode_with_kind should prepend the server packet kind before the encoded payload"
+        );
+    }
+
+    #[test]
+    fn packet_kind_display_should_include_hex_identifier() {
+        assert_eq!(
+            PacketKind::Challenge.to_string(),
+            "Challenge (0x1F)",
+            "Display should include both the variant name and hexadecimal id"
         );
     }
 }

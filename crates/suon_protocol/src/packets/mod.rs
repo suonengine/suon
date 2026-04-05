@@ -6,6 +6,13 @@ pub mod encoder;
 pub mod server;
 
 /// Number of bytes used by the packet KIND field.
+///
+/// # Examples
+/// ```
+/// use suon_protocol::packets::PACKET_KIND_SIZE;
+///
+/// assert_eq!(PACKET_KIND_SIZE, 1);
+/// ```
 pub const PACKET_KIND_SIZE: usize = 1;
 
 #[cfg(test)]

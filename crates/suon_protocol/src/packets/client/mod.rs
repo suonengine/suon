@@ -31,7 +31,9 @@ pub enum DecodableError {
 /// - [`Self::decode`]: Decodes the packet instance from a raw byte slice.
 ///
 /// # Example
-/// ```ignore
+/// ```
+/// use suon_protocol::packets::client::{Decodable, DecodableError, PacketKind};
+///
 /// struct LoginPacket {
 ///     username: String,
 /// }
@@ -40,14 +42,17 @@ pub enum DecodableError {
 ///     const KIND: PacketKind = PacketKind::Login;
 ///
 ///     fn decode(bytes: &mut &[u8]) -> Result<Self, DecodableError> {
-///         let username = bytes::read_string()?;
+///         use suon_protocol::packets::decoder::Decoder;
+///
+///         let username = (&mut *bytes).get_string()?;
 ///         Ok(LoginPacket { username })
 ///     }
 /// }
 ///
-/// // Example usage
-/// let mut buffer: &[u8] = &received_bytes;
-/// let packet = LoginPacket::decode(&mut buffer)?;
+/// let mut buffer: &[u8] = &[5, 0, b'A', b'l', b'i', b'c', b'e'];
+/// let packet = LoginPacket::decode(&mut buffer).unwrap();
+///
+/// assert_eq!(packet.username, "Alice");
 /// ```
 ///
 /// This trait is typically paired with the server-side
@@ -175,6 +180,20 @@ mod tests {
         assert!(
             matches!(packet, Packet),
             "Decoded packet should be of type Packet"
+        );
+    }
+
+    #[test]
+    fn packet_kind_should_convert_from_wire_values_and_format_for_logs() {
+        assert_eq!(
+            PacketKind::try_from(30),
+            Ok(PacketKind::KeepAlive),
+            "Wire value 30 should decode to the keep-alive client packet kind"
+        );
+        assert_eq!(
+            PacketKind::PingLatency.to_string(),
+            "PingLatency (0x1D)",
+            "Display should include both the variant name and hexadecimal id"
         );
     }
 }

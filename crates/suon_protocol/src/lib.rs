@@ -1,4 +1,20 @@
 //! Packet encoding and decoding types for the Suon protocol.
+//!
+//! # Examples
+//! ```
+//! use suon_protocol::packets::{
+//!     decoder::Decoder,
+//!     encoder::Encoder,
+//!     server::{Encodable, prelude::KeepAlivePacket},
+//! };
+//!
+//! let encoded = Encoder::new().put_u16(7).put_str("suon").finalize();
+//! let mut slice = encoded.as_ref();
+//!
+//! assert_eq!((&mut slice).get_u16().unwrap(), 7);
+//! assert_eq!((&mut slice).get_string().unwrap(), "suon");
+//! assert_eq!(KeepAlivePacket.encode_with_kind().as_ref(), &[29]);
+//! ```
 
 pub mod packets;
 

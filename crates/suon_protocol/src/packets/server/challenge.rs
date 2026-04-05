@@ -8,6 +8,20 @@ use crate::packets::encoder::Encoder;
 use super::prelude::*;
 
 /// Packet sent by the server to challenge the client during handshake.
+///
+/// # Examples
+/// ```
+/// use std::time::{Duration, UNIX_EPOCH};
+/// use suon_protocol::packets::server::{Encodable, prelude::ChallengePacket};
+///
+/// let encoded = ChallengePacket {
+///     timestamp: UNIX_EPOCH + Duration::from_secs(42),
+///     random_number: 7,
+/// }
+/// .encode_with_kind();
+///
+/// assert_eq!(encoded.as_ref(), &[31, 42, 0, 0, 0, 7]);
+/// ```
 pub struct ChallengePacket {
     /// The moment when the challenge was created.
     pub timestamp: SystemTime,

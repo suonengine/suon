@@ -1,5 +1,5 @@
 use bytes::Bytes;
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use std::{
     hint::black_box,
     time::{Duration, UNIX_EPOCH},
@@ -31,21 +31,27 @@ fn benchmark_encode_with_kind(c: &mut Criterion) {
 }
 
 fn benchmark_decode_sequence(c: &mut Criterion) {
-    let payload = Encoder::new()
-        .put_bool(true)
-        .put_u32(42)
-        .put_str("bench")
-        .finalize();
+    let mut group = c.benchmark_group("protocol/decode_sequence");
 
-    c.bench_function("protocol/decode_sequence", |b| {
-        b.iter(|| {
-            let mut slice = payload.as_ref();
-            let flag = (&mut slice).get_bool().expect("bool should decode");
-            let value = (&mut slice).get_u32().expect("u32 should decode");
-            let text = (&mut slice).get_string().expect("string should decode");
-            (flag, value, text)
-        })
-    });
+    for text in ["bench", "suon-protocol", "decode-benchmark-payload"] {
+        let payload = Encoder::new()
+            .put_bool(true)
+            .put_u32(42)
+            .put_str(text)
+            .finalize();
+
+        group.bench_with_input(BenchmarkId::new("mixed_fields", text.len()), &payload, |b, payload| {
+            b.iter(|| {
+                let mut slice = payload.as_ref();
+                let flag = (&mut slice).get_bool().expect("bool should decode");
+                let value = (&mut slice).get_u32().expect("u32 should decode");
+                let text = (&mut slice).get_string().expect("string should decode");
+                (flag, value, text)
+            })
+        });
+    }
+
+    group.finish();
 }
 
 fn benchmark_server_keep_alive_encode(c: &mut Criterion) {
@@ -81,12 +87,37 @@ fn benchmark_challenge_encode(c: &mut Criterion) {
     });
 }
 
+fn benchmark_encoder_roundtrip(c: &mut Criterion) {
+    let mut group = c.benchmark_group("protocol/encoder_roundtrip");
+
+    for payload_size in [8usize, 64usize, 512usize] {
+        group.bench_with_input(BenchmarkId::new("put_bytes_then_take_remaining", payload_size), &payload_size, |b, &payload_size| {
+            let payload = vec![0xAB; payload_size];
+
+            b.iter(|| {
+                let bytes = Encoder::new()
+                    .put_u16(payload_size as u16)
+                    .put_bytes(Bytes::from(payload.clone()))
+                    .finalize();
+                let mut slice = bytes.as_ref();
+                let mut decoder = &mut slice;
+                let len = decoder.get_u16().expect("length should decode");
+                let remaining = decoder.take_remaining();
+                (len, remaining.len())
+            })
+        });
+    }
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     benchmark_encode_with_kind,
     benchmark_decode_sequence,
     benchmark_server_keep_alive_encode,
     benchmark_client_keep_alive_decode,
-    benchmark_challenge_encode
+    benchmark_challenge_encode,
+    benchmark_encoder_roundtrip
 );
 criterion_main!(benches);

@@ -8,11 +8,15 @@ use bytes::{BufMut, Bytes, BytesMut};
 /// finalized into an immutable [`Bytes`] instance for transmission.
 ///
 /// # Example
-/// ```ignore
+/// ```
+/// use suon_protocol::packets::encoder::Encoder;
+///
 /// let packet_bytes = Encoder::new()
 ///     .put_u8(42)
 ///     .put_str("Hello")
 ///     .finalize();
+///
+/// assert_eq!(packet_bytes.as_ref(), &[42, 5, 0, 72, 101, 108, 108, 111]);
 /// ```
 pub struct Encoder {
     buffer: BytesMut,
@@ -25,6 +29,15 @@ impl Encoder {
     pub const INITIAL_CAPACITY: usize = 1024;
 
     /// Creates a new encoder with the default initial capacity.
+    ///
+    /// # Examples
+    /// ```
+    /// use suon_protocol::packets::encoder::Encoder;
+    ///
+    /// let bytes = Encoder::new().put_bool(true).finalize();
+    ///
+    /// assert_eq!(bytes.as_ref(), &[1]);
+    /// ```
     pub fn new() -> Encoder {
         Encoder {
             buffer: BytesMut::with_capacity(Self::INITIAL_CAPACITY),
@@ -32,6 +45,15 @@ impl Encoder {
     }
 
     /// Creates a new encoder with a custom initial capacity.
+    ///
+    /// # Examples
+    /// ```
+    /// use suon_protocol::packets::encoder::Encoder;
+    ///
+    /// let bytes = Encoder::with_capacity(8).put_u16(0xABCD).finalize();
+    ///
+    /// assert_eq!(bytes.as_ref(), &[0xCD, 0xAB]);
+    /// ```
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             buffer: BytesMut::with_capacity(capacity),
@@ -238,6 +260,39 @@ mod tests {
             default_encoder.as_ref(),
             new_encoder.as_ref(),
             "Default encoder should produce the same initial buffer as Encoder::new"
+        );
+    }
+
+    #[test]
+    fn encoder_put_i8_writes_expected_byte() {
+        const VALUE: i8 = -5;
+
+        let result = Encoder::new().put_i8(VALUE).finalize();
+
+        assert_eq!(
+            result.as_ref(),
+            &[VALUE as u8],
+            "Encoder should write the i8 byte representation correctly"
+        );
+    }
+
+    #[test]
+    fn finalize_should_not_clear_existing_buffer_contents() {
+        let mut encoder = Encoder::new();
+        encoder.put_u8(1);
+
+        let first = encoder.finalize();
+        let second = encoder.put_u8(2).finalize();
+
+        assert_eq!(
+            first.as_ref(),
+            &[1],
+            "The first finalize call should snapshot the current buffer"
+        );
+        assert_eq!(
+            second.as_ref(),
+            &[1, 2],
+            "Subsequent writes should append to the existing buffer state"
         );
     }
 }

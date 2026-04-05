@@ -27,11 +27,15 @@ pub enum DecoderError {
 /// a [`DecoderError`] if the buffer is incomplete or contains invalid data.
 ///
 /// # Example
-/// ```ignore
-/// let mut buffer: &[u8] = &received_bytes;
-/// let value: u16 = buffer.get_u16()?;
-/// let flag: bool = buffer.get_bool()?;
-/// let text: String = buffer.get_string()?;
+/// ```
+/// use suon_protocol::packets::decoder::Decoder;
+///
+/// let bytes = [7, 0, 1, 4, 0, b't', b'e', b's', b't'];
+/// let mut buffer: &[u8] = &bytes;
+///
+/// assert_eq!((&mut buffer).get_u16().unwrap(), 7);
+/// assert!((&mut buffer).get_bool().unwrap());
+/// assert_eq!((&mut buffer).get_string().unwrap(), "test");
 /// ```
 pub trait Decoder {
     fn get_bool(&mut self) -> Result<bool, DecoderError>;
@@ -473,5 +477,19 @@ mod tests {
         assert_eq!(buf.get_u32().expect("Should get u32"), U32_1234567890);
         assert_eq!(buf.get_string().expect("Should get string"), STRING);
         assert_eq!(buf.len(), 0, "Buffer should be empty");
+    }
+
+    #[test]
+    fn take_remaining_should_return_empty_slice_when_buffer_is_already_empty() {
+        let data = Vec::new();
+        let mut data: &mut &[u8] = &mut data.as_slice();
+
+        let remaining = data.take_remaining();
+
+        assert!(
+            remaining.is_empty(),
+            "take_remaining should yield an empty slice when no bytes remain"
+        );
+        assert_eq!(data.len(), 0, "The buffer should stay empty after take_remaining");
     }
 }
