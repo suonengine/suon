@@ -9,22 +9,47 @@ use std::collections::*;
 pub struct StepPath(VecDeque<StepDirection>);
 
 impl StepPath {
+    /// Appends a step direction to the back of the queue.
+    ///
+    /// # Examples
+    /// ```
+    /// use suon_movement::prelude::{StepDirection, StepPath};
+    ///
+    /// let mut path = StepPath::default();
+    /// path.push(StepDirection::North);
+    ///
+    /// assert_eq!(path.len(), 1);
+    /// ```
     pub fn push(&mut self, direction: StepDirection) {
         self.0.push_back(direction);
     }
 
+    /// Removes and returns the next queued direction from the front of the queue.
+    ///
+    /// # Examples
+    /// ```
+    /// use suon_movement::prelude::{StepDirection, StepPath};
+    ///
+    /// let mut path = StepPath::default();
+    /// path.push(StepDirection::East);
+    ///
+    /// assert_eq!(path.pop(), Some(StepDirection::East));
+    /// ```
     pub fn pop(&mut self) -> Option<StepDirection> {
         self.0.pop_front()
     }
 
+    /// Clears every queued step direction.
     pub fn clear(&mut self) {
         self.0.clear();
     }
 
+    /// Returns the number of queued directions.
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
+    /// Returns whether the path currently holds no queued directions.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -176,5 +201,24 @@ mod tests {
             path.is_empty(),
             "The path should return to an empty state once the final element has been popped"
         );
+    }
+
+    #[test]
+    fn should_report_length_changes_after_each_mutation() {
+        let mut path = StepPath::default();
+
+        assert_eq!(path.len(), 0, "A default path should start with zero directions");
+
+        path.push(StepDirection::North);
+        assert_eq!(path.len(), 1, "Pushing one direction should increase the length to one");
+
+        path.push(StepDirection::East);
+        assert_eq!(path.len(), 2, "Pushing a second direction should increase the length to two");
+
+        path.pop();
+        assert_eq!(path.len(), 1, "Popping one direction should decrease the length by one");
+
+        path.clear();
+        assert_eq!(path.len(), 0, "Clearing the path should remove every queued direction");
     }
 }

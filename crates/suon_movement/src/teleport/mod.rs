@@ -20,10 +20,12 @@ impl Plugin for TeleportPlugin {
 #[derive(EntityEvent)]
 /// Intent requesting direct relocation of the target entity.
 pub struct TeleportIntent {
+    /// Destination coordinate for the teleport.
     pub to: Position,
     /// Reserved for future floor changes during teleportation.
     pub floor: Option<Floor>,
     #[event_target]
+    /// Entity that should receive the teleport.
     entity: Entity,
 }
 
@@ -34,7 +36,9 @@ pub struct Teleport(Entity);
 #[derive(EntityEvent)]
 /// Event emitted when a teleport crosses from one chunk entity to another.
 pub struct TeleportAcrossChunk {
+    /// Chunk that previously contained the entity.
     pub from: Entity,
+    /// Chunk that now contains the entity after teleporting.
     pub to: Entity,
     #[event_target]
     entity: Entity,
@@ -214,6 +218,29 @@ mod tests {
         assert!(
             app.world().get::<PreviousPosition>(entity).is_none(),
             "Rejected teleports should not record a previous position"
+        );
+    }
+
+    #[test]
+    fn should_ignore_teleport_when_entity_has_no_position() {
+        let mut app = App::new();
+
+        app.add_plugins(ChunkPlugin);
+        app.add_observer(on_teleport_intent);
+
+        let entity = app.world_mut().spawn_empty().id();
+
+        app.world_mut().trigger(TeleportIntent {
+            to: Position { x: 2, y: 2 },
+            floor: None,
+            entity,
+        });
+
+        app.update();
+
+        assert!(
+            app.world().get::<PreviousPosition>(entity).is_none(),
+            "Teleport intents should no-op when the target entity has no current position"
         );
     }
 }

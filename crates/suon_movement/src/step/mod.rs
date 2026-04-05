@@ -26,8 +26,10 @@ impl Plugin for StepPlugin {
 #[derive(EntityEvent)]
 /// Intent requesting a one-tile movement for the target entity.
 pub struct StepIntent {
+    /// Direction to apply to the entity's current position.
     pub to: StepDirection,
     #[event_target]
+    /// Entity that should receive the step.
     pub entity: Entity,
 }
 
@@ -38,7 +40,9 @@ pub struct Step(Entity);
 #[derive(EntityEvent)]
 /// Event emitted when a step crosses from one chunk entity to another.
 pub struct StepAcrossChunk {
+    /// Chunk that previously contained the entity.
     pub from: Entity,
+    /// Chunk that now contains the entity after stepping.
     pub to: Entity,
     #[event_target]
     entity: Entity,
@@ -394,6 +398,28 @@ mod tests {
                 .expect("Position missing"),
             START_POSITION,
             "A no-op step direction should leave the position unchanged"
+        );
+    }
+
+    #[test]
+    fn should_ignore_step_intent_when_entity_has_no_position_or_floor() {
+        let mut app = App::new();
+
+        app.add_plugins(ChunkPlugin);
+        app.add_observer(on_step_intent);
+
+        let entity = app.world_mut().spawn_empty().id();
+
+        app.world_mut().trigger(StepIntent {
+            entity,
+            to: StepDirection::East,
+        });
+
+        app.update();
+
+        assert!(
+            app.world().get::<Position>(entity).is_none(),
+            "Entities without movement components should be ignored by step intents"
         );
     }
 }

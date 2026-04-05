@@ -21,6 +21,14 @@ pub enum StepDirection {
 
 impl StepDirection {
     /// Returns the `(dx, dy)` offset represented by this direction.
+    ///
+    /// # Examples
+    /// ```
+    /// use suon_movement::prelude::StepDirection;
+    ///
+    /// assert_eq!(StepDirection::North.offset(), (0, 1));
+    /// assert_eq!(StepDirection::SouthWest.offset(), (-1, -1));
+    /// ```
     pub fn offset(&self) -> (isize, isize) {
         match self {
             StepDirection::North => (0, 1),
@@ -284,6 +292,19 @@ mod tests {
             position,
             Position { x: 10, y: 10 },
             "SubAssign should reverse the effect of AddAssign for the same direction"
+        );
+    }
+
+    #[test]
+    fn should_reverse_add_and_sub_for_matching_direction() {
+        let start = Position { x: 12, y: 9 };
+        let stepped = start + StepDirection::SouthEast;
+
+        assert_eq!(
+            stepped - StepDirection::SouthEast,
+            start,
+            "Subtracting the same direction after stepping should restore the original position \
+             when no saturation occurs"
         );
     }
 }
