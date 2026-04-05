@@ -490,6 +490,10 @@ mod tests {
             remaining.is_empty(),
             "take_remaining should yield an empty slice when no bytes remain"
         );
-        assert_eq!(data.len(), 0, "The buffer should stay empty after take_remaining");
+        assert_eq!(
+            data.len(),
+            0,
+            "The buffer should stay empty after take_remaining"
+        );
     }
 }

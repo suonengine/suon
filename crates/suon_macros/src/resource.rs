@@ -104,8 +104,8 @@ mod tests {
 
     #[test]
     fn derive_table_supports_lifetime_and_type_generics() {
-        let input: DeriveInput = syn::parse_str("struct Borrowed<'a, T>(&'a T);")
-            .expect("Input should parse");
+        let input: DeriveInput =
+            syn::parse_str("struct Borrowed<'a, T>(&'a T);").expect("Input should parse");
         let output = expand_derive_table(input).to_string();
 
         assert!(

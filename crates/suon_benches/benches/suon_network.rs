@@ -59,7 +59,10 @@ fn benchmark_network_runtime_primitives(c: &mut Criterion) {
     group.bench_function("settings/packet_policy_default", |b| {
         b.iter(|| {
             let policy = PacketPolicy::default();
-            (policy.incoming.server_name_max_length, policy.outgoing.max_length)
+            (
+                policy.incoming.server_name_max_length,
+                policy.outgoing.max_length,
+            )
         })
     });
 

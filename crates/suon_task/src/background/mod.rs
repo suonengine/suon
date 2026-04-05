@@ -224,7 +224,7 @@ mod tests {
         let returned = app.add_background_task_systems::<Update, DummyTask>();
 
         assert!(
-            std::ptr::eq(returned, &mut app),
+            std::ptr::eq(returned, &app),
             "add_background_task_systems should support fluent chaining by returning the same App"
         );
     }

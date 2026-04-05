@@ -70,9 +70,13 @@ mod tests {
 
     #[test]
     fn should_clone_and_copy_floors_without_changing_z() {
+        fn clone_value<T: Clone>(value: &T) -> T {
+            value.clone()
+        }
+
         let original = Floor { z: 9 };
         let copied = original;
-        let cloned = original.clone();
+        let cloned = clone_value(&original);
 
         assert_eq!(copied, original, "Copy should preserve the floor value");
         assert_eq!(cloned, original, "Clone should preserve the floor value");

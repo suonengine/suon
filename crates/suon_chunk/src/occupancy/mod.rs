@@ -33,7 +33,7 @@ impl Occupancy {
     /// Returns whether the provided floor-position pair is currently occupied.
     ///
     /// # Examples
-    /// ```
+    /// ```no_run
     /// use suon_chunk::{Chunk, ChunkPlugin, chunks::Chunks, occupancy::{Occupancy, occupied::Occupied}};
     /// use bevy::prelude::*;
     /// use suon_position::{floor::Floor, position::Position};

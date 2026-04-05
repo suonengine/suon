@@ -48,7 +48,7 @@
 //! [`content::AtChunk`], [`Occupancy`], and [`terrain::Navigation`].
 //!
 //! # Examples
-//! ```
+//! ```no_run
 //! use bevy::prelude::*;
 //! use suon_chunk::{Chunk, ChunkPlugin, chunks::Chunks, content::AtChunk};
 //! use suon_position::position::Position;

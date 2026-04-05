@@ -312,7 +312,8 @@ mod tests {
             "The default incoming server-name limit should match the configured protocol bound"
         );
         assert_eq!(
-            policy.outgoing.max_length, 24 * 1024,
+            policy.outgoing.max_length,
+            24 * 1024,
             "The default outgoing packet limit should match the expected max payload size"
         );
         assert_eq!(

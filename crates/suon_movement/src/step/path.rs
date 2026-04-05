@@ -207,18 +207,38 @@ mod tests {
     fn should_report_length_changes_after_each_mutation() {
         let mut path = StepPath::default();
 
-        assert_eq!(path.len(), 0, "A default path should start with zero directions");
+        assert_eq!(
+            path.len(),
+            0,
+            "A default path should start with zero directions"
+        );
 
         path.push(StepDirection::North);
-        assert_eq!(path.len(), 1, "Pushing one direction should increase the length to one");
+        assert_eq!(
+            path.len(),
+            1,
+            "Pushing one direction should increase the length to one"
+        );
 
         path.push(StepDirection::East);
-        assert_eq!(path.len(), 2, "Pushing a second direction should increase the length to two");
+        assert_eq!(
+            path.len(),
+            2,
+            "Pushing a second direction should increase the length to two"
+        );
 
         path.pop();
-        assert_eq!(path.len(), 1, "Popping one direction should decrease the length by one");
+        assert_eq!(
+            path.len(),
+            1,
+            "Popping one direction should decrease the length by one"
+        );
 
         path.clear();
-        assert_eq!(path.len(), 0, "Clearing the path should remove every queued direction");
+        assert_eq!(
+            path.len(),
+            0,
+            "Clearing the path should remove every queued direction"
+        );
     }
 }

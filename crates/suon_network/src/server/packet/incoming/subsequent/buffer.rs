@@ -404,7 +404,8 @@ mod tests {
         assert_eq!(
             buffer.payload_len(),
             5,
-            "payload_len should expose the number of bytes currently stored in the subsequent buffer"
+            "payload_len should expose the number of bytes currently stored in the subsequent \
+             buffer"
         );
     }
 }

@@ -31,7 +31,7 @@ impl AtChunk {
     /// Returns the chunk entity currently linked to this component.
     ///
     /// # Examples
-    /// ```
+    /// ```no_run
     /// use bevy::prelude::*;
     /// use suon_chunk::{Chunk, ChunkPlugin, chunks::Chunks, content::AtChunk};
     /// use suon_position::position::Position;

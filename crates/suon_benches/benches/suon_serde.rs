@@ -23,12 +23,16 @@ fn benchmark_duration_serialize(c: &mut Criterion) {
             duration: Duration::from_millis(millis),
         };
 
-        group.bench_with_input(BenchmarkId::new("as_millis", millis), &millis_value, |b, value| {
-            b.iter(|| {
-                serde_json::to_string(black_box(value))
-                    .expect("Millis serialization should succeed")
-            })
-        });
+        group.bench_with_input(
+            BenchmarkId::new("as_millis", millis),
+            &millis_value,
+            |b, value| {
+                b.iter(|| {
+                    serde_json::to_string(black_box(value))
+                        .expect("Millis serialization should succeed")
+                })
+            },
+        );
     }
 
     for secs in [42u64, 600u64, 3_600u64] {
@@ -36,12 +40,16 @@ fn benchmark_duration_serialize(c: &mut Criterion) {
             duration: Duration::from_secs(secs),
         };
 
-        group.bench_with_input(BenchmarkId::new("as_secs", secs), &secs_value, |b, value| {
-            b.iter(|| {
-                serde_json::to_string(black_box(value))
-                    .expect("Seconds serialization should succeed")
-            })
-        });
+        group.bench_with_input(
+            BenchmarkId::new("as_secs", secs),
+            &secs_value,
+            |b, value| {
+                b.iter(|| {
+                    serde_json::to_string(black_box(value))
+                        .expect("Seconds serialization should succeed")
+                })
+            },
+        );
     }
 
     group.finish();

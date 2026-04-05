@@ -121,9 +121,13 @@ mod tests {
 
     #[test]
     fn should_clone_and_copy_positions_without_changing_coordinates() {
+        fn clone_value<T: Clone>(value: &T) -> T {
+            value.clone()
+        }
+
         let original = Position { x: 77, y: 88 };
         let copied = original;
-        let cloned = original.clone();
+        let cloned = clone_value(&original);
 
         assert_eq!(
             copied, original,

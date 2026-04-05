@@ -353,7 +353,7 @@ mod tests {
             .insert_database_table(MyTable { value: true });
 
         assert!(
-            std::ptr::eq(returned, &mut app),
+            std::ptr::eq(returned, &app),
             "AppTablesExt methods should return the same App reference for chaining"
         );
     }

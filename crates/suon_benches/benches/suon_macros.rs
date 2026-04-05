@@ -34,14 +34,18 @@ fn benchmark_derive_table(c: &mut Criterion) {
             "struct Borrowed<'a, T>(&'a T) where T: Send + Sync;",
         ),
     ] {
-        group.bench_with_input(BenchmarkId::new("derive_table_like", name), &source, |b, source| {
-            b.iter(|| {
-                let input = syn::parse_str::<DeriveInput>(black_box(source))
-                    .expect("Input should parse");
+        group.bench_with_input(
+            BenchmarkId::new("derive_table_like", name),
+            &source,
+            |b, source| {
+                b.iter(|| {
+                    let input = syn::parse_str::<DeriveInput>(black_box(source))
+                        .expect("Input should parse");
 
-                expand_like_derive_table(input)
-            })
-        });
+                    expand_like_derive_table(input)
+                })
+            },
+        );
     }
 
     group.bench_function("derive_table_like/parse_quote_input", |b| {

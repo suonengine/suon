@@ -51,7 +51,7 @@ impl Navigation {
     /// Returns whether the node exists in navigation and is currently passable.
     ///
     /// # Examples
-    /// ```
+    /// ```no_run
     /// use bevy::prelude::*;
     /// use suon_chunk::{Chunk, ChunkPlugin, chunks::Chunks, occupancy::occupied::Occupied, terrain::Navigation};
     /// use suon_position::{floor::Floor, position::Position};

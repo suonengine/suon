@@ -236,7 +236,8 @@ mod tests {
             duration: Duration::from_secs(321),
         };
 
-        let millis_json = serde_json::to_string(&millis).expect("Millis serialization should succeed");
+        let millis_json =
+            serde_json::to_string(&millis).expect("Millis serialization should succeed");
         let secs_json = serde_json::to_string(&secs).expect("Seconds serialization should succeed");
 
         let decoded_millis: MillisContainer =
