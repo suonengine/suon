@@ -143,6 +143,16 @@ impl Limiter {
     }
 }
 
+impl From<SessionQuota> for Limiter {
+    fn from(session_quota: SessionQuota) -> Self {
+        Self {
+            total_active: 0,
+            sessions: HashMap::new(),
+            session_quota,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -150,11 +160,7 @@ mod tests {
 
     impl Limiter {
         fn with_session_quota(session_quota: SessionQuota) -> Self {
-            Self {
-                session_quota,
-                total_active: 0,
-                sessions: HashMap::new(),
-            }
+            Self::from(session_quota)
         }
     }
 
@@ -278,6 +284,27 @@ mod tests {
             limiter.active_sessions_for_address(ADDRESS),
             0,
             "No active sessions should remain for the address"
+        );
+    }
+
+    #[test]
+    fn should_ignore_release_for_addresses_without_sessions() {
+        let mut limiter = Limiter::with_session_quota(SessionQuota {
+            max_total: 5,
+            max_per_address: 2,
+        });
+
+        limiter.release(ADDRESS);
+
+        assert_eq!(
+            limiter.total_active_sessions(),
+            0,
+            "Releasing an unknown address should not change the total active session count"
+        );
+        assert_eq!(
+            limiter.active_sessions_for_address(ADDRESS),
+            0,
+            "Releasing an unknown address should keep the per-address count at zero"
         );
     }
 }

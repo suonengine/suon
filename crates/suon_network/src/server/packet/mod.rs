@@ -217,4 +217,33 @@ mod tests {
 
         assert_eq!(decoded, PingLatencyPacket);
     }
+
+    #[test]
+    fn should_expose_packet_metadata_through_getters() {
+        let timestamp = Instant::now();
+        let checksum = suon_checksum::Adler32Checksum::from(0xABCD1234);
+        let packet = Packet {
+            client: Entity::from_bits(42),
+            timestamp,
+            checksum: Some(checksum),
+            kind: PacketKind::KeepAlive,
+            buffer: Bytes::new(),
+        };
+
+        assert_eq!(
+            packet.client(),
+            Entity::from_bits(42),
+            "client should expose the entity that produced the packet"
+        );
+        assert_eq!(
+            packet.timestamp(),
+            timestamp,
+            "timestamp should expose the reception instant stored in the packet"
+        );
+        assert_eq!(
+            packet.checksum(),
+            Some(checksum),
+            "checksum should return the stored packet checksum when one is present"
+        );
+    }
 }

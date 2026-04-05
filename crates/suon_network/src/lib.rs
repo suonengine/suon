@@ -1,4 +1,16 @@
 //! Networking plugins and server infrastructure for Suon.
+//!
+//! # Examples
+//! ```
+//! use bevy::prelude::*;
+//! use suon_network::NetworkPlugins;
+//!
+//! let mut app = App::new();
+//! app.add_plugins(MinimalPlugins);
+//! app.add_plugins(NetworkPlugins);
+//!
+//! assert_eq!(std::mem::size_of::<NetworkPlugins>(), 0);
+//! ```
 
 use bevy::{app::PluginGroupBuilder, prelude::*};
 
@@ -6,6 +18,7 @@ use crate::server::NetworkServerPlugin;
 
 pub mod server;
 
+/// Plugin group that installs the Suon networking server runtime.
 pub struct NetworkPlugins;
 
 impl PluginGroup for NetworkPlugins {

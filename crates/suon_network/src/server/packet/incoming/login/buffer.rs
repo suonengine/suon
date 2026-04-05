@@ -339,4 +339,17 @@ mod tests {
             }
         ));
     }
+
+    #[test]
+    fn should_report_login_buffer_length_after_truncation() {
+        let mut buffer = PacketBuffer::with_capacity(16);
+        buffer.payload_mut()[..5].copy_from_slice(b"hello");
+        buffer.truncate(5);
+
+        assert_eq!(
+            buffer.payload_len(),
+            5,
+            "payload_len should expose the number of bytes currently stored in the login buffer"
+        );
+    }
 }

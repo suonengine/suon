@@ -208,4 +208,17 @@ mod tests {
             "Buffers without a newline terminator should remain incomplete"
         );
     }
+
+    #[test]
+    fn should_report_payload_length_after_truncation() {
+        let mut buffer = PacketBuffer::with_capacity(8);
+        buffer.payload_mut()[..4].copy_from_slice(b"abcd");
+        buffer.truncate(4);
+
+        assert_eq!(
+            buffer.payload_len(),
+            4,
+            "payload_len should reflect the currently retained payload size"
+        );
+    }
 }

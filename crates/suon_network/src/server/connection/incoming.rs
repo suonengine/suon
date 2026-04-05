@@ -48,4 +48,48 @@ mod tests {
             "Reading from an empty channel should return no queued connections"
         );
     }
+
+    #[test]
+    fn should_queue_and_drain_incoming_connections() {
+        smol::block_on(async {
+            let listener = smol::net::TcpListener::bind(("127.0.0.1", 0))
+                .await
+                .expect("The test listener should bind successfully");
+            let address = listener
+                .local_addr()
+                .expect("The test listener should expose a local address");
+
+            let accept_task = smol::spawn(async move {
+                let (stream, _) = listener
+                    .accept()
+                    .await
+                    .expect("The test listener should accept one client");
+                stream
+            });
+
+            let client = smol::net::TcpStream::connect(address)
+                .await
+                .expect("The test client should connect successfully");
+            let server_stream = accept_task.await;
+
+            let connections = IncomingConnections::default();
+            connections
+                .send(server_stream)
+                .expect("The queue should accept incoming connections");
+
+            let queued = connections.read();
+
+            assert_eq!(
+                queued.len(),
+                1,
+                "read should drain the queued incoming connection"
+            );
+            assert!(
+                connections.read().is_empty(),
+                "Reading again should return an empty list after the queue is drained"
+            );
+
+            drop(client);
+        });
+    }
 }

@@ -288,4 +288,37 @@ mod tests {
             "Serialized settings should preserve the session quota"
         );
     }
+
+    #[test]
+    fn should_expose_expected_default_session_quota() {
+        let quota = SessionQuota::default();
+
+        assert_eq!(
+            quota.max_total, 50,
+            "The default total session quota should match the intended server capacity"
+        );
+        assert_eq!(
+            quota.max_per_address, 2,
+            "The default per-address quota should keep individual clients bounded"
+        );
+    }
+
+    #[test]
+    fn should_expose_expected_default_packet_policies() {
+        let policy = PacketPolicy::default();
+
+        assert_eq!(
+            policy.incoming.server_name_max_length, 256,
+            "The default incoming server-name limit should match the configured protocol bound"
+        );
+        assert_eq!(
+            policy.outgoing.max_length, 24 * 1024,
+            "The default outgoing packet limit should match the expected max payload size"
+        );
+        assert_eq!(
+            policy.incoming.overflow_penalty,
+            PacketPolicyPenalty::Disconnect,
+            "Incoming packet overflow should default to disconnecting abusive sessions"
+        );
+    }
 }

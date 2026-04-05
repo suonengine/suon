@@ -52,4 +52,31 @@ mod tests {
             "Reading from an empty channel should return no queued connections"
         );
     }
+
+    #[test]
+    fn should_queue_and_drain_outgoing_connections() {
+        let connections = OutgoingConnections::default();
+        let queued_connection = (
+            Entity::from_bits(99),
+            "127.0.0.1:7172"
+                .parse()
+                .expect("The test socket address should parse"),
+        );
+
+        connections
+            .send(queued_connection)
+            .expect("The queue should accept outgoing connections");
+
+        let queued = connections.read();
+
+        assert_eq!(
+            queued,
+            vec![queued_connection],
+            "read should return the queued outgoing connection in insertion order"
+        );
+        assert!(
+            connections.read().is_empty(),
+            "Reading again should return an empty list after the queue is drained"
+        );
+    }
 }
