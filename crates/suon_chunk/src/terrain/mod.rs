@@ -9,8 +9,6 @@ use enumflags2::{BitFlags, bitflags};
 use std::collections::*;
 use suon_position::{floor::Floor, position::Position};
 
-pub mod occupied;
-
 #[bitflags]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -50,7 +48,7 @@ impl Navigation {
 
     /// Returns whether the node exists in navigation and is currently passable.
     pub fn is_passable(&self, floor: Floor, position: Position) -> bool {
-        self.nodes.get(&(floor, position)).map_or(false, |flags| {
+        self.nodes.get(&(floor, position)).is_some_and(|flags| {
             flags.contains(NavigationState::Registered)
                 && !flags.contains(NavigationState::Occupied)
         })

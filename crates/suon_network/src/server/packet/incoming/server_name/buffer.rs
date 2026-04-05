@@ -152,3 +152,60 @@ impl PacketBuffer {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::server::packet::PACKET_HEADER_SIZE;
+
+    #[test]
+    fn should_build_server_name_packet_when_newline_is_present() {
+        let mut buffer = PacketBuffer::with_capacity(16);
+        buffer.payload_mut()[..5].copy_from_slice(b"abc\n\0");
+        buffer.truncate(4);
+
+        let packet = buffer
+            .take_packet()
+            .expect("A newline-terminated payload should finalize into a packet");
+
+        assert_eq!(packet.kind, PacketKind::ServerName);
+        assert_eq!(&packet.buffer[..2], &[3, 0]);
+
+        assert_eq!(
+            &packet.buffer[PACKET_HEADER_SIZE..],
+            b"abc",
+            "The newline terminator should be removed from the finalized payload"
+        );
+    }
+
+    #[test]
+    fn should_emit_special_empty_packet_once() {
+        let mut buffer = PacketBuffer::with_capacity(8);
+        buffer.payload_mut()[..2].copy_from_slice(&[0, 1]);
+        buffer.truncate(2);
+
+        let packet = buffer
+            .take_packet()
+            .expect("The special empty packet pattern should be accepted once");
+
+        assert_eq!(packet.kind, PacketKind::ServerName);
+
+        assert_eq!(
+            &packet.buffer[..2],
+            &[2, 0],
+            "The emitted packet should carry the payload length prefix"
+        );
+    }
+
+    #[test]
+    fn should_return_none_when_terminator_is_missing() {
+        let mut buffer = PacketBuffer::with_capacity(8);
+        buffer.payload_mut()[..3].copy_from_slice(b"abc");
+        buffer.truncate(3);
+
+        assert!(
+            buffer.take_packet().is_none(),
+            "Buffers without a newline terminator should remain incomplete"
+        );
+    }
+}

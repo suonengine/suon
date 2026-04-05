@@ -1,0 +1,71 @@
+[package]
+name = "suon_benches"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+bevy.workspace = true
+bytes.workspace = true
+criterion.workspace = true
+quote.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true, features = ["std"] }
+syn = { workspace = true, features = ["derive", "parsing", "printing", "proc-macro"] }
+
+suon_checksum.workspace = true
+suon_chunk.workspace = true
+suon_database.workspace = true
+suon_macros.workspace = true
+suon_movement.workspace = true
+suon_network.workspace = true
+suon_position.workspace = true
+suon_protocol.workspace = true
+suon_serde.workspace = true
+suon_task.workspace = true
+suon_xtea.workspace = true
+
+[[bench]]
+name = "suon_checksum"
+harness = false
+
+[[bench]]
+name = "suon_chunk"
+harness = false
+
+[[bench]]
+name = "suon_database"
+harness = false
+
+[[bench]]
+name = "suon_macros"
+harness = false
+
+[[bench]]
+name = "suon_movement"
+harness = false
+
+[[bench]]
+name = "suon_network"
+harness = false
+
+[[bench]]
+name = "suon_position"
+harness = false
+
+[[bench]]
+name = "suon_protocol"
+harness = false
+
+[[bench]]
+name = "suon_serde"
+harness = false
+
+[[bench]]
+name = "suon_task"
+harness = false
+
+[[bench]]
+name = "suon_xtea"
+harness = false

@@ -8,3 +8,20 @@ use bevy::prelude::*;
 #[derive(Resource, Default)]
 /// Resource reserved for future chunk loading orchestration.
 pub struct ChunkLoader {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_create_default_chunk_loader_resource() {
+        let mut world = World::new();
+
+        world.init_resource::<ChunkLoader>();
+
+        assert!(
+            world.contains_resource::<ChunkLoader>(),
+            "ChunkLoader should be constructible as a default Bevy resource"
+        );
+    }
+}

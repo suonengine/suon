@@ -124,3 +124,97 @@ impl Packet {
         Ok(packet)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Debug, PartialEq, Eq)]
+    struct PingLatencyPacket;
+
+    impl Decodable for PingLatencyPacket {
+        const KIND: PacketKind = PacketKind::PingLatency;
+
+        fn decode(bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+            if bytes.is_empty() {
+                return Err(DecodableError::Decoder(
+                    suon_protocol::packets::decoder::DecoderError::Incomplete {
+                        expected: 1,
+                        available: 0,
+                    },
+                ));
+            }
+
+            *bytes = &bytes[1..];
+
+            Ok(Self)
+        }
+    }
+
+    fn build_packet(kind: PacketKind, buffer: &[u8]) -> Packet {
+        Packet {
+            client: Entity::from_bits(7),
+            timestamp: Instant::now(),
+            checksum: None,
+            kind,
+            buffer: Bytes::copy_from_slice(buffer),
+        }
+    }
+
+    #[test]
+    fn should_reject_packets_with_mismatched_kinds() {
+        let packet = build_packet(PacketKind::KeepAlive, &[1]);
+
+        let error = packet
+            .decode::<PingLatencyPacket>()
+            .expect_err("Packets should reject decoders for a different packet kind");
+
+        assert!(matches!(
+            error,
+            DecodeError::KindMismatch {
+                expected: PacketKind::PingLatency,
+                found: PacketKind::KeepAlive
+            }
+        ));
+    }
+
+    #[test]
+    fn should_surface_decoder_failures() {
+        let packet = build_packet(PacketKind::PingLatency, &[]);
+
+        let error = packet
+            .decode::<PingLatencyPacket>()
+            .expect_err("Decoder errors should be surfaced to callers");
+
+        assert!(matches!(
+            error,
+            DecodeError::Decodable(DecodableError::Decoder(
+                suon_protocol::packets::decoder::DecoderError::Incomplete {
+                    expected: 1,
+                    available: 0
+                }
+            ))
+        ));
+    }
+
+    #[test]
+    fn should_reject_packets_with_extra_bytes_after_decoding() {
+        let packet = build_packet(PacketKind::PingLatency, &[1, 2]);
+
+        let error = packet
+            .decode::<PingLatencyPacket>()
+            .expect_err("Packets should reject decoders that leave unread bytes behind");
+
+        assert!(matches!(error, DecodeError::ExtraBytes(1)));
+    }
+
+    #[test]
+    fn should_decode_packets_when_kind_and_payload_match() {
+        let packet = build_packet(PacketKind::PingLatency, &[1]);
+        let decoded = packet
+            .decode::<PingLatencyPacket>()
+            .expect("Matching packets should decode successfully");
+
+        assert_eq!(decoded, PingLatencyPacket);
+    }
+}

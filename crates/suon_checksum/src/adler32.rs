@@ -115,29 +115,21 @@ impl std::fmt::Display for Adler32Checksum {
 mod tests {
     use super::*;
 
+    const SAMPLE_DATA: &[u8] = b"Hello Checksum!";
+
     #[test]
-    fn test_adler32_checksum_computation_with_sample_data() {
-        // Sample data for checksum calculation
-        const TEST_DATA: &[u8] = b"Hello Checksum!";
-
-        // Calculate the Adler-32 checksum
-        let checksum = Adler32Checksum::calculate(TEST_DATA);
-
-        // Retrieve the checksum value as u32
+    fn should_compute_checksum_for_sample_data() {
+        let checksum = Adler32Checksum::calculate(SAMPLE_DATA);
         let checksum_value: u32 = *checksum;
+        let (low_16_bits, high_16_bits) = checksum.components();
+        let recombined_checksum = ((high_16_bits as u32) << 16) | (low_16_bits as u32);
 
-        // Ensure the checksum differs from the initial value
         assert_ne!(
             checksum_value,
             Adler32Checksum::INITIAL,
             "Checksum should be different from the initial value for non-empty data"
         );
 
-        // Split checksum into 16-bit low and high parts
-        let (low_16_bits, high_16_bits) = checksum.components();
-
-        // Recombine the components to verify integrity
-        let recombined_checksum = ((high_16_bits as u32) << 16) | (low_16_bits as u32);
         assert_eq!(
             recombined_checksum, checksum_value,
             "Recombined value should match the original checksum"
@@ -145,21 +137,17 @@ mod tests {
     }
 
     #[test]
-    fn test_adler32_checksum_with_empty_data_returns_initial() {
-        // Empty input data
+    fn should_return_initial_checksum_for_empty_data() {
         const EMPTY_DATA: &[u8] = b"";
 
-        // Calculate checksum for empty data
         let checksum = Adler32Checksum::calculate(EMPTY_DATA);
 
-        // Verify that checksum equals the initial value
         assert_eq!(
             *checksum,
             Adler32Checksum::INITIAL,
             "Checksum for empty data should be the initial value"
         );
 
-        // Confirm that is_initial() returns true
         assert!(
             checksum.is_initial(),
             "is_initial() should return true for the initial checksum"
@@ -167,17 +155,10 @@ mod tests {
     }
 
     #[test]
-    fn test_checksum_from_slice_trait() {
-        // Sample input data slice
-        const INPUT_SLICE: &[u8] = b"Hello Checksum!";
+    fn should_build_checksum_from_slice() {
+        let checksum_from_slice = Adler32Checksum::from(SAMPLE_DATA);
+        let expected_checksum = Adler32Checksum::calculate(SAMPLE_DATA);
 
-        // Create checksum from slice
-        let checksum_from_slice = Adler32Checksum::from(INPUT_SLICE);
-
-        // Calculate expected checksum directly
-        let expected_checksum = Adler32Checksum::calculate(INPUT_SLICE);
-
-        // Verify both methods produce the same result
         assert_eq!(
             checksum_from_slice, expected_checksum,
             "Checksum from slice should match direct calculation"
@@ -185,18 +166,11 @@ mod tests {
     }
 
     #[test]
-    fn test_checksum_from_vec_trait() {
-        // Sample data as Vec<u8>
-        const INPUT_DATA: &[u8] = b"Hello Checksum!";
-        let data_vec: Vec<u8> = INPUT_DATA.to_vec();
-
-        // Create checksum from Vec
+    fn should_build_checksum_from_vec() {
+        let data_vec: Vec<u8> = SAMPLE_DATA.to_vec();
         let checksum_from_vec = Adler32Checksum::from(data_vec);
+        let expected_checksum = Adler32Checksum::calculate(SAMPLE_DATA);
 
-        // Calculate expected checksum directly
-        let expected_checksum = Adler32Checksum::calculate(INPUT_DATA);
-
-        // Verify both results match
         assert_eq!(
             checksum_from_vec, expected_checksum,
             "Checksum from Vec should match direct calculation"
@@ -204,17 +178,12 @@ mod tests {
     }
 
     #[test]
-    fn test_checksum_from_array_trait() {
-        // Fixed-size array data
+    fn should_build_checksum_from_array() {
         const ARRAY_DATA: &[u8; 15] = b"Hello Checksum!";
 
-        // Create checksum from array
         let checksum_from_array = Adler32Checksum::from(ARRAY_DATA);
-
-        // Calculate checksum directly
         let expected_checksum = Adler32Checksum::calculate(ARRAY_DATA);
 
-        // Results should match
         assert_eq!(
             checksum_from_array, expected_checksum,
             "Checksum from array should match direct calculation"
@@ -222,22 +191,16 @@ mod tests {
     }
 
     #[test]
-    fn test_display_trait_formats_checksum_as_uppercase_hex() {
-        // Sample data for checksum
-        const SAMPLE_DATA: &[u8] = b"Hello Checksum!";
-
-        // Calculate checksum
+    fn should_format_checksum_as_uppercase_hex() {
         let checksum = Adler32Checksum::calculate(SAMPLE_DATA);
-
-        // Format checksum as uppercase hexadecimal string
         let formatted_checksum = format!("{}", checksum);
 
-        // Check string length and uppercase formatting
         assert_eq!(
             formatted_checksum.len(),
             8,
             "Formatted checksum should be 8 characters long"
         );
+
         assert_eq!(
             formatted_checksum,
             formatted_checksum.to_uppercase(),
@@ -246,23 +209,50 @@ mod tests {
     }
 
     #[test]
-    fn test_components_and_recombine() {
-        // Sample data
-        const SAMPLE_DATA: &[u8] = b"Hello Checksum!";
-
-        // Calculate checksum
+    fn should_split_components_and_recombine_them() {
         let checksum = Adler32Checksum::calculate(SAMPLE_DATA);
-
-        // Split into 16-bit parts
         let (low_16_bits, high_16_bits) = checksum.components();
-
-        // Recombine to verify correctness
         let recombined_checksum = ((high_16_bits as u32) << 16) | (low_16_bits as u32);
 
-        // Confirm recombined value matches original checksum
         assert_eq!(
             recombined_checksum, *checksum,
             "Recombined value should match the original checksum"
+        );
+    }
+
+    #[test]
+    fn should_match_known_adler32_value_for_hello() {
+        const HELLO: &[u8] = b"hello";
+        const EXPECTED: u32 = 0x062C0215;
+
+        let checksum = Adler32Checksum::calculate(HELLO);
+
+        assert_eq!(
+            *checksum, EXPECTED,
+            "The checksum should match the known Adler-32 value for \"hello\""
+        );
+    }
+
+    #[test]
+    fn should_preserve_components_and_initial_state_when_built_from_u32() {
+        const RAW: u32 = 0xABCD1234;
+
+        let checksum = Adler32Checksum::from(RAW);
+
+        assert_eq!(
+            *checksum, RAW,
+            "Converting from u32 should preserve the raw checksum value"
+        );
+
+        assert_eq!(
+            checksum.components(),
+            (0x1234, 0xABCD),
+            "components should split the low and high 16-bit halves correctly"
+        );
+
+        assert!(
+            !checksum.is_initial(),
+            "A non-initial raw checksum value should not report as initial"
         );
     }
 }

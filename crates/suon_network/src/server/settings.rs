@@ -249,3 +249,43 @@ impl Default for OutgoingPacketPolicy {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_settings_use_expected_localhost_address_and_port() {
+        let settings = Settings::default();
+
+        assert_eq!(
+            settings.address,
+            SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 7172)),
+            "Default settings should bind to the expected localhost address"
+        );
+    }
+
+    #[test]
+    fn settings_roundtrip_through_toml() {
+        let settings = Settings::default();
+        let serialized =
+            toml::to_string(&settings).expect("Default settings should serialize to TOML");
+        let deserialized: Settings =
+            toml::from_str(&serialized).expect("Serialized settings should parse back");
+
+        assert_eq!(
+            deserialized.address, settings.address,
+            "Serialized settings should preserve the bind address"
+        );
+
+        assert_eq!(
+            deserialized.use_nagle_algorithm, settings.use_nagle_algorithm,
+            "Serialized settings should preserve Nagle configuration"
+        );
+
+        assert_eq!(
+            deserialized.session_quota.max_total, settings.session_quota.max_total,
+            "Serialized settings should preserve the session quota"
+        );
+    }
+}

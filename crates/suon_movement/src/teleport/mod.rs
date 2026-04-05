@@ -93,7 +93,7 @@ fn on_teleport_intent(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use suon_chunk::{content::AtChunk, Chunk, ChunkPlugin, CHUNK_SIZE};
+    use suon_chunk::{CHUNK_SIZE, Chunk, ChunkPlugin, content::AtChunk};
 
     #[test]
     fn should_update_position_on_successful_teleport() {
@@ -110,7 +110,10 @@ mod tests {
 
         let start_chunk = app.world_mut().spawn(Chunk).id();
         let target_chunk = app.world_mut().spawn(Chunk).id();
-        app.insert_resource(Chunks::from_iter([(START, start_chunk), (TARGET, target_chunk)]));
+        app.insert_resource(Chunks::from_iter([
+            (START, start_chunk),
+            (TARGET, target_chunk),
+        ]));
 
         let entity = app.world_mut().spawn(START).id();
 
@@ -124,7 +127,9 @@ mod tests {
         app.update();
 
         assert_eq!(
-            *app.world().get::<Position>(entity).expect("Position missing"),
+            *app.world()
+                .get::<Position>(entity)
+                .expect("Position missing"),
             TARGET,
             "Teleport should move the entity directly to the requested target coordinate"
         );
@@ -140,10 +145,7 @@ mod tests {
             "Teleport should preserve the previous coordinate for downstream sync"
         );
 
-        let at_chunk = app
-            .world()
-            .get::<AtChunk>(entity)
-            .expect("AtChunk missing");
+        let at_chunk = app.world().get::<AtChunk>(entity).expect("AtChunk missing");
 
         assert_eq!(
             at_chunk.entity(),
@@ -202,7 +204,9 @@ mod tests {
         app.update();
 
         assert_eq!(
-            *app.world().get::<Position>(entity).expect("Position missing"),
+            *app.world()
+                .get::<Position>(entity)
+                .expect("Position missing"),
             START,
             "Teleport should not move entities into unmapped chunk space"
         );

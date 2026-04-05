@@ -1,3 +1,5 @@
+//! Duration serialization adapters.
+
 /// Module for serializing and deserializing `Duration` as milliseconds.
 pub mod as_millis {
     use serde::{Deserialize, Deserializer, Serializer};
@@ -47,6 +49,10 @@ pub mod as_secs {
 }
 #[cfg(test)]
 mod tests {
+    use crate::duration::{as_millis, as_secs};
+    use serde::{Deserialize, Serialize};
+    use std::time::Duration;
+
     mod millis {
         use super::super::as_millis;
         use serde::{Deserialize, Serialize};
@@ -60,31 +66,24 @@ mod tests {
         }
 
         #[test]
-        fn serialize_duration_as_milliseconds() {
-            // Define a constant test value in milliseconds
+        fn should_serialize_duration_as_milliseconds() {
             const TEST_MILLIS: u64 = 1234;
             const VALUE: TestStruct = TestStruct {
                 duration: Duration::from_millis(TEST_MILLIS),
             };
 
-            // Serialize the struct to JSON
             let serialized = serde_json::to_string(&VALUE).unwrap();
 
-            // Ensure the JSON string contains the correct millisecond value
             assert_eq!(serialized, format!(r#"{{"duration":{}}}"#, TEST_MILLIS));
         }
 
         #[test]
-        fn deserialize_duration_from_milliseconds() {
-            // Define a constant JSON input value
+        fn should_deserialize_duration_from_milliseconds() {
             const JSON_MILLIS: u64 = 5678;
 
             let json_input = format!(r#"{{"duration":{}}}"#, JSON_MILLIS);
-
-            // Deserialize the JSON into a TestStruct
             let result: TestStruct = serde_json::from_str(&json_input).unwrap();
 
-            // Verify the deserialized duration matches the expected value
             assert_eq!(result.duration, Duration::from_millis(JSON_MILLIS));
         }
     }
@@ -102,32 +101,83 @@ mod tests {
         }
 
         #[test]
-        fn serialize_duration_as_seconds() {
-            // Define a constant test value in seconds
+        fn should_serialize_duration_as_seconds() {
             const TEST_SECS: u64 = 42;
             const VALUE: TestStruct = TestStruct {
                 duration: Duration::from_secs(TEST_SECS),
             };
 
-            // Serialize the struct to JSON
             let serialized = serde_json::to_string(&VALUE).unwrap();
 
-            // Ensure the JSON string contains the correct second value
             assert_eq!(serialized, format!(r#"{{"duration":{}}}"#, TEST_SECS));
         }
 
         #[test]
-        fn deserialize_duration_from_seconds() {
-            // Define a constant JSON input value in seconds
+        fn should_deserialize_duration_from_seconds() {
             const JSON_SECS: u64 = 99;
 
             let json_input: String = format!(r#"{{"duration":{}}}"#, JSON_SECS);
-
-            // Deserialize the JSON into a TestStruct
             let result: TestStruct = serde_json::from_str(&json_input).unwrap();
 
-            // Verify the deserialized duration matches the expected value
             assert_eq!(result.duration, Duration::from_secs(JSON_SECS));
         }
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct MillisContainer {
+        #[serde(with = "as_millis")]
+        duration: Duration,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct SecsContainer {
+        #[serde(with = "as_secs")]
+        duration: Duration,
+    }
+
+    #[test]
+    fn millis_serialization_truncates_sub_millisecond_precision() {
+        let value = MillisContainer {
+            duration: Duration::from_nanos(1_999_999),
+        };
+
+        let serialized = serde_json::to_string(&value).expect("Serialization should succeed");
+
+        assert_eq!(
+            serialized, r#"{"duration":1}"#,
+            "as_millis should truncate sub-millisecond precision during serialization"
+        );
+    }
+
+    #[test]
+    fn secs_serialization_truncates_subsecond_precision() {
+        let value = SecsContainer {
+            duration: Duration::from_millis(1_999),
+        };
+
+        let serialized = serde_json::to_string(&value).expect("Serialization should succeed");
+
+        assert_eq!(
+            serialized, r#"{"duration":1}"#,
+            "as_secs should truncate subsecond precision during serialization"
+        );
+    }
+
+    #[test]
+    fn duration_deserialization_rejects_invalid_json_type() {
+        let millis_error =
+            serde_json::from_str::<MillisContainer>(r#"{"duration":"fast"}"#).unwrap_err();
+        let secs_error =
+            serde_json::from_str::<SecsContainer>(r#"{"duration":"slow"}"#).unwrap_err();
+
+        assert!(
+            !millis_error.to_string().is_empty(),
+            "Millis deserialization should fail for non-numeric JSON values"
+        );
+
+        assert!(
+            !secs_error.to_string().is_empty(),
+            "Seconds deserialization should fail for non-numeric JSON values"
+        );
     }
 }

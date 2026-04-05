@@ -1,3 +1,5 @@
+//! Entity-bound background task helpers.
+
 use bevy::{
     ecs::system::SystemId,
     prelude::*,
@@ -159,6 +161,22 @@ pub(crate) fn check_completed_entity_tasks<C: BackgroundTask>(
 mod tests {
     use super::*;
 
+    fn run_until_entity_tasks_finish<T: BackgroundTask>(app: &mut App) {
+        loop {
+            app.update();
+
+            let remaining = app
+                .world_mut()
+                .query::<&EntityTaskTracker<T>>()
+                .iter(app.world())
+                .count();
+
+            if remaining == 0 {
+                break;
+            }
+        }
+    }
+
     #[test]
     fn test_spawn_entity_background_task_with_system_callback() {
         use std::sync::{Arc, Mutex};
@@ -196,21 +214,7 @@ mod tests {
         // Add a system to process completed entity tasks
         app.add_systems(Update, check_completed_entity_tasks::<DummyTask>);
 
-        // Loop until the background task completes
-        loop {
-            app.update();
-
-            // Check if any entities still have the task tracker component
-            let remaining = app
-                .world_mut()
-                .query::<&EntityTaskTracker<DummyTask>>()
-                .iter(app.world())
-                .count();
-
-            if remaining == 0 {
-                break; // All tasks completed and trackers removed
-            }
-        }
+        run_until_entity_tasks_finish::<DummyTask>(&mut app);
 
         // Validate that the callback was invoked and received the expected value
         let result = callback_result.lock().unwrap();
@@ -258,21 +262,7 @@ mod tests {
         // Add a system to monitor task completion and cleanup
         app.add_systems(Update, check_completed_entity_tasks::<SimpleTask>);
 
-        // Loop until the background task completes
-        loop {
-            app.update();
-
-            // Check if any entities still have the task tracker component
-            let remaining = app
-                .world_mut()
-                .query::<&EntityTaskTracker<SimpleTask>>()
-                .iter(app.world())
-                .count();
-
-            if remaining == 0 {
-                break; // All tasks completed and trackers removed
-            }
-        }
+        run_until_entity_tasks_finish::<SimpleTask>(&mut app);
 
         // Assert that the task tracker component has been cleaned up from the entity
         assert!(
@@ -337,21 +327,7 @@ mod tests {
         // Add system to monitor and process completed tasks
         app.add_systems(Update, check_completed_entity_tasks::<DelayedEntityTask>);
 
-        // Run until all tasks have completed
-        loop {
-            app.update();
-
-            // Count how many entities still have pending task trackers
-            let remaining = app
-                .world_mut()
-                .query::<&EntityTaskTracker<DelayedEntityTask>>()
-                .iter(app.world())
-                .count();
-
-            if remaining == 0 {
-                break; // All tasks completed
-            }
-        }
+        run_until_entity_tasks_finish::<DelayedEntityTask>(&mut app);
 
         // Collect and verify all callback results
         let results_vec = results.lock().unwrap().clone();
@@ -359,6 +335,36 @@ mod tests {
         assert_eq!(
             results_vec, entities,
             "Results from callbacks do not match expected values"
+        );
+    }
+
+    #[test]
+    fn test_spawn_entity_background_task_without_callback_still_cleans_up_tracker() {
+        struct ImmediateTask;
+
+        impl BackgroundTask for ImmediateTask {
+            type Output = ();
+
+            async fn run(self) -> Self::Output {}
+        }
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_systems(Update, check_completed_entity_tasks::<ImmediateTask>);
+
+        let entity = app
+            .world_mut()
+            .spawn_empty()
+            .spawn_background_task(ImmediateTask)
+            .id();
+
+        run_until_entity_tasks_finish::<ImmediateTask>(&mut app);
+
+        assert!(
+            !app.world()
+                .entity(entity)
+                .contains::<EntityTaskTracker<ImmediateTask>>(),
+            "Entity trackers should still be removed when no completion callback is registered"
         );
     }
 }

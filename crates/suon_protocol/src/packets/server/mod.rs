@@ -21,10 +21,10 @@ pub mod prelude {
 /// include a kind identifier via [`PacketKind`] when transmitted.
 ///
 /// # Associated Constant
-/// - [`KIND`]: The unique [`PacketKind`] that identifies this packet type.
+/// - [`Self::KIND`]: The unique [`PacketKind`] that identifies this packet type.
 ///
 /// # Methods
-/// - [`encode`]: Encodes the packet’s payload into a `Bytes` buffer.
+/// - [`Self::encode`]: Encodes the packet payload into a [`Bytes`] buffer.
 ///
 /// # Example
 /// ```ignore

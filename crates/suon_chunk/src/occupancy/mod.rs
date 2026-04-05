@@ -77,10 +77,10 @@ pub(crate) fn sync_occupancy_unregister(
         return;
     };
 
-    if let Some(chunk) = chunks.get(position) {
-        if let Ok(mut occupancy) = occupancies.get_mut(chunk) {
-            occupancy.release(floor, position);
-        }
+    if let Some(chunk) = chunks.get(position)
+        && let Ok(mut occupancy) = occupancies.get_mut(chunk)
+    {
+        occupancy.release(floor, position);
     }
 
     let Some(previous_position) = previous_position else {
@@ -96,10 +96,10 @@ pub(crate) fn sync_occupancy_unregister(
         return;
     }
 
-    if let Some(previous_chunk) = chunks.get(&previous_position) {
-        if let Ok(mut occupancy) = occupancies.get_mut(previous_chunk) {
-            occupancy.release(floor, &previous_position);
-        }
+    if let Some(previous_chunk) = chunks.get(&previous_position)
+        && let Ok(mut occupancy) = occupancies.get_mut(previous_chunk)
+    {
+        occupancy.release(floor, &previous_position);
     }
 }
 
@@ -123,10 +123,10 @@ pub(crate) fn resync_occupied_positions(
         y: previous_position.y,
     };
 
-    if let Some(previous_chunk) = chunks.get(&previous_position) {
-        if let Ok(mut occupancy) = occupancies.get_mut(previous_chunk) {
-            occupancy.release(floor, &previous_position);
-        }
+    if let Some(previous_chunk) = chunks.get(&previous_position)
+        && let Ok(mut occupancy) = occupancies.get_mut(previous_chunk)
+    {
+        occupancy.release(floor, &previous_position);
     }
 
     let Some(current_chunk) = chunks.get(position) else {
@@ -377,10 +377,9 @@ mod tests {
         // Updating Position with a PreviousPosition should migrate occupancy in place.
         app.update();
 
-        app.world_mut().entity_mut(entity).insert((
-            PreviousPosition { x: 1, y: 1 },
-            Position { x: 2, y: 1 },
-        ));
+        app.world_mut()
+            .entity_mut(entity)
+            .insert((PreviousPosition { x: 1, y: 1 }, Position { x: 2, y: 1 }));
 
         app.update();
 
@@ -596,7 +595,8 @@ mod tests {
 
         assert!(
             !occupancy.contains(&Floor { z: 0 }, &position),
-            "When previous and current positions match, removal should still release the current occupancy"
+            "When previous and current positions match, removal should still release the current \
+             occupancy"
         );
     }
 }

@@ -1,3 +1,9 @@
+//! Lightweight database-table resources for Bevy apps.
+//!
+//! This crate wraps typed resources in a small table abstraction so systems can
+//! read and mutate game data through focused `SystemParam` types instead of
+//! reaching for raw resources directly.
+
 use bevy::{ecs::system::SystemParam, prelude::*};
 
 pub mod prelude {
@@ -65,13 +71,15 @@ impl AppTablesExt for App {
 mod tests {
     use super::*;
 
+    #[derive(Default)]
+    struct MyTable {
+        pub value: bool,
+    }
+
+    impl Table for MyTable {}
+
     #[test]
     fn test_init_and_insert_table() {
-        // Define a simple struct that implements the Table trait
-        #[derive(Default)]
-        struct MyTable;
-        impl Table for MyTable {}
-
         // Create a new Bevy app
         let mut app = App::new();
 
@@ -87,13 +95,6 @@ mod tests {
 
     #[test]
     fn test_access_table_immutable() {
-        // Define a table struct with a boolean field
-        #[derive(Default)]
-        struct MyTable {
-            pub value: bool,
-        }
-        impl Table for MyTable {}
-
         // Set up app with minimal plugins
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
@@ -128,13 +129,6 @@ mod tests {
 
     #[test]
     fn test_access_table_mutably() {
-        // Define a table struct with a boolean field
-        #[derive(Default)]
-        struct MyTable {
-            pub value: bool,
-        }
-        impl Table for MyTable {}
-
         // Set up app with minimal plugins
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
@@ -167,5 +161,41 @@ mod tests {
             // Confirm updated value
             assert!(table.value, "Table value should be true after mutation");
         }
+    }
+
+    #[test]
+    fn test_init_database_table_keeps_existing_resource() {
+        let mut app = App::new();
+
+        app.insert_database_table(MyTable { value: true });
+        app.init_database_table::<MyTable>();
+
+        let table = app
+            .world()
+            .get_resource::<Tables<MyTable>>()
+            .expect("Tables<MyTable> should exist after initialization");
+
+        assert!(
+            table.value,
+            "init_database_table should preserve an already inserted table resource"
+        );
+    }
+
+    #[test]
+    fn test_insert_database_table_overwrites_previous_resource() {
+        let mut app = App::new();
+
+        app.insert_database_table(MyTable { value: false });
+        app.insert_database_table(MyTable { value: true });
+
+        let table = app
+            .world()
+            .get_resource::<Tables<MyTable>>()
+            .expect("Tables<MyTable> should exist after insertion");
+
+        assert!(
+            table.value,
+            "insert_database_table should overwrite the previous table resource"
+        );
     }
 }

@@ -25,10 +25,10 @@ pub enum DecodableError {
 /// that identifies it and allows the system to dispatch the correct decoding logic.
 ///
 /// # Associated Constant
-/// - [`KIND`]: The unique [`PacketKind`] that identifies this packet type.
+/// - [`Self::KIND`]: The unique [`PacketKind`] that identifies this packet type.
 ///
 /// # Methods
-/// - [`decode`]: Decodes the packet instance from a raw byte slice.
+/// - [`Self::decode`]: Decodes the packet instance from a raw byte slice.
 ///
 /// # Example
 /// ```ignore
@@ -50,8 +50,9 @@ pub enum DecodableError {
 /// let packet = LoginPacket::decode(&mut buffer)?;
 /// ```
 ///
-/// This trait is typically paired with a corresponding [`Encodable`] trait
-/// to allow symmetric serialization and deserialization of packet types.
+/// This trait is typically paired with the server-side
+/// [`crate::packets::server::Encodable`] trait to allow symmetric serialization
+/// and deserialization of packet types.
 pub trait Decodable: Sized {
     /// Unique kind identifier for this packet type.
     const KIND: PacketKind;

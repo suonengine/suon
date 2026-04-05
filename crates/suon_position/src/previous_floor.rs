@@ -18,7 +18,11 @@ mod tests {
 
     #[test]
     fn should_order_previous_floors_by_z() {
-        let mut floors = vec![PreviousFloor { z: 9 }, PreviousFloor { z: 0 }, PreviousFloor { z: 4 }];
+        let mut floors = vec![
+            PreviousFloor { z: 9 },
+            PreviousFloor { z: 0 },
+            PreviousFloor { z: 4 },
+        ];
 
         floors.sort();
 

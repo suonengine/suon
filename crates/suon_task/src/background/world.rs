@@ -1,3 +1,5 @@
+//! World-scoped background task helpers.
+
 use bevy::{
     ecs::system::SystemId,
     prelude::*,
@@ -113,6 +115,22 @@ pub(crate) fn check_completed_world_tasks<T: BackgroundTask>(
 mod tests {
     use super::*;
 
+    fn run_until_world_tasks_finish<T: BackgroundTask>(app: &mut App) {
+        loop {
+            app.update();
+
+            let remaining = app
+                .world_mut()
+                .query::<&WorldTaskTracker<T>>()
+                .iter(app.world())
+                .count();
+
+            if remaining == 0 {
+                break;
+            }
+        }
+    }
+
     #[test]
     fn test_spawn_background_task_with_system_callback() {
         use std::sync::{Arc, Mutex};
@@ -148,21 +166,7 @@ mod tests {
         // Add a system that checks for completed world tasks each frame
         app.add_systems(Update, check_completed_world_tasks::<ImmediateTask>);
 
-        // Loop until the background task completes
-        loop {
-            app.update();
-
-            // Check if any entities still have the task tracker component
-            let remaining = app
-                .world_mut()
-                .query::<&WorldTaskTracker<ImmediateTask>>()
-                .iter(app.world())
-                .count();
-
-            if remaining == 0 {
-                break; // All tasks completed and trackers removed
-            }
-        }
+        run_until_world_tasks_finish::<ImmediateTask>(&mut app);
 
         // Assert that the system callback received the expected result
         assert_eq!(
@@ -210,21 +214,7 @@ mod tests {
         // Add a system to check for task completion each frame
         app.add_systems(Update, check_completed_world_tasks::<FlagTask>);
 
-        // Loop until the background task completes
-        loop {
-            app.update();
-
-            // Check if any entities still have the task tracker component
-            let remaining = app
-                .world_mut()
-                .query::<&WorldTaskTracker<FlagTask>>()
-                .iter(app.world())
-                .count();
-
-            if remaining == 0 {
-                break; // All tasks completed and trackers removed
-            }
-        }
+        run_until_world_tasks_finish::<FlagTask>(&mut app);
 
         // Assert that the task has completed and the flag is set
         assert!(
@@ -258,21 +248,7 @@ mod tests {
         // Add system to check for task completion
         app.add_systems(Update, check_completed_world_tasks::<SlowTask>);
 
-        // Loop until the background task completes
-        loop {
-            app.update();
-
-            // Check if any entities still have the task tracker component
-            let remaining = app
-                .world_mut()
-                .query::<&WorldTaskTracker<SlowTask>>()
-                .iter(app.world())
-                .count();
-
-            if remaining == 0 {
-                break; // All tasks completed and trackers removed
-            }
-        }
+        run_until_world_tasks_finish::<SlowTask>(&mut app);
     }
 
     #[test]
@@ -326,21 +302,7 @@ mod tests {
         // Add system to monitor and process completed tasks
         app.add_systems(Update, check_completed_world_tasks::<DelayedTask>);
 
-        // Run frames until all tasks are finished
-        loop {
-            app.update();
-
-            // Count remaining tasks
-            let remaining_tasks = app
-                .world_mut()
-                .query::<&WorldTaskTracker<DelayedTask>>()
-                .iter(app.world())
-                .count();
-
-            if remaining_tasks == 0 {
-                break; // All tasks completed
-            }
-        }
+        run_until_world_tasks_finish::<DelayedTask>(&mut app);
 
         // Verify all results are received
         let mut results_vec = results.lock().unwrap().clone();
@@ -349,6 +311,34 @@ mod tests {
             results_vec,
             vec![1, 2, 3],
             "Results do not match expected values"
+        );
+    }
+
+    #[test]
+    fn test_spawn_background_task_without_callback_still_despawns_tracker_entity() {
+        struct ImmediateTask;
+
+        impl BackgroundTask for ImmediateTask {
+            type Output = ();
+
+            async fn run(self) -> Self::Output {}
+        }
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_systems(Update, check_completed_world_tasks::<ImmediateTask>);
+
+        app.world_mut().spawn_background_task(ImmediateTask);
+
+        run_until_world_tasks_finish::<ImmediateTask>(&mut app);
+
+        assert!(
+            app.world_mut()
+                .query::<&WorldTaskTracker<ImmediateTask>>()
+                .iter(app.world())
+                .next()
+                .is_none(),
+            "World task tracker entities should be despawned even without callbacks"
         );
     }
 }

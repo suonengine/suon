@@ -119,19 +119,19 @@ fn on_step_intent(
         .trigger(Step);
 
     if chunk != target_chunk {
-        commands
-            .entity(entity)
-            .trigger(|entity| StepAcrossChunk {
-                from: chunk,
-                to: target_chunk,
-                entity,
-            });
+        commands.entity(entity).trigger(|entity| StepAcrossChunk {
+            from: chunk,
+            to: target_chunk,
+            entity,
+        });
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use suon_chunk::{CHUNK_SIZE, Chunk, ChunkPlugin, content::AtChunk, occupancy::occupied::Occupied};
+    use suon_chunk::{
+        CHUNK_SIZE, Chunk, ChunkPlugin, content::AtChunk, occupancy::occupied::Occupied,
+    };
 
     use super::*;
     use std::time::Duration;
@@ -209,10 +209,7 @@ mod tests {
             (expected_target, target_chunk),
         ]));
 
-        let entity = app
-            .world_mut()
-            .spawn((START_POSITION, FLOOR))
-            .id();
+        let entity = app.world_mut().spawn((START_POSITION, FLOOR)).id();
 
         // Trigger the intent event directly to verify the observer's state transition logic
         app.world_mut().trigger(StepIntent {
@@ -275,13 +272,9 @@ mod tests {
         ]));
 
         // Spawn an obstructing entity marked as Occupied at the target coordinate
-        app.world_mut()
-            .spawn((target_position, FLOOR, Occupied));
+        app.world_mut().spawn((target_position, FLOOR, Occupied));
 
-        let entity = app
-            .world_mut()
-            .spawn((START_POSITION, FLOOR))
-            .id();
+        let entity = app.world_mut().spawn((START_POSITION, FLOOR)).id();
 
         // Trigger the intent towards the occupied cell
         app.world_mut().trigger(StepIntent {
@@ -315,10 +308,7 @@ mod tests {
         let chunk = app.world_mut().spawn(Chunk).id();
         app.insert_resource(Chunks::from_iter([(START_POSITION, chunk)]));
 
-        let entity = app
-            .world_mut()
-            .spawn((START_POSITION, FLOOR))
-            .id();
+        let entity = app.world_mut().spawn((START_POSITION, FLOOR)).id();
 
         // The observer should panic because the target coordinate is not mapped in ChunkLayer
         app.world_mut().trigger(StepIntent {
@@ -399,7 +389,9 @@ mod tests {
         );
 
         assert_eq!(
-            *app.world().get::<Position>(entity).expect("Position missing"),
+            *app.world()
+                .get::<Position>(entity)
+                .expect("Position missing"),
             START_POSITION,
             "A no-op step direction should leave the position unchanged"
         );

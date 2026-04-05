@@ -7,8 +7,9 @@
 //!
 //! # Modules
 //!
-//! - [`step`]: single-tile movement, path advancement, and step events
-//! - [`teleport`]: direct relocation intents and cross-chunk teleport events
+//! - Step flow via [`prelude::Step`], [`prelude::StepIntent`], and
+//!   [`prelude::StepPath`]
+//! - Teleport flow via [`prelude::Teleport`] and [`prelude::TeleportIntent`]
 
 use bevy::{app::PluginGroupBuilder, prelude::*};
 
@@ -32,5 +33,24 @@ impl PluginGroup for MovementPlugins {
         PluginGroupBuilder::start::<Self>()
             .add(step::StepPlugin)
             .add(teleport::TeleportPlugin)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_build_movement_plugin_group() {
+        let mut app = App::new();
+
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(MovementPlugins);
+        app.update();
+
+        assert!(
+            std::mem::size_of::<MovementPlugins>() == 0,
+            "The movement plugin group should remain a zero-sized configuration marker"
+        );
     }
 }

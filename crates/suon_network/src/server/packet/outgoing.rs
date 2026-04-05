@@ -1,3 +1,5 @@
+//! Outgoing packet encoding, checksuming and optional XTEA encryption.
+
 use bevy::prelude::*;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
@@ -69,7 +71,11 @@ impl OutgoingPacket {
             Some(xtea_key) => {
                 trace!("Encrypting payload with XTEA key...");
 
-                let encrypted = suon_xtea::encrypt(payload, &xtea_key);
+                let mut plaintext = BytesMut::with_capacity(PACKET_HEADER_SIZE + payload_len);
+                plaintext.extend_from_slice(&(payload_len as u16).to_le_bytes());
+                plaintext.extend_from_slice(payload);
+
+                let encrypted = suon_xtea::encrypt(&plaintext, &xtea_key);
 
                 // Write encrypted payload length
                 buffer[(PACKET_HEADER_SIZE + PACKET_CHECKSUM_SIZE)
@@ -125,5 +131,113 @@ impl OutgoingPacket {
         debug!("Packet encoding complete and ready for transmission");
 
         buffer.freeze()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const XTEA_KEY: suon_xtea::XTEAKey = [0xA56BABCD, 0x00000000, 0xFFFFFFFF, 0x12345678];
+
+    fn read_total_length(encoded: &Bytes) -> usize {
+        u16::from_le_bytes(
+            encoded[..PACKET_HEADER_SIZE]
+                .try_into()
+                .expect("Header should contain two bytes"),
+        ) as usize
+    }
+
+    fn read_checksum(encoded: &Bytes) -> u32 {
+        u32::from_le_bytes(
+            encoded[PACKET_HEADER_SIZE..(PACKET_HEADER_SIZE + PACKET_CHECKSUM_SIZE)]
+                .try_into()
+                .expect("Checksum should contain four bytes"),
+        )
+    }
+
+    #[test]
+    fn should_encode_outgoing_packet_with_checksum_and_plain_payload() {
+        let packet = OutgoingPacket::new(Bytes::from_static(b"\x01\x02\x03"));
+
+        let encoded = packet.encode();
+        let checksum = suon_checksum::Adler32Checksum::from(
+            &encoded[(PACKET_HEADER_SIZE + PACKET_CHECKSUM_SIZE)..],
+        );
+
+        assert_eq!(
+            read_total_length(&encoded),
+            encoded.len() - PACKET_HEADER_SIZE,
+            "The packet header should contain the total body length"
+        );
+
+        assert_eq!(
+            read_checksum(&encoded),
+            *checksum,
+            "The checksum should cover the payload-length header and raw payload bytes"
+        );
+
+        assert_eq!(
+            &encoded[(PACKET_HEADER_SIZE + PACKET_CHECKSUM_SIZE)
+                ..(PACKET_HEADER_SIZE + PACKET_CHECKSUM_SIZE + PACKET_HEADER_SIZE)],
+            &[3, 0],
+            "The payload header should encode the raw payload length"
+        );
+
+        assert_eq!(
+            &encoded[(PACKET_HEADER_SIZE + PACKET_CHECKSUM_SIZE + PACKET_HEADER_SIZE)..],
+            b"\x01\x02\x03",
+            "Packets without XTEA should keep the raw payload unchanged"
+        );
+    }
+
+    #[test]
+    fn should_encode_outgoing_packet_with_xtea_encryption() {
+        let mut packet = OutgoingPacket::new(Bytes::from_static(b"\x01\x02\x03"));
+        packet.xtea_key(XTEA_KEY);
+
+        let encoded = packet.encode();
+        let checksum = suon_checksum::Adler32Checksum::from(
+            &encoded[(PACKET_HEADER_SIZE + PACKET_CHECKSUM_SIZE)..],
+        );
+        let encrypted_payload =
+            &encoded[(PACKET_HEADER_SIZE + PACKET_CHECKSUM_SIZE + PACKET_HEADER_SIZE)..];
+
+        assert_eq!(
+            read_total_length(&encoded),
+            encoded.len() - PACKET_HEADER_SIZE,
+            "The packet header should contain the encrypted body length"
+        );
+
+        assert_eq!(
+            read_checksum(&encoded),
+            *checksum,
+            "The checksum should cover the payload-length header and encrypted payload bytes"
+        );
+
+        assert_ne!(
+            encrypted_payload, b"\x01\x02\x03",
+            "Packets with XTEA enabled should not keep the raw payload bytes"
+        );
+
+        assert_eq!(
+            u16::from_le_bytes(
+                encoded[(PACKET_HEADER_SIZE + PACKET_CHECKSUM_SIZE)
+                    ..(PACKET_HEADER_SIZE + PACKET_CHECKSUM_SIZE + PACKET_HEADER_SIZE)]
+                    .try_into()
+                    .expect("Encrypted payload length should be stored in the payload header"),
+            ) as usize,
+            encrypted_payload.len(),
+            "The payload header should store the encrypted payload length"
+        );
+
+        let decrypted = suon_xtea::decrypt(encrypted_payload, &XTEA_KEY)
+            .expect("The encrypted payload should be decryptable with the same key");
+
+        assert_eq!(
+            decrypted.as_ref(),
+            b"\x03\x00\x01\x02\x03",
+            "The encrypted payload should roundtrip back to the inner-length-prefixed payload"
+        );
     }
 }

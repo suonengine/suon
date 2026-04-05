@@ -1,3 +1,8 @@
+//! XTEA encryption helpers for Suon network payloads.
+//!
+//! The crate exposes key expansion plus block-based encryption and decryption for
+//! packet buffers that use a two-byte little-endian inner-length prefix.
+
 mod decrypt;
 mod encrypt;
 mod expand_key;
@@ -50,27 +55,22 @@ mod tests {
     use super::*;
     use bytes::Bytes;
 
-    // Sample key used for encryption and decryption validation
     const SAMPLE_KEY: XTEAKey = [0xA56BABCD, 0x00000000, 0xFFFFFFFF, 0x12345678];
 
-    // Helper function to expand the sample key into round keys
     fn get_expanded_keys() -> Vec<u32> {
         expand_key(&SAMPLE_KEY).to_vec()
     }
 
     #[test]
-    fn test_expand_key_produces_valid_round_keys() {
-        // Expand the key and verify the correct number of round keys
+    fn should_expand_key_into_non_zero_round_keys() {
         let round_keys = get_expanded_keys();
 
-        // Each round produces two subkeys
         assert_eq!(
             round_keys.len(),
             XTEA_NUM_ROUNDS * 2,
             "Incorrect number of round keys generated"
         );
 
-        // Check that at least one key is non-zero, indicating proper expansion
         assert!(
             round_keys.iter().any(|&k| k != 0),
             "Expanded keys should contain non-zero values"
@@ -78,32 +78,26 @@ mod tests {
     }
 
     #[test]
-    fn test_encrypt_decrypt_roundtrip() {
-        // Sample message to test encryption and decryption cycle
+    fn should_roundtrip_encrypted_payload() {
         const MESSAGE: &[u8] = b"Sample Message";
 
-        // Prefix with message length (little-endian)
         let length_prefix = (MESSAGE.len() as u16).to_le_bytes();
         let mut data = length_prefix.to_vec();
         data.extend_from_slice(MESSAGE);
 
-        // Encrypt the data
         let ciphertext = encrypt(&data, &SAMPLE_KEY);
-
-        // Decrypt back
         let decrypted = decrypt(&ciphertext, &SAMPLE_KEY)
             .expect("Decryption should succeed for valid ciphertext");
 
-        // Confirm the decrypted data matches the original
         assert_eq!(decrypted, Bytes::from(data));
     }
 
     #[test]
-    fn test_decrypt_rejects_invalid_block_size() {
-        // Data not aligned to block size (8 bytes)
+    fn should_reject_invalid_block_size_during_decryption() {
         const INVALID_DATA: &[u8] = &[1, 2, 3, 4, 5];
 
         let result = decrypt(INVALID_DATA, &SAMPLE_KEY);
+
         assert!(
             matches!(result, Err(XTEADecryptError::InvalidBlockSize)),
             "Expected InvalidBlockSize error for misaligned input"
@@ -111,39 +105,30 @@ mod tests {
     }
 
     #[test]
-    fn test_decrypt_rejects_inner_length_exceeds_payload() {
-        // Declared inner length larger than actual payload
+    fn should_reject_inner_length_that_exceeds_payload() {
         const DECLARED_LENGTH: u16 = 10;
 
         let mut data = DECLARED_LENGTH.to_le_bytes().to_vec();
-        // Less data than declared length
         data.extend_from_slice(&[0u8; 2]);
-
-        // Pad to multiple of block size
         let padding = (8 - (data.len() % 8)) % 8;
         data.extend(vec![0u8; padding]);
-
-        // Encrypt
         let ciphertext = encrypt(&data, &SAMPLE_KEY);
-
-        // Attempt to decrypt, expecting an error
         let err =
             decrypt(&ciphertext, &SAMPLE_KEY).expect_err("Expected InnerLengthTooLarge error");
-        if let XTEADecryptError::InnerLengthTooLarge { inner_length, .. } = err {
-            assert_eq!(inner_length, DECLARED_LENGTH as usize);
-        } else {
-            panic!("Unexpected error variant: {:?}", err);
-        }
+
+        assert!(matches!(
+            err,
+            XTEADecryptError::InnerLengthTooLarge { inner_length, .. }
+                if inner_length == DECLARED_LENGTH as usize
+        ));
     }
 
     #[test]
-    fn test_encrypt_adds_padding_for_unaligned_input() {
-        // Input of 7 bytes, should be padded to 8 bytes
+    fn should_add_padding_for_unaligned_input() {
         const MESSAGE: &[u8] = b"1234567";
 
         let ciphertext = encrypt(MESSAGE, &SAMPLE_KEY);
 
-        // Ciphertext length should be multiple of block size
         assert_eq!(
             ciphertext.len() % 8,
             0,
@@ -152,34 +137,26 @@ mod tests {
     }
 
     #[test]
-    fn test_decrypt_rejects_too_short_payload_for_declared_length() {
-        // Declared length larger than available payload
+    fn should_reject_payload_shorter_than_declared_inner_length() {
         const DECLARED_LENGTH: u16 = 20;
 
         let mut data = DECLARED_LENGTH.to_le_bytes().to_vec();
-        // Payload shorter than declared length
         data.extend_from_slice(&[0u8; 5]);
-
-        // Pad to multiple of block size
         let padding = (8 - (data.len() % 8)) % 8;
         data.extend(vec![0u8; padding]);
-
-        // Encrypt
         let ciphertext = encrypt(&data, &SAMPLE_KEY);
-
-        // Decrypt expecting an error
         let err =
             decrypt(&ciphertext, &SAMPLE_KEY).expect_err("Expected InnerLengthTooLarge error");
-        if let XTEADecryptError::InnerLengthTooLarge { inner_length, .. } = err {
-            assert_eq!(inner_length, DECLARED_LENGTH as usize);
-        } else {
-            panic!("Unexpected error variant: {:?}", err);
-        }
+
+        assert!(matches!(
+            err,
+            XTEADecryptError::InnerLengthTooLarge { inner_length, .. }
+                if inner_length == DECLARED_LENGTH as usize
+        ));
     }
 
     #[test]
-    fn test_decrypt_valid_exact_inner_length() {
-        // Message where declared length matches actual payload
+    fn should_accept_exact_inner_length() {
         const MESSAGE: &[u8] = b"ABCDEFGH";
 
         let inner_length = MESSAGE.len() as u16;
@@ -194,8 +171,7 @@ mod tests {
     }
 
     #[test]
-    fn test_encrypt_and_decrypt_aligned_input() {
-        // Input already exactly 8 bytes, no padding needed
+    fn should_encrypt_and_decrypt_aligned_input() {
         const PAYLOAD: &[u8] = b"12345678";
 
         let inner_len = PAYLOAD.len() as u16;
@@ -206,6 +182,7 @@ mod tests {
         let decrypted = decrypt(&ciphertext, &SAMPLE_KEY).expect("Decryption should succeed");
 
         assert_eq!(decrypted, Bytes::from(data));
+
         assert_eq!(
             ciphertext.len() % 8,
             0,
@@ -214,14 +191,37 @@ mod tests {
     }
 
     #[test]
-    fn test_decrypt_fails_on_too_small_input() {
-        // Input shorter than one block
+    fn should_reject_inputs_shorter_than_one_block() {
         const INVALID_INPUT: &[u8] = &[1, 2, 3, 4];
 
         let result = decrypt(INVALID_INPUT, &SAMPLE_KEY);
+
         assert!(
             matches!(result, Err(XTEADecryptError::InvalidBlockSize)),
             "Expected InvalidBlockSize error for too small input"
+        );
+    }
+
+    #[test]
+    fn should_encrypt_deterministically_for_same_key_and_payload() {
+        const MESSAGE: &[u8] = b"Deterministic payload";
+
+        let first = encrypt(MESSAGE, &SAMPLE_KEY);
+        let second = encrypt(MESSAGE, &SAMPLE_KEY);
+
+        assert_eq!(
+            first, second,
+            "Encrypting the same payload with the same key should be deterministic"
+        );
+    }
+
+    #[test]
+    fn should_return_empty_ciphertext_for_empty_payload() {
+        let ciphertext = encrypt(&[], &SAMPLE_KEY);
+
+        assert!(
+            ciphertext.is_empty(),
+            "Encrypting an empty payload should not emit any ciphertext bytes"
         );
     }
 }

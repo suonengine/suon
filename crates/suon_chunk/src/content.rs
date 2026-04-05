@@ -1,7 +1,8 @@
 //! Entity-to-chunk relationships.
 //!
-//! [`AtChunk`] is derived from [`Position`] by the crate runtime and mirrored back
-//! into [`Content`] through Bevy relationships.
+//! [`crate::content::AtChunk`] is derived from
+//! [`suon_position::position::Position`] by the crate runtime and mirrored back
+//! into [`crate::content::Content`] through Bevy relationships.
 
 use bevy::prelude::*;
 use suon_position::position::Position;
@@ -21,7 +22,8 @@ impl AtChunk {
     /// Creates a chunk relationship pointing at the provided chunk entity.
     ///
     /// This constructor stays crate-visible so chunk ownership continues to be
-    /// derived from [`Position`] rather than assigned manually by other crates.
+    /// derived from [`suon_position::position::Position`] rather than assigned
+    /// manually by other crates.
     pub(crate) fn new(entity: Entity) -> Self {
         Self(entity)
     }
@@ -32,7 +34,8 @@ impl AtChunk {
     }
 }
 
-/// Derives [`AtChunk`] whenever [`Position`] is inserted or replaced.
+/// Derives [`AtChunk`] whenever [`suon_position::position::Position`] is inserted
+/// or replaced.
 ///
 /// If the entity's position no longer resolves to a registered chunk, the stale
 /// [`AtChunk`] component is removed.
@@ -63,7 +66,7 @@ pub(crate) fn sync_at_chunk_from_position(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{chunks::Chunks, Chunk, ChunkPlugin};
+    use crate::{Chunk, ChunkPlugin, chunks::Chunks};
 
     #[test]
     fn should_remove_stale_at_chunk_when_position_has_no_registered_chunk() {
@@ -108,7 +111,9 @@ mod tests {
 
         app.update();
 
-        app.world_mut().entity_mut(entity).insert(Position { x: 8, y: 1 });
+        app.world_mut()
+            .entity_mut(entity)
+            .insert(Position { x: 8, y: 1 });
 
         app.update();
 

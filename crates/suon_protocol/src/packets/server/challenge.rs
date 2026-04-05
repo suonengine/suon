@@ -1,3 +1,5 @@
+//! Server challenge packet used during authentication.
+
 use bytes::Bytes;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -5,6 +7,7 @@ use crate::packets::encoder::Encoder;
 
 use super::prelude::*;
 
+/// Packet sent by the server to challenge the client during handshake.
 pub struct ChallengePacket {
     /// The moment when the challenge was created.
     pub timestamp: SystemTime,
@@ -28,5 +31,46 @@ impl Encodable for ChallengePacket {
         encoder.put_u8(self.random_number);
 
         Some(encoder.finalize())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_encode_challenge_timestamp_and_random_number() {
+        let packet = ChallengePacket {
+            timestamp: UNIX_EPOCH + std::time::Duration::from_secs(42),
+            random_number: 7,
+        };
+
+        let encoded = packet
+            .encode()
+            .expect("Challenge packets should always produce a payload");
+
+        assert_eq!(
+            encoded.as_ref(),
+            &[42, 0, 0, 0, 7],
+            "Challenge packets should encode timestamp seconds followed by the random byte"
+        );
+    }
+
+    #[test]
+    fn should_fallback_to_zero_timestamp_when_before_unix_epoch() {
+        let packet = ChallengePacket {
+            timestamp: UNIX_EPOCH - std::time::Duration::from_secs(1),
+            random_number: 99,
+        };
+
+        let encoded = packet
+            .encode()
+            .expect("Challenge packets should always produce a payload");
+
+        assert_eq!(
+            encoded.as_ref(),
+            &[0, 0, 0, 0, 99],
+            "Timestamps before UNIX_EPOCH should serialize as zero seconds"
+        );
     }
 }

@@ -1,3 +1,5 @@
+//! Background task orchestration for world and entity scopes.
+
 use bevy::{ecs::schedule::ScheduleLabel, prelude::*};
 
 pub mod entity;
@@ -52,7 +54,6 @@ mod tests {
         world::{TaskCommands, WorldTaskTracker},
     };
 
-    // Dummy background task for testing
     struct DummyTask(pub i32);
 
     impl BackgroundTask for DummyTask {
@@ -64,16 +65,11 @@ mod tests {
     }
 
     #[test]
-    fn test_add_background_task_systems_integration() {
-        // Initialize Bevy app
+    fn should_add_background_task_systems_to_the_app() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
-
-        // Add background task systems to the app
         app.add_background_task_systems::<Update, DummyTask>();
 
-        // Spawn an entity and attach a background task that outputs i32::MAX
-        // The result is received through the EntityIn wrapper
         app.world_mut()
             .spawn_empty()
             .spawn_background_task_with_system(
@@ -83,7 +79,6 @@ mod tests {
                 },
             );
 
-        // Verify that the EntityTaskTracker component was added for this entity
         assert!(
             app.world_mut()
                 .query::<&EntityTaskTracker<DummyTask>>()
@@ -93,8 +88,6 @@ mod tests {
             "EntityTaskTracker should exist after spawning an entity background task"
         );
 
-        // Spawn a background task directly in the world scope (not entity-bound)
-        // The result is received through the In wrapper
         app.world_mut().spawn_background_task_with_system(
             DummyTask(i32::MAX),
             |In(result): In<i32>| {
@@ -102,7 +95,6 @@ mod tests {
             },
         );
 
-        // Verify that the WorldTaskTracker resource was added
         assert!(
             app.world_mut()
                 .query::<&WorldTaskTracker<DummyTask>>()
@@ -114,15 +106,11 @@ mod tests {
     }
 
     #[test]
-    fn test_check_completed_world_tasks_system() {
-        // Initialize app
+    fn should_remove_world_task_trackers_after_completion() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
-
-        // Add background task systems
         app.add_background_task_systems::<Update, DummyTask>();
 
-        // Spawn an entity with a background task
         app.world_mut()
             .spawn_empty()
             .spawn_background_task_with_system(
@@ -132,11 +120,9 @@ mod tests {
                 },
             );
 
-        // Loop until the background task completes
         loop {
             app.update();
 
-            // Check if any entities still have the task tracker component
             let remaining = app
                 .world_mut()
                 .query::<&WorldTaskTracker<DummyTask>>()
@@ -144,11 +130,10 @@ mod tests {
                 .count();
 
             if remaining == 0 {
-                break; // All tasks completed and trackers removed
+                break;
             }
         }
 
-        // Check that the background task tracker component has been cleaned up
         assert!(
             app.world_mut()
                 .query::<&WorldTaskTracker<DummyTask>>()
@@ -160,13 +145,11 @@ mod tests {
     }
 
     #[test]
-    fn test_check_completed_entity_tasks_system() {
-        // Initialize app
+    fn should_remove_entity_task_trackers_after_completion() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
         app.add_background_task_systems::<Update, DummyTask>();
 
-        // Spawn an entity with a background task
         let entity = app
             .world_mut()
             .spawn_empty()
@@ -178,11 +161,9 @@ mod tests {
             )
             .id();
 
-        // Loop until the background task completes
         loop {
             app.update();
 
-            // Check if any entities still have the task tracker component
             let remaining = app
                 .world_mut()
                 .query::<&EntityTaskTracker<DummyTask>>()
@@ -190,11 +171,10 @@ mod tests {
                 .count();
 
             if remaining == 0 {
-                break; // All tasks completed and trackers removed
+                break;
             }
         }
 
-        // Check that the entity no longer has the task tracker component
         assert!(
             !app.world()
                 .entity(entity)

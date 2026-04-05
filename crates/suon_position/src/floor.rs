@@ -51,6 +51,10 @@ mod tests {
 
         assert_eq!(hashed.len(), 1, "Equal floors should hash to one set entry");
 
-        assert_eq!(ordered.len(), 1, "Equal floors should occupy one ordered set entry");
+        assert_eq!(
+            ordered.len(),
+            1,
+            "Equal floors should occupy one ordered set entry"
+        );
     }
 }

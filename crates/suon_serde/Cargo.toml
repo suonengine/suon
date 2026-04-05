@@ -2,6 +2,7 @@
 name = "suon_serde"
 version.workspace = true
 edition.workspace = true
+repository.workspace = true
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }

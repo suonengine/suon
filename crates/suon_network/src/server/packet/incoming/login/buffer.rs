@@ -1,3 +1,5 @@
+//! Login packet buffer parsing and validation.
+
 use bevy::prelude::*;
 use bytes::BytesMut;
 use std::time::Instant;
@@ -147,5 +149,194 @@ impl PacketBuffer {
     /// Returns the total number of bytes currently stored in the buffer.
     pub fn payload_len(&self) -> usize {
         self.inner.len()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::server::packet::PACKET_HEADER_SIZE;
+    use bytes::Bytes;
+
+    const MAX_LENGTH: usize = 64;
+
+    fn build_login_packet_payload(payload: &[u8], checksum: u32, kind: u8) -> Vec<u8> {
+        let total_len =
+            PACKET_HEADER_SIZE + PACKET_CHECKSUM_SIZE + PACKET_KIND_SIZE + payload.len();
+        let mut bytes = Vec::with_capacity(total_len);
+        bytes.extend_from_slice(
+            &((PACKET_CHECKSUM_SIZE + PACKET_KIND_SIZE + payload.len()) as u16).to_le_bytes(),
+        );
+        bytes.extend_from_slice(&checksum.to_le_bytes());
+        bytes.push(kind);
+        bytes.extend_from_slice(payload);
+        bytes
+    }
+
+    #[test]
+    fn should_reject_incomplete_prefix() {
+        let mut buffer = PacketBuffer::with_capacity(8);
+        buffer.truncate(1);
+
+        let error = buffer
+            .take_packet(MAX_LENGTH)
+            .expect_err("Short buffers should fail before reading the length prefix");
+
+        assert!(matches!(
+            error,
+            PacketReadError::IncompletePrefix {
+                available: 1,
+                required: PACKET_HEADER_SIZE
+            }
+        ));
+    }
+
+    #[test]
+    fn should_reject_empty_declared_length() {
+        let mut buffer = PacketBuffer::with_capacity(8);
+        buffer.payload_mut()[..PACKET_HEADER_SIZE].copy_from_slice(&0_u16.to_le_bytes());
+        buffer.truncate(PACKET_HEADER_SIZE);
+
+        let error = buffer
+            .take_packet(MAX_LENGTH)
+            .expect_err("Zero-length login packets should be rejected");
+
+        assert!(matches!(error, PacketReadError::EmptyLength));
+    }
+
+    #[test]
+    fn should_reject_lengths_above_the_allowed_maximum() {
+        let mut buffer = PacketBuffer::with_capacity(16);
+        let packet_bytes = build_login_packet_payload(b"x", 0, PacketKind::Login as u8);
+        buffer.payload_mut()[..packet_bytes.len()].copy_from_slice(&packet_bytes);
+        buffer.truncate(packet_bytes.len());
+
+        let error = buffer
+            .take_packet(PACKET_HEADER_SIZE + PACKET_CHECKSUM_SIZE + PACKET_KIND_SIZE)
+            .expect_err("Packets above the configured maximum length should be rejected");
+
+        assert!(matches!(
+            error,
+            PacketReadError::LengthOutOfBounds {
+                declared: 8,
+                max: 7
+            }
+        ));
+    }
+
+    #[test]
+    fn should_reject_incomplete_login_packets() {
+        let mut buffer = PacketBuffer::with_capacity(16);
+        let packet_bytes = build_login_packet_payload(b"abc", 0, PacketKind::Login as u8);
+        let truncated_length = packet_bytes.len() - 1;
+        buffer.payload_mut()[..truncated_length].copy_from_slice(&packet_bytes[..truncated_length]);
+        buffer.truncate(truncated_length);
+
+        let error = buffer
+            .take_packet(MAX_LENGTH)
+            .expect_err("Missing bytes should keep the login packet incomplete");
+
+        assert!(matches!(
+            error,
+            PacketReadError::IncompletePacket {
+                available,
+                required
+            } if available == truncated_length && required == packet_bytes.len()
+        ));
+    }
+
+    #[test]
+    fn should_reject_login_packets_that_are_too_short_for_kind_and_checksum() {
+        let mut buffer = PacketBuffer::with_capacity(16);
+        let bytes = [4, 0, 0, 0, 0, 0];
+        buffer.payload_mut()[..bytes.len()].copy_from_slice(&bytes);
+        buffer.truncate(bytes.len());
+
+        let error = buffer
+            .take_packet(MAX_LENGTH)
+            .expect_err("Login packets shorter than checksum plus kind should be rejected");
+
+        assert!(matches!(
+            error,
+            PacketReadError::TooShort {
+                actual: 4,
+                min
+            } if min == PACKET_CHECKSUM_SIZE + PACKET_KIND_SIZE
+        ));
+    }
+
+    #[test]
+    fn should_decode_login_packet_without_checksum_validation_when_checksum_is_zero() {
+        const PAYLOAD: &[u8] = b"login";
+
+        let mut buffer = PacketBuffer::with_capacity(32);
+        let packet_bytes = build_login_packet_payload(PAYLOAD, 0, PacketKind::Login as u8);
+        buffer.payload_mut()[..packet_bytes.len()].copy_from_slice(&packet_bytes);
+        buffer.truncate(packet_bytes.len());
+
+        let packet = buffer
+            .take_packet(MAX_LENGTH)
+            .expect("A valid login packet should decode successfully");
+
+        assert_eq!(packet.kind, PacketKind::Login);
+        assert_eq!(packet.checksum, None);
+        assert_eq!(packet.buffer, Bytes::copy_from_slice(PAYLOAD));
+    }
+
+    #[test]
+    fn should_validate_login_packet_checksums_against_the_payload() {
+        const PAYLOAD: &[u8] = b"login";
+
+        let mut buffer = PacketBuffer::with_capacity(32);
+        let checksum = *suon_checksum::Adler32Checksum::from(PAYLOAD);
+        let packet_bytes = build_login_packet_payload(PAYLOAD, checksum, PacketKind::Login as u8);
+        buffer.payload_mut()[..packet_bytes.len()].copy_from_slice(&packet_bytes);
+        buffer.truncate(packet_bytes.len());
+
+        let packet = buffer
+            .take_packet(MAX_LENGTH)
+            .expect("Matching payload checksums should allow login packets");
+
+        assert_eq!(packet.kind, PacketKind::Login);
+        assert_eq!(packet.checksum, None);
+        assert_eq!(packet.buffer, Bytes::copy_from_slice(PAYLOAD));
+    }
+
+    #[test]
+    fn should_reject_login_packets_with_non_login_kinds() {
+        let mut buffer = PacketBuffer::with_capacity(32);
+        let packet_bytes = build_login_packet_payload(b"login", 0, PacketKind::KeepAlive as u8);
+        buffer.payload_mut()[..packet_bytes.len()].copy_from_slice(&packet_bytes);
+        buffer.truncate(packet_bytes.len());
+
+        let error = buffer
+            .take_packet(MAX_LENGTH)
+            .expect_err("Only login packets should be accepted during the login stage");
+
+        assert!(matches!(
+            error,
+            PacketReadError::UnknownId(kind) if kind == PacketKind::KeepAlive as u8
+        ));
+    }
+
+    #[test]
+    fn should_reject_login_packet_with_checksum_mismatch() {
+        let mut buffer = PacketBuffer::with_capacity(32);
+        let packet_bytes =
+            build_login_packet_payload(b"login", 0xDEADBEEF, PacketKind::Login as u8);
+        buffer.payload_mut()[..packet_bytes.len()].copy_from_slice(&packet_bytes);
+        buffer.truncate(packet_bytes.len());
+
+        let error = buffer
+            .take_packet(MAX_LENGTH)
+            .expect_err("Invalid checksums should reject login packets");
+
+        assert!(matches!(
+            error,
+            PacketReadError::ChecksumMismatch {
+                expected: 0xDEADBEEF,
+                ..
+            }
+        ));
     }
 }

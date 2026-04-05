@@ -1,7 +1,7 @@
 //! Chunk ownership registry.
 //!
 //! This module exposes [`Chunks`], the resource used to resolve which chunk entity
-//! owns a given world-space [`Position`].
+//! owns a given world-space [`suon_position::position::Position`].
 
 use crate::chunks::key::ChunkKey;
 use bevy::prelude::*;
@@ -154,6 +154,9 @@ mod tests {
         chunks.clear();
 
         // The test-only clear helper is useful for resetting registry state in fixtures.
-        assert!(chunks.is_empty(), "clear should drop all registered mappings");
+        assert!(
+            chunks.is_empty(),
+            "clear should drop all registered mappings"
+        );
     }
 }

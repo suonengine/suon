@@ -3,7 +3,8 @@
 //! This crate groups world positions into chunk entities and provides the runtime
 //! data needed to answer three core spatial questions:
 //!
-//! - which chunk owns a given [`suon_position::position::Position`]
+//! - which chunk owns a given world-space
+//!   [`suon_position::position::Position`]
 //! - which chunk currently contains a given entity
 //! - which floor-position pairs inside a chunk are occupied
 //!
@@ -15,8 +16,9 @@
 //! links an entity back to the chunk that currently contains it.
 //!
 //! The crate treats [`suon_position::position::Position`] as the source of truth
-//! for chunk ownership. [`ChunkPlugin`] uses lifecycle observers on [`Position`]
-//! to synchronize [`content::AtChunk`] and to resynchronize occupied tiles using
+//! for chunk ownership. [`ChunkPlugin`] uses lifecycle observers on
+//! [`suon_position::position::Position`] to synchronize [`content::AtChunk`] and
+//! to resynchronize occupied tiles using
 //! [`suon_position::previous_position::PreviousPosition`].
 //!
 //! # Runtime flow
@@ -28,7 +30,7 @@
 //! 3. Game entities receive a [`suon_position::position::Position`] and optionally
 //!    an [`occupancy::occupied::Occupied`] marker.
 //! 4. [`ChunkPlugin`] derives [`content::AtChunk`] automatically from the current
-//!    position.
+//!    [`suon_position::position::Position`].
 //! 5. Occupied entities register their current tile in the destination chunk's
 //!    [`Occupancy`] map.
 //! 6. When an occupied entity moves, the crate releases the previous tile and
@@ -119,7 +121,10 @@ mod tests {
     #[test]
     fn should_expose_consistent_chunk_constants() {
         // The derived constants must stay aligned with the chunk exponent.
-        assert_eq!(CHUNK_EXP, 3, "Chunk exponent should remain the configured value");
+        assert_eq!(
+            CHUNK_EXP, 3,
+            "Chunk exponent should remain the configured value"
+        );
 
         assert_eq!(
             CHUNK_SIZE,
@@ -218,6 +223,10 @@ mod tests {
             .get::<AtChunk>(entity)
             .expect("Position synchronization should assign AtChunk automatically");
 
-        assert_eq!(at_chunk.entity(), chunk, "The derived chunk relationship should match the chunk registry");
+        assert_eq!(
+            at_chunk.entity(),
+            chunk,
+            "The derived chunk relationship should match the chunk registry"
+        );
     }
 }

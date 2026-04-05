@@ -2,6 +2,7 @@
 name = "suon_chunk"
 version.workspace = true
 edition.workspace = true
+repository.workspace = true
 
 [dependencies]
 bevy.workspace = true

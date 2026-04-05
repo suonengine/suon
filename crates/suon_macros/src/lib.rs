@@ -1,3 +1,5 @@
+//! Procedural macros shared across the Suon workspace.
+
 mod resource;
 
 use proc_macro::TokenStream;

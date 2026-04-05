@@ -2,15 +2,9 @@
 
 use bevy::prelude::*;
 
-#[derive(Component, Deref, DerefMut)]
+#[derive(Component, Deref, DerefMut, Default)]
 /// Thin ECS wrapper around Bevy's [`Timer`] used by step path progression.
 pub(crate) struct StepTimer(pub(crate) Timer);
-
-impl Default for StepTimer {
-    fn default() -> Self {
-        StepTimer(Timer::default())
-    }
-}
 
 #[cfg(test)]
 mod tests {

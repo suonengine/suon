@@ -6,3 +6,19 @@ use bevy::prelude::*;
 #[component(immutable)]
 /// Marker indicating that an entity should block occupancy in its current tile.
 pub struct Occupied;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_spawn_occupied_marker_component() {
+        let mut world = World::new();
+        let entity = world.spawn(Occupied).id();
+
+        assert!(
+            world.entity(entity).contains::<Occupied>(),
+            "Occupied should behave like a plain marker component when spawned"
+        );
+    }
+}

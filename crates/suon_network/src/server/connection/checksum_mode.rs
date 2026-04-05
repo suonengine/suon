@@ -13,3 +13,23 @@ impl std::fmt::Display for ChecksumMode {
         write!(f, "{:?}", self)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_format_checksum_modes_like_debug_output() {
+        assert_eq!(
+            ChecksumMode::Adler32.to_string(),
+            "Adler32",
+            "Display should keep the human-readable Adler-32 mode name"
+        );
+
+        assert_eq!(
+            ChecksumMode::Sequence(7).to_string(),
+            "Sequence(7)",
+            "Display should include the sequence counter for sequence-based checksums"
+        );
+    }
+}

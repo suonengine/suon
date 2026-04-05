@@ -255,3 +255,166 @@ impl Drop for Connection {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bytes::Bytes;
+    use std::{
+        net::{Ipv4Addr, SocketAddrV4},
+        time::Instant,
+    };
+    use suon_protocol::packets::{
+        client::PacketKind as ClientPacketKind,
+        server::{Encodable, PacketKind as ServerPacketKind},
+    };
+
+    struct DummyPacket;
+
+    impl Encodable for DummyPacket {
+        const KIND: ServerPacketKind = ServerPacketKind::KeepAlive;
+    }
+
+    fn build_connection(
+        max_length: usize,
+    ) -> (
+        Connection,
+        crossbeam_channel::Sender<IncomingPacket>,
+        crossbeam_channel::Receiver<OutgoingPacket>,
+        tokio::sync::watch::Receiver<Option<XTEAKey>>,
+    ) {
+        let (outgoing_sender, outgoing_receiver) = crossbeam_channel::unbounded();
+        let (incoming_sender, incoming_receiver) = crossbeam_channel::unbounded();
+        let (xtea_tx, xtea_rx) = tokio::sync::watch::channel(None);
+        let mut policy = PacketPolicy::default();
+        policy.outgoing.max_length = max_length;
+
+        let connection = Connection::new(
+            outgoing_sender,
+            incoming_receiver,
+            SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 7172)),
+            xtea_tx,
+            policy,
+        );
+
+        (connection, incoming_sender, outgoing_receiver, xtea_rx)
+    }
+
+    #[test]
+    fn should_read_all_available_incoming_packets() {
+        let (connection, incoming_sender, _, _) = build_connection(128);
+
+        incoming_sender
+            .send(IncomingPacket {
+                timestamp: Instant::now(),
+                checksum: None,
+                kind: ClientPacketKind::KeepAlive,
+                buffer: Bytes::from_static(b""),
+            })
+            .expect("The incoming packet channel should accept packets during the test");
+
+        let packets = connection.read();
+
+        assert_eq!(
+            packets.len(),
+            1,
+            "read should drain every currently queued incoming packet"
+        );
+        assert_eq!(
+            packets[0].kind,
+            ClientPacketKind::KeepAlive,
+            "read should preserve the incoming packet kind"
+        );
+    }
+
+    #[test]
+    fn should_return_connection_address() {
+        let (connection, _, _, _) = build_connection(128);
+
+        assert_eq!(
+            connection.addr(),
+            SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 7172)),
+            "addr should expose the remote socket address used to build the connection"
+        );
+    }
+
+    #[test]
+    fn should_reject_packets_larger_than_outgoing_limit() {
+        let (connection, _, _, _) = build_connection(0);
+
+        let error = connection
+            .write(DummyPacket)
+            .expect_err("Packets larger than the configured maximum should be rejected");
+
+        assert!(matches!(error, WriteError::Exceed { packet_len: 1 }));
+    }
+
+    #[test]
+    fn should_queue_and_flush_outgoing_packets() {
+        let (connection, _, outgoing_receiver, _) = build_connection(128);
+
+        let written = connection
+            .write(DummyPacket)
+            .expect("Writing a small packet should succeed");
+        let flushed = connection
+            .flush()
+            .expect("Flushing a non-empty buffer should emit one outgoing packet");
+        let packet = outgoing_receiver
+            .recv()
+            .expect("The flushed packet should reach the outgoing channel");
+        let encoded = packet.encode();
+
+        assert_eq!(
+            written, 1,
+            "The encoded keep-alive packet should contain only its kind byte"
+        );
+        assert_eq!(
+            flushed, 1,
+            "flush should report the number of raw bytes drained from the buffer"
+        );
+        assert_eq!(
+            encoded.len(),
+            9,
+            "The flushed outgoing packet should contain header, checksum, payload length, and kind"
+        );
+        assert_eq!(
+            &encoded.as_ref()[..2],
+            &[7, 0],
+            "The flushed outgoing packet should encode the total body length in the header"
+        );
+        assert_eq!(
+            &encoded.as_ref()[6..],
+            &[1, 0, ServerPacketKind::KeepAlive as u8],
+            "The flushed outgoing packet should preserve the encoded keep-alive payload"
+        );
+    }
+
+    #[test]
+    fn should_update_shared_xtea_key_and_checksum_mode() {
+        const XTEA_KEY: XTEAKey = [1, 2, 3, 4];
+
+        let (mut connection, _, outgoing_receiver, mut xtea_rx) = build_connection(128);
+
+        connection.set_xtea_key(XTEA_KEY);
+        connection.set_checksum_mode(ChecksumMode::Adler32);
+        connection
+            .write(DummyPacket)
+            .expect("Writing with encryption metadata configured should still succeed");
+        connection.flush();
+
+        let packet = outgoing_receiver
+            .recv()
+            .expect("A flushed packet should be emitted after enabling XTEA");
+
+        assert_eq!(
+            *xtea_rx.borrow_and_update(),
+            Some(XTEA_KEY),
+            "set_xtea_key should broadcast the latest XTEA key to shared watchers"
+        );
+
+        assert!(
+            packet.encode().len() > 9,
+            "Encoding with XTEA enabled should expand the outgoing packet beyond the plain form"
+        );
+    }
+}
