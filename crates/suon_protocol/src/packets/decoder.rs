@@ -45,6 +45,7 @@ pub trait Decoder {
     fn get_u16(&mut self) -> Result<u16, DecoderError>;
     fn get_i32(&mut self) -> Result<i32, DecoderError>;
     fn get_u32(&mut self) -> Result<u32, DecoderError>;
+    fn get_u64(&mut self) -> Result<u64, DecoderError>;
 
     /// Reads a UTF-8 string prefixed with a 16-bit length field.
     fn get_string(&mut self) -> Result<String, DecoderError>;
@@ -103,6 +104,14 @@ impl Decoder for &mut &[u8] {
 
     fn get_u32(&mut self) -> Result<u32, DecoderError> {
         self.try_get_u32_le()
+            .map_err(|err| DecoderError::Incomplete {
+                expected: err.requested,
+                available: err.available,
+            })
+    }
+
+    fn get_u64(&mut self) -> Result<u64, DecoderError> {
+        self.try_get_u64_le()
             .map_err(|err| DecoderError::Incomplete {
                 expected: err.requested,
                 available: err.available,
@@ -356,6 +365,36 @@ mod tests {
     }
 
     #[test]
+    fn get_u64_returns_value() {
+        const VALUE: u64 = 9_876_543_210;
+
+        let data = VALUE.to_le_bytes().to_vec();
+        let mut data: &mut &[u8] = &mut data.as_slice();
+
+        let value = data.get_u64().expect("Should get u64");
+        assert_eq!(value, VALUE, "Value should match");
+    }
+
+    #[test]
+    fn get_u64_returns_error_on_incomplete_buffer() {
+        let data = Vec::new();
+
+        let mut data: &mut &[u8] = &mut data.as_slice();
+
+        let err = data.get_u64().expect_err("Expected incomplete error");
+        if let DecoderError::Incomplete {
+            expected,
+            available,
+        } = err
+        {
+            assert_eq!(expected, 8, "Expected 8 bytes for u64");
+            assert_eq!(available, 0, "No bytes available");
+        } else {
+            panic!("Unexpected error variant: {:?}", err);
+        }
+    }
+
+    #[test]
     fn get_string_returns_valid_string() {
         const VALUE: &str = "test string";
 
@@ -449,6 +488,7 @@ mod tests {
         const U16_54321: u16 = 54321;
         const I32_NEGATIVE_987654321: i32 = -987654321;
         const U32_1234567890: u32 = 1234567890;
+        const U64_9876543210: u64 = 9_876_543_210;
         const STRING_LEN: u16 = 5;
         const STRING: &str = "hello";
 
@@ -460,6 +500,7 @@ mod tests {
         bytes.extend_from_slice(&U16_54321.to_le_bytes());
         bytes.extend_from_slice(&I32_NEGATIVE_987654321.to_le_bytes());
         bytes.extend_from_slice(&U32_1234567890.to_le_bytes());
+        bytes.extend_from_slice(&U64_9876543210.to_le_bytes());
         bytes.extend_from_slice(&STRING_LEN.to_le_bytes());
         bytes.extend_from_slice(STRING.as_bytes());
 
@@ -475,6 +516,7 @@ mod tests {
             I32_NEGATIVE_987654321
         );
         assert_eq!(buf.get_u32().expect("Should get u32"), U32_1234567890);
+        assert_eq!(buf.get_u64().expect("Should get u64"), U64_9876543210);
         assert_eq!(buf.get_string().expect("Should get string"), STRING);
         assert_eq!(buf.len(), 0, "Buffer should be empty");
     }

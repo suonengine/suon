@@ -1,11 +1,22 @@
 use thiserror::Error;
 
+mod accept_market_offer;
+mod browse_market;
+mod cancel_market_offer;
+mod create_market_offer;
 mod keep_alive;
+mod leave_market;
 mod ping_latency;
 
 pub mod prelude {
     pub use super::{
-        Decodable, DecodableError, PacketKind, keep_alive::KeepAlivePacket,
+        Decodable, DecodableError, PacketKind,
+        accept_market_offer::AcceptMarketOfferPacket,
+        browse_market::BrowseMarketPacket,
+        cancel_market_offer::CancelMarketOfferPacket,
+        create_market_offer::{CreateMarketOfferPacket, MarketOfferKind},
+        keep_alive::KeepAlivePacket,
+        leave_market::LeaveMarketPacket,
         ping_latency::PingLatencyPacket,
     };
 }
@@ -16,6 +27,15 @@ pub enum DecodableError {
     /// Wraps a lower-level decoding error.
     #[error("failed to decode packet: {0}")]
     Decoder(#[from] crate::packets::decoder::DecoderError),
+
+    /// The payload contained an unsupported value for a typed packet field.
+    #[error("invalid value {value} for field '{field}'")]
+    InvalidFieldValue {
+        /// Logical field name being decoded.
+        field: &'static str,
+        /// Raw value received from the wire.
+        value: u8,
+    },
 }
 
 /// Represents a packet that can be decoded from a binary buffer.
@@ -88,6 +108,16 @@ pub enum PacketKind {
     PingLatency = 29,
     /// Keeps the connection alive.
     KeepAlive = 30,
+    /// Leaves the market view.
+    LeaveMarket = 0xF4,
+    /// Browses a market category, own offers, or own history.
+    BrowseMarket = 0xF5,
+    /// Creates a market offer.
+    CreateMarketOffer = 0xF6,
+    /// Cancels a market offer.
+    CancelMarketOffer = 0xF7,
+    /// Accepts a market offer.
+    AcceptMarketOffer = 0xF8,
 }
 
 impl TryFrom<u8> for PacketKind {
@@ -100,6 +130,11 @@ impl TryFrom<u8> for PacketKind {
             20 => Ok(Self::Logout),
             29 => Ok(Self::PingLatency),
             30 => Ok(Self::KeepAlive),
+            0xF4 => Ok(Self::LeaveMarket),
+            0xF5 => Ok(Self::BrowseMarket),
+            0xF6 => Ok(Self::CreateMarketOffer),
+            0xF7 => Ok(Self::CancelMarketOffer),
+            0xF8 => Ok(Self::AcceptMarketOffer),
             _ => Err(value),
         }
     }
