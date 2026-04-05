@@ -158,3 +158,58 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::tasks::futures_lite::io::Cursor;
+    use smol::block_on;
+    use suon_protocol::packets::{PACKET_KIND_SIZE, client::PacketKind};
+
+    fn build_login_packet_bytes(payload: &[u8], checksum: u32) -> Vec<u8> {
+        let mut bytes =
+            Vec::with_capacity(2 + crate::server::packet::PACKET_CHECKSUM_SIZE + 1 + payload.len());
+        bytes.extend_from_slice(
+            &((crate::server::packet::PACKET_CHECKSUM_SIZE + PACKET_KIND_SIZE + payload.len())
+                as u16)
+                .to_le_bytes(),
+        );
+        bytes.extend_from_slice(&checksum.to_le_bytes());
+        bytes.push(PacketKind::Login as u8);
+        bytes.extend_from_slice(payload);
+        bytes
+    }
+
+    #[test]
+    fn should_return_connection_closed_when_the_stream_is_empty() {
+        let mut reader = Cursor::new(Vec::<u8>::new());
+
+        let error = block_on(reader.read_login_packet(32))
+            .expect_err("Empty streams should be treated as closed login connections");
+
+        assert!(matches!(error, PacketReadError::ConnectionClosed));
+    }
+
+    #[test]
+    fn should_decode_a_valid_login_packet_from_the_stream() {
+        let mut reader = Cursor::new(build_login_packet_bytes(b"login", 0));
+
+        let packet = block_on(reader.read_login_packet(32))
+            .expect("A valid login packet should decode from the reader");
+
+        assert_eq!(
+            packet.kind,
+            PacketKind::Login,
+            "Login packet reads should preserve the decoded packet kind"
+        );
+        assert_eq!(
+            packet.checksum, None,
+            "Login packet reads should not preserve zero checksums"
+        );
+        assert_eq!(
+            packet.buffer.as_ref(),
+            b"login",
+            "Login packet reads should preserve the decoded payload"
+        );
+    }
+}

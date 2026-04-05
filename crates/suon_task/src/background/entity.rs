@@ -178,10 +178,9 @@ mod tests {
     }
 
     #[test]
-    fn test_spawn_entity_background_task_with_system_callback() {
+    fn should_run_completion_system_for_entity_background_tasks() {
         use std::sync::{Arc, Mutex};
 
-        // Define a dummy background task that simply returns its input value
         struct DummyTask(pub i32);
 
         impl BackgroundTask for DummyTask {
@@ -192,31 +191,25 @@ mod tests {
             }
         }
 
-        // Shared variable to store the callback's result for verification
         let callback_result = Arc::new(Mutex::new(None));
         let callback_result_clone = callback_result.clone();
 
-        // Initialize Bevy app and add minimal plugins
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
 
-        // Spawn an entity and attach a background task with a system callback
         app.world_mut()
             .spawn_empty()
             .spawn_background_task_with_system(
                 DummyTask(99),
                 move |EntityIn(result): EntityIn<i32>| {
-                    // Callback captures the result and stores it for later validation
                     *callback_result_clone.lock().unwrap() = Some(result);
                 },
             );
 
-        // Add a system to process completed entity tasks
         app.add_systems(Update, check_completed_entity_tasks::<DummyTask>);
 
         run_until_entity_tasks_finish::<DummyTask>(&mut app);
 
-        // Validate that the callback was invoked and received the expected value
         let result = callback_result.lock().unwrap();
         assert!(result.is_some(), "Callback did not produce a result");
 
@@ -226,7 +219,6 @@ mod tests {
             "The callback result value does not match expected"
         );
 
-        // Confirm that the entity no longer has the task tracker component after completion
         assert!(
             !app.world()
                 .entity(*entity)
@@ -236,8 +228,7 @@ mod tests {
     }
 
     #[test]
-    fn test_entity_background_task_sets_and_removes_tracker() {
-        // Define a simple background task that returns a fixed string
+    fn should_remove_entity_task_tracker_after_completion() {
         struct SimpleTask;
 
         impl BackgroundTask for SimpleTask {
@@ -248,23 +239,19 @@ mod tests {
             }
         }
 
-        // Initialize Bevy app with minimal plugins
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
 
-        // Spawn an entity and attach a background task
         let entity = app
             .world_mut()
             .spawn_empty()
             .spawn_background_task(SimpleTask)
             .id();
 
-        // Add a system to monitor task completion and cleanup
         app.add_systems(Update, check_completed_entity_tasks::<SimpleTask>);
 
         run_until_entity_tasks_finish::<SimpleTask>(&mut app);
 
-        // Assert that the task tracker component has been cleaned up from the entity
         assert!(
             !app.world()
                 .entity(entity)
@@ -274,14 +261,13 @@ mod tests {
     }
 
     #[test]
-    fn test_multiple_entity_background_tasks_with_callbacks() {
+    fn should_collect_results_from_multiple_entity_background_tasks() {
         use std::{
             sync::{Arc, Mutex},
             thread::sleep,
             time::Duration,
         };
 
-        // Define a background task that introduces a delay before returning a value
         struct DelayedEntityTask(pub i32, pub Duration);
 
         impl BackgroundTask for DelayedEntityTask {
@@ -295,14 +281,11 @@ mod tests {
             }
         }
 
-        // Shared vector to collect results from callbacks
         let results = Arc::new(Mutex::new(Vec::<(Entity, i32)>::new()));
 
-        // Initialize Bevy app with minimal setup
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
 
-        // Spawn multiple entities, each with a background delayed task and callback
         let entities = (0..3)
             .map(|i| {
                 let results_clone = results.clone();
@@ -315,7 +298,6 @@ mod tests {
                             Duration::from_millis((100 * (i + 1)).try_into().unwrap()),
                         ),
                         move |EntityIn(result): EntityIn<i32>| {
-                            // Push each result along with its entity into the shared vector
                             results_clone.lock().unwrap().push(result);
                         },
                     )
@@ -324,12 +306,10 @@ mod tests {
             })
             .collect::<Vec<(Entity, i32)>>();
 
-        // Add system to monitor and process completed tasks
         app.add_systems(Update, check_completed_entity_tasks::<DelayedEntityTask>);
 
         run_until_entity_tasks_finish::<DelayedEntityTask>(&mut app);
 
-        // Collect and verify all callback results
         let results_vec = results.lock().unwrap().clone();
 
         assert_eq!(
@@ -339,7 +319,7 @@ mod tests {
     }
 
     #[test]
-    fn test_spawn_entity_background_task_without_callback_still_cleans_up_tracker() {
+    fn should_remove_entity_task_tracker_without_callback() {
         struct ImmediateTask;
 
         impl BackgroundTask for ImmediateTask {

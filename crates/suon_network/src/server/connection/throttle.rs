@@ -189,14 +189,11 @@ mod tests {
     const ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 8080);
 
     #[test]
-    fn test_first_attempt_succeeds() {
-        // Create a new throttle with the default policy.
+    fn should_allow_the_first_connection_attempt_for_an_address() {
         let throttle = Throttle::new(Settings::default());
 
-        // Record the first connection attempt from this address.
         let result = throttle.attempt_connection(&ADDRESS);
 
-        // Verify that the first attempt is always allowed.
         assert!(
             result.is_ok(),
             "The first attempt should always succeed for a new address"
@@ -204,20 +201,16 @@ mod tests {
     }
 
     #[test]
-    fn test_fast_repeated_attempt_returns_fast_attempt_error() {
-        // Create a new throttle with the default policy.
+    fn should_reject_fast_repeated_attempts() {
         let throttle = Throttle::new(Settings::default());
 
-        // Perform the first valid attempt.
         assert!(
             throttle.attempt_connection(&ADDRESS).is_ok(),
             "Initial attempt should be allowed"
         );
 
-        // Perform a second attempt immediately after.
         let result = throttle.attempt_connection(&ADDRESS);
 
-        // Verify that the second attempt is considered too fast.
         assert_eq!(
             result,
             Err(AttemptError::TooFast),
@@ -226,25 +219,20 @@ mod tests {
     }
 
     #[test]
-    fn test_exceeding_max_attempts_blocks_address() {
-        // Create a new throttle with the default policy.
+    fn should_block_an_address_after_too_many_attempts() {
         let throttle = Throttle::new(Settings::default());
 
-        // Perform the maximum allowed attempts within the allowed window.
         for _ in 0..throttle.policy.max_attempts {
             assert!(
                 throttle.attempt_connection(&ADDRESS).is_ok(),
                 "Attempt within the limit should succeed"
             );
 
-            // Wait slightly longer than the fast threshold to avoid triggering TooFast.
             std::thread::sleep(throttle.policy.fast_attempt_threshold + Duration::from_millis(10));
         }
 
-        // Perform one more attempt beyond the limit.
         let result = throttle.attempt_connection(&ADDRESS);
 
-        // Verify that the address becomes blocked.
         assert!(
             matches!(result, Err(AttemptError::Blocked { .. })),
             "Exceeding the maximum allowed attempts should block the address"
@@ -252,31 +240,26 @@ mod tests {
     }
 
     #[test]
-    fn test_blocked_address_extends_block_duration_on_repeated_attempts() {
-        // Create a new throttle with the default policy.
+    fn should_extend_the_block_duration_for_repeated_blocked_attempts() {
         let throttle = Throttle::new(Settings::default());
 
-        // Repeatedly attempt connections until the address is blocked.
         for _ in 0..=throttle.policy.max_attempts {
             let _ = throttle.attempt_connection(&ADDRESS);
             std::thread::sleep(throttle.policy.fast_attempt_threshold + Duration::from_millis(10));
         }
 
-        // Record the first blocked attempt.
         let first_block_result = throttle.attempt_connection(&ADDRESS);
         let until_first = match first_block_result {
             Err(AttemptError::Blocked { until }) => until,
             _ => panic!("Expected the first blocked attempt to return AttemptError::Blocked"),
         };
 
-        // Immediately attempt again while still blocked.
         let second_block_result = throttle.attempt_connection(&ADDRESS);
         let until_second = match second_block_result {
             Err(AttemptError::Blocked { until }) => until,
             _ => panic!("Expected the second blocked attempt to return AttemptError::Blocked"),
         };
 
-        // Verify that the second blocked attempt extended the block duration.
         assert!(
             until_second > until_first,
             "The block duration should be extended on repeated blocked attempts"

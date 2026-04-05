@@ -132,10 +132,9 @@ mod tests {
     }
 
     #[test]
-    fn test_spawn_background_task_with_system_callback() {
+    fn should_run_completion_system_for_world_background_tasks() {
         use std::sync::{Arc, Mutex};
 
-        /// Dummy task that immediately returns a specified value
         struct ImmediateTask(pub i32);
 
         impl BackgroundTask for ImmediateTask {
@@ -150,25 +149,20 @@ mod tests {
         let callback_result = Arc::new(Mutex::new(None));
         let callback_result_clone = callback_result.clone();
 
-        // Create the Bevy app
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
 
-        // Spawn a background task and register a system callback to capture its result
         app.world_mut().spawn_background_task_with_system(
             ImmediateTask(42),
             move |In(result): In<i32>| {
-                // Store the callback result for later verification
                 *callback_result_clone.lock().unwrap() = Some(result);
             },
         );
 
-        // Add a system that checks for completed world tasks each frame
         app.add_systems(Update, check_completed_world_tasks::<ImmediateTask>);
 
         run_until_world_tasks_finish::<ImmediateTask>(&mut app);
 
-        // Assert that the system callback received the expected result
         assert_eq!(
             *callback_result.lock().unwrap(),
             Some(42),
@@ -177,10 +171,9 @@ mod tests {
     }
 
     #[test]
-    fn test_background_task_sets_completion_flag() {
+    fn should_complete_world_background_tasks_without_callbacks() {
         use std::sync::{Arc, Mutex};
 
-        /// Dummy task that updates a completion flag when done
         struct FlagTask {
             pub result_value: i32,
             pub completed: Arc<Mutex<bool>>,
@@ -191,9 +184,7 @@ mod tests {
 
             async fn run(self) -> Self::Output {
                 let completed = self.completed.clone();
-                // Yield to simulate some work
                 future::yield_now().await;
-                // Mark the task as completed
                 *completed.lock().unwrap() = true;
                 self.result_value
             }
@@ -201,22 +192,18 @@ mod tests {
 
         let completion_flag = Arc::new(Mutex::new(false));
 
-        // Create the app
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
 
-        // Spawn a background task that sets the completion flag
         app.world_mut().spawn_background_task(FlagTask {
             result_value: 42,
             completed: completion_flag.clone(),
         });
 
-        // Add a system to check for task completion each frame
         app.add_systems(Update, check_completed_world_tasks::<FlagTask>);
 
         run_until_world_tasks_finish::<FlagTask>(&mut app);
 
-        // Assert that the task has completed and the flag is set
         assert!(
             *completion_flag.lock().unwrap(),
             "The task did not mark as completed"
@@ -224,10 +211,9 @@ mod tests {
     }
 
     #[test]
-    fn test_slow_task_respects_sla() {
+    fn should_finish_slow_world_background_tasks() {
         use std::{thread::sleep, time::Duration};
 
-        /// A slow task that takes approximately 10 milliseconds to complete
         struct SlowTask;
 
         impl BackgroundTask for SlowTask {
@@ -238,28 +224,24 @@ mod tests {
             }
         }
 
-        // Create the app and set the SLA timeout resource to 20ms
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
 
-        // Spawn the slow background task
         app.world_mut().spawn_background_task(SlowTask);
 
-        // Add system to check for task completion
         app.add_systems(Update, check_completed_world_tasks::<SlowTask>);
 
         run_until_world_tasks_finish::<SlowTask>(&mut app);
     }
 
     #[test]
-    fn test_multiple_background_tasks_with_callbacks() {
+    fn should_collect_results_from_multiple_world_background_tasks() {
         use std::{
             sync::{Arc, Mutex},
             thread::sleep,
             time::Duration,
         };
 
-        // Define a task that delays for a specified duration before returning its value
         struct DelayedTask(pub i32, pub Duration);
 
         impl BackgroundTask for DelayedTask {
@@ -273,15 +255,12 @@ mod tests {
             }
         }
 
-        // Shared vector to store results from callbacks
         let results = Arc::new(Mutex::new(Vec::<i32>::new()));
         let results_clone = results.clone();
 
-        // Create the app
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
 
-        // Spawn multiple delayed tasks with different values and delays
         let task_params = vec![
             (1, Duration::from_millis(10)),
             (2, Duration::from_millis(20)),
@@ -293,18 +272,15 @@ mod tests {
             app.world_mut().spawn_background_task_with_system(
                 DelayedTask(*value, *delay),
                 move |In(result): In<i32>| {
-                    // Push each completed result into the shared vector
                     results_inner.lock().unwrap().push(result);
                 },
             );
         }
 
-        // Add system to monitor and process completed tasks
         app.add_systems(Update, check_completed_world_tasks::<DelayedTask>);
 
         run_until_world_tasks_finish::<DelayedTask>(&mut app);
 
-        // Verify all results are received
         let mut results_vec = results.lock().unwrap().clone();
         results_vec.sort();
         assert_eq!(
@@ -315,7 +291,7 @@ mod tests {
     }
 
     #[test]
-    fn test_spawn_background_task_without_callback_still_despawns_tracker_entity() {
+    fn should_despawn_world_task_tracker_without_callback() {
         struct ImmediateTask;
 
         impl BackgroundTask for ImmediateTask {

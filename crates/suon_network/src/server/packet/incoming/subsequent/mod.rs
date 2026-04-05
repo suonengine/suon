@@ -166,3 +166,68 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::tasks::futures_lite::io::Cursor;
+    use smol::block_on;
+    use suon_protocol::packets::client::PacketKind;
+
+    const XTEA_KEY: suon_xtea::XTEAKey = [0xA56BABCD, 0x00000000, 0xFFFFFFFF, 0x12345678];
+
+    fn build_subsequent_packet_bytes(payload: &[u8], checksum: u32) -> Vec<u8> {
+        let mut plaintext =
+            Vec::with_capacity(crate::server::packet::PACKET_HEADER_SIZE + payload.len());
+        plaintext.extend_from_slice(&(payload.len() as u16).to_le_bytes());
+        plaintext.extend_from_slice(payload);
+
+        let encrypted = suon_xtea::encrypt(&plaintext, &XTEA_KEY);
+        let mut bytes = Vec::with_capacity(
+            crate::server::packet::PACKET_HEADER_SIZE
+                + crate::server::packet::PACKET_CHECKSUM_SIZE
+                + encrypted.len(),
+        );
+        bytes.extend_from_slice(
+            &((crate::server::packet::PACKET_CHECKSUM_SIZE + encrypted.len()) as u16).to_le_bytes(),
+        );
+        bytes.extend_from_slice(&checksum.to_le_bytes());
+        bytes.extend_from_slice(&encrypted);
+        bytes
+    }
+
+    #[test]
+    fn should_return_connection_closed_when_the_stream_is_empty() {
+        let mut reader = Cursor::new(Vec::<u8>::new());
+
+        let error = block_on(reader.read_subsequent_packet(XTEA_KEY, 64))
+            .expect_err("Empty streams should be treated as closed subsequent-packet connections");
+
+        assert!(matches!(error, PacketReadError::ConnectionClosed));
+    }
+
+    #[test]
+    fn should_decode_a_valid_subsequent_packet_from_the_stream() {
+        let payload = [PacketKind::PingLatency as u8, 1, 2];
+        let packet_bytes = build_subsequent_packet_bytes(&payload, 0);
+        let mut reader = Cursor::new(packet_bytes);
+
+        let packet = block_on(reader.read_subsequent_packet(XTEA_KEY, 64))
+            .expect("A valid subsequent packet should decode from the reader");
+
+        assert_eq!(
+            packet.kind,
+            PacketKind::PingLatency,
+            "Subsequent packet reads should preserve the decoded packet kind"
+        );
+        assert_eq!(
+            packet.checksum, None,
+            "Subsequent packet reads should not preserve zero checksums"
+        );
+        assert_eq!(
+            packet.buffer.as_ref(),
+            &[1, 2],
+            "Subsequent packet reads should preserve the decrypted payload bytes"
+        );
+    }
+}

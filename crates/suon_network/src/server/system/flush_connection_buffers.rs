@@ -25,3 +25,60 @@ pub(crate) fn flush_connection_buffers(query: Query<(Entity, &Connection)>) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::server::{connection::Connection, settings::PacketPolicy};
+    use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+    use suon_protocol::packets::server::{Encodable, PacketKind};
+
+    struct DummyPacket;
+
+    impl Encodable for DummyPacket {
+        const KIND: PacketKind = PacketKind::KeepAlive;
+    }
+
+    fn build_connection() -> (
+        Connection,
+        crossbeam_channel::Receiver<crate::server::packet::outgoing::OutgoingPacket>,
+    ) {
+        let (outgoing_sender, outgoing_receiver) = crossbeam_channel::unbounded();
+        let (_incoming_sender, incoming_receiver) = crossbeam_channel::unbounded();
+        let (xtea_sender, _xtea_receiver) = tokio::sync::watch::channel(None);
+
+        let connection = Connection::new(
+            outgoing_sender,
+            incoming_receiver,
+            SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 7172)),
+            xtea_sender,
+            PacketPolicy::default(),
+        );
+
+        (connection, outgoing_receiver)
+    }
+
+    #[test]
+    fn should_flush_buffered_packets_for_active_connections() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_systems(Update, flush_connection_buffers);
+
+        let (connection, outgoing_receiver) = build_connection();
+        connection
+            .write(DummyPacket)
+            .expect("Writing a small packet should populate the connection buffer");
+
+        app.world_mut().spawn(connection);
+        app.update();
+
+        let packet = outgoing_receiver
+            .try_recv()
+            .expect("flush_connection_buffers should emit one outgoing packet for buffered data");
+
+        assert!(
+            !packet.encode().is_empty(),
+            "The flushed packet should contain encoded bytes ready for transmission"
+        );
+    }
+}

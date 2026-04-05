@@ -43,15 +43,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_try_read_empty_channel_returns_error() {
-        // Create a new resource with no connections
+    fn should_return_an_empty_list_when_no_outgoing_connections_are_queued() {
         let connections = OutgoingConnections::default();
 
-        // Attempt to read from an empty channel
         let read_result = connections.read();
         assert!(
             read_result.is_empty(),
-            "Reading from an empty channel should return an error"
+            "Reading from an empty channel should return no queued connections"
         );
     }
 }

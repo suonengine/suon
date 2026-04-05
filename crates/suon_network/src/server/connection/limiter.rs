@@ -161,23 +161,19 @@ mod tests {
     const ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 8080);
 
     #[test]
-    fn first_session_is_successfully_acquired() {
-        // Create a session limiter with generous limits.
+    fn should_acquire_the_first_session_successfully() {
         let mut limiter = Limiter::with_session_quota(SessionQuota {
             max_total: 10,
             max_per_address: 5,
         });
 
-        // Attempt to acquire the first session.
         let result = limiter.try_acquire(ADDRESS);
 
-        // The acquisition should succeed.
         assert!(
             result.is_ok(),
             "The first session should be acquired successfully"
         );
 
-        // Counters should be updated accordingly.
         assert_eq!(
             limiter.total_active_sessions(),
             1,
@@ -192,23 +188,20 @@ mod tests {
     }
 
     #[test]
-    fn cannot_exceed_total_session_limit() {
+    fn should_reject_sessions_once_the_total_limit_is_reached() {
         let mut limiter = Limiter::with_session_quota(SessionQuota {
             max_total: 1,
             max_per_address: 10,
         });
 
-        // Acquire the first session successfully.
         assert!(limiter.try_acquire(ADDRESS).is_ok());
 
-        // Next attempt should fail because total limit is reached.
         let result = limiter.try_acquire(ADDRESS);
         assert!(
             matches!(result, Err(AcquireError::TotalReached { .. })),
             "Should return TotalReached when total limit is exceeded"
         );
 
-        // Counters should remain unchanged.
         assert_eq!(
             limiter.total_active_sessions(),
             1,
@@ -223,24 +216,21 @@ mod tests {
     }
 
     #[test]
-    fn cannot_exceed_sessions_per_address_limit() {
+    fn should_reject_sessions_once_the_per_address_limit_is_reached() {
         let mut limiter = Limiter::with_session_quota(SessionQuota {
             max_total: 10,
             max_per_address: 2,
         });
 
-        // Acquire sessions up to the per-address limit.
         assert!(limiter.try_acquire(ADDRESS).is_ok());
         assert!(limiter.try_acquire(ADDRESS).is_ok());
 
-        // Next acquisition should fail due to per-address limit.
         let result = limiter.try_acquire(ADDRESS);
         assert!(
             matches!(result, Err(AcquireError::PerAddressReached { .. })),
             "Should return PerAddressReached when per-address limit is exceeded"
         );
 
-        // Counters should reflect the successful acquisitions.
         assert_eq!(
             limiter.total_active_sessions(),
             2,
@@ -255,17 +245,15 @@ mod tests {
     }
 
     #[test]
-    fn releasing_sessions_updates_counters_correctly() {
+    fn should_update_counters_when_sessions_are_released() {
         let mut limiter = Limiter::with_session_quota(SessionQuota {
             max_total: 5,
             max_per_address: 3,
         });
 
-        // Acquire two sessions.
         assert!(limiter.try_acquire(ADDRESS).is_ok());
         assert!(limiter.try_acquire(ADDRESS).is_ok());
 
-        // Release one session and check counters.
         limiter.release(ADDRESS);
         assert_eq!(
             limiter.total_active_sessions(),
@@ -279,7 +267,6 @@ mod tests {
             "Active sessions for the address should be 1 after release"
         );
 
-        // Release the second session.
         limiter.release(ADDRESS);
         assert_eq!(
             limiter.total_active_sessions(),

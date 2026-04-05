@@ -79,14 +79,11 @@ mod tests {
     impl Table for MyTable {}
 
     #[test]
-    fn test_init_and_insert_table() {
-        // Create a new Bevy app
+    fn should_initialize_database_table_resource() {
         let mut app = App::new();
 
-        // Initialize the database table resource
         app.init_database_table::<MyTable>();
 
-        // Verify that the Tables<MyTable> resource exists
         assert!(
             app.world().get_resource::<Tables<MyTable>>().is_some(),
             "Tables<MyTable> should be created after init_database_table"
@@ -94,49 +91,38 @@ mod tests {
     }
 
     #[test]
-    fn test_access_table_immutable() {
-        // Set up app with minimal plugins
+    fn should_access_table_through_database_system_params() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
 
-        // Insert a table instance into the database
         app.insert_database_table(MyTable { value: false });
 
-        // Check the initial value before modification
         app.add_systems(PreUpdate, |table: Database<MyTable>| {
             assert!(!table.value, "Initial value should be false");
         })
-        // Modify the table's value
         .add_systems(Update, |mut table: DatabaseMut<MyTable>| {
             table.value = true;
         })
-        // Verify the value after modification
         .add_systems(PostUpdate, |table: Database<MyTable>| {
             assert!(table.value, "Value should be true after update");
         });
 
-        // Run the systems
         app.update();
 
-        // Confirm the resource still exists
         let resource = app.world().get_resource::<Tables<MyTable>>();
         assert!(resource.is_some(), "Tables<MyTable> should still exist");
 
-        // Confirm the value has been updated
         let table = resource.unwrap();
         assert!(table.value, "Table value should be true after update");
     }
 
     #[test]
-    fn test_access_table_mutably() {
-        // Set up app with minimal plugins
+    fn should_mutate_table_resource_directly() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
 
-        // Insert a table instance into the database
         app.insert_database_table(MyTable { value: false });
 
-        // Mutably access the resource and modify its value
         {
             let resource = app.world_mut().get_resource_mut::<Tables<MyTable>>();
             assert!(
@@ -144,13 +130,10 @@ mod tests {
                 "Tables<MyTable> resource should exist for mutation"
             );
             let mut table = resource.unwrap();
-            // Check initial value
             assert!(!table.value, "Initial value should be false");
-            // Change the value
             table.value = true;
         }
 
-        // Confirm the change is reflected in the resource
         {
             let resource = app.world().get_resource::<Tables<MyTable>>();
             assert!(
@@ -158,13 +141,12 @@ mod tests {
                 "Tables<MyTable> should exist after mutation"
             );
             let table = resource.unwrap();
-            // Confirm updated value
             assert!(table.value, "Table value should be true after mutation");
         }
     }
 
     #[test]
-    fn test_init_database_table_keeps_existing_resource() {
+    fn should_keep_existing_table_when_initializing_again() {
         let mut app = App::new();
 
         app.insert_database_table(MyTable { value: true });
@@ -182,7 +164,7 @@ mod tests {
     }
 
     #[test]
-    fn test_insert_database_table_overwrites_previous_resource() {
+    fn should_overwrite_previous_table_when_inserting_again() {
         let mut app = App::new();
 
         app.insert_database_table(MyTable { value: false });

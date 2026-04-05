@@ -12,14 +12,12 @@ mod tests {
     use std::time::Duration;
 
     #[test]
-    fn test_timer_initialization_and_deref_access() {
-        // Define a local constant for the duration to avoid magic numbers
+    fn should_expose_inner_timer_state_through_deref() {
         const INITIAL_DURATION_SECONDS: f32 = 1.0;
 
         let timer_duration = Duration::from_secs_f32(INITIAL_DURATION_SECONDS);
         let step_timer = StepTimer(Timer::new(timer_duration, TimerMode::Once));
 
-        // Test Deref access to the underlying Timer methods
         assert_eq!(
             step_timer.duration(),
             timer_duration,
@@ -33,10 +31,9 @@ mod tests {
     }
 
     #[test]
-    fn test_default_initialization_state() {
+    fn should_default_to_a_zero_duration_one_shot_timer() {
         let step_timer = StepTimer::default();
 
-        // Verify that the default Bevy Timer starts with zero duration and Once mode
         assert_eq!(
             step_timer.duration(),
             Duration::ZERO,
@@ -51,13 +48,12 @@ mod tests {
     }
 
     #[test]
-    fn test_timer_ticking_functionality_via_deref_mut() {
+    fn should_advance_and_finish_when_ticked_through_deref_mut() {
         const TOTAL_DURATION: f32 = 2.0;
         const TICK_AMOUNT: f32 = 1.0;
 
         let mut step_timer = StepTimer(Timer::from_seconds(TOTAL_DURATION, TimerMode::Once));
 
-        // Advance the timer by a specific duration using DerefMut
         step_timer.tick(Duration::from_secs_f32(TICK_AMOUNT));
 
         assert_eq!(
@@ -72,7 +68,6 @@ mod tests {
              duration"
         );
 
-        // Advance the timer to completion
         step_timer.tick(Duration::from_secs_f32(TICK_AMOUNT));
 
         assert!(
@@ -82,16 +77,14 @@ mod tests {
     }
 
     #[test]
-    fn test_timer_reset_logic() {
+    fn should_reset_elapsed_time_without_finishing_the_timer() {
         const DURATION_SECONDS: f32 = 5.0;
         let mut step_timer = StepTimer(Timer::from_seconds(DURATION_SECONDS, TimerMode::Once));
 
-        // Advance the timer to verify it is no longer at zero
         step_timer.tick(Duration::from_secs_f32(1.0));
 
         assert!(step_timer.elapsed_secs() > 0.0);
 
-        // Reset the internal timer and verify the state
         step_timer.reset();
 
         assert_eq!(

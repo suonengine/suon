@@ -121,3 +121,45 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::tasks::futures_lite::io::Cursor;
+    use smol::block_on;
+    use suon_protocol::packets::client::PacketKind;
+
+    #[test]
+    fn should_return_connection_closed_when_the_stream_is_empty() {
+        let mut reader = Cursor::new(Vec::<u8>::new());
+
+        let error = block_on(reader.read_server_name_packet(32))
+            .expect_err("Empty streams should be treated as closed connections");
+
+        assert!(matches!(error, PacketReadError::ConnectionClosed));
+    }
+
+    #[test]
+    fn should_decode_a_newline_terminated_server_name_packet() {
+        let mut reader = Cursor::new(b"suon\n".to_vec());
+
+        let packet = block_on(reader.read_server_name_packet(32))
+            .expect("A newline-terminated payload should decode as a server-name packet");
+
+        assert_eq!(
+            packet.kind,
+            PacketKind::ServerName,
+            "Server-name packet reads should tag the decoded packet correctly"
+        );
+        assert_eq!(
+            &packet.buffer[..2],
+            &[4, 0],
+            "Server-name packet reads should prepend the encoded payload length"
+        );
+        assert_eq!(
+            &packet.buffer[2..],
+            b"suon",
+            "Server-name packet reads should strip the newline terminator from the payload"
+        );
+    }
+}
