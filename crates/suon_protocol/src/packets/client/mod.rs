@@ -3,10 +3,13 @@ use thiserror::Error;
 mod accept_market_offer;
 mod browse_market;
 mod cancel_market_offer;
+mod create_buddy;
 mod create_market_offer;
+mod delete_buddy;
 mod keep_alive;
 mod leave_market;
 mod ping_latency;
+mod update_buddy;
 
 pub mod prelude {
     pub use super::{
@@ -14,10 +17,13 @@ pub mod prelude {
         accept_market_offer::AcceptMarketOfferPacket,
         browse_market::BrowseMarketPacket,
         cancel_market_offer::CancelMarketOfferPacket,
+        create_buddy::CreateBuddyPacket,
         create_market_offer::{CreateMarketOfferPacket, MarketOfferKind},
+        delete_buddy::DeleteBuddyPacket,
         keep_alive::KeepAlivePacket,
         leave_market::LeaveMarketPacket,
         ping_latency::PingLatencyPacket,
+        update_buddy::UpdateBuddyPacket,
     };
 }
 
@@ -108,16 +114,24 @@ pub enum PacketKind {
     PingLatency = 29,
     /// Keeps the connection alive.
     KeepAlive = 30,
+
+    /// Creates a buddy entry.
+    CreateBuddy = 220,
+    /// Deletes a buddy entry.
+    DeleteBuddy = 221,
+    /// Updates a buddy entry.
+    UpdateBuddy = 222,
+
     /// Leaves the market view.
-    LeaveMarket = 0xF4,
+    LeaveMarket = 244,
     /// Browses a market category, own offers, or own history.
-    BrowseMarket = 0xF5,
+    BrowseMarket = 245,
     /// Creates a market offer.
-    CreateMarketOffer = 0xF6,
+    CreateMarketOffer = 246,
     /// Cancels a market offer.
-    CancelMarketOffer = 0xF7,
+    CancelMarketOffer = 247,
     /// Accepts a market offer.
-    AcceptMarketOffer = 0xF8,
+    AcceptMarketOffer = 248,
 }
 
 impl TryFrom<u8> for PacketKind {
@@ -135,6 +149,9 @@ impl TryFrom<u8> for PacketKind {
             0xF6 => Ok(Self::CreateMarketOffer),
             0xF7 => Ok(Self::CancelMarketOffer),
             0xF8 => Ok(Self::AcceptMarketOffer),
+            0xDC => Ok(Self::CreateBuddy),
+            0xDD => Ok(Self::DeleteBuddy),
+            0xDE => Ok(Self::UpdateBuddy),
             _ => Err(value),
         }
     }
@@ -229,6 +246,11 @@ mod tests {
             PacketKind::PingLatency.to_string(),
             "PingLatency (0x1D)",
             "Display should include both the variant name and hexadecimal id"
+        );
+        assert_eq!(
+            PacketKind::try_from(0xDE),
+            Ok(PacketKind::UpdateBuddy),
+            "Wire value 0xDE should decode to the update-buddy client packet kind"
         );
     }
 }
