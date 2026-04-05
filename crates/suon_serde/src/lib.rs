@@ -3,6 +3,29 @@
 //! The modules in this crate provide focused serialization adapters that can be
 //! reused from multiple configuration and protocol crates without repeating
 //! serde glue code.
+//!
+//! # Examples
+//! ```
+//! use serde::{Deserialize, Serialize};
+//! use std::time::Duration;
+//! use suon_serde::duration::{as_millis, as_secs};
+//!
+//! #[derive(Serialize, Deserialize)]
+//! struct Durations {
+//!     #[serde(with = "as_millis")]
+//!     retry_after: Duration,
+//!     #[serde(with = "as_secs")]
+//!     timeout: Duration,
+//! }
+//!
+//! let json = serde_json::to_string(&Durations {
+//!     retry_after: Duration::from_millis(1500),
+//!     timeout: Duration::from_secs(3),
+//! })
+//! .unwrap();
+//!
+//! assert_eq!(json, r#"{"retry_after":1500,"timeout":3}"#);
+//! ```
 
 pub mod duration;
 

@@ -6,6 +6,19 @@ pub mod as_millis {
     use std::time::Duration;
 
     /// Serializes a `Duration` as milliseconds (u64).
+    ///
+    /// # Examples
+    /// ```
+    /// use std::time::Duration;
+    ///
+    /// let value = suon_serde::duration::as_millis::serialize(
+    ///     &Duration::from_millis(1234),
+    ///     serde_json::value::Serializer,
+    /// )
+    /// .unwrap();
+    ///
+    /// assert_eq!(value, serde_json::Value::from(1234));
+    /// ```
     pub fn serialize<S>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -15,6 +28,16 @@ pub mod as_millis {
     }
 
     /// Deserializes a `Duration` from milliseconds (u64).
+    ///
+    /// # Examples
+    /// ```
+    /// let duration = suon_serde::duration::as_millis::deserialize(
+    ///     serde_json::Value::from(4321),
+    /// )
+    /// .unwrap();
+    ///
+    /// assert_eq!(duration, std::time::Duration::from_millis(4321));
+    /// ```
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Duration, D::Error>
     where
         D: Deserializer<'de>,
@@ -30,6 +53,19 @@ pub mod as_secs {
     use std::time::Duration;
 
     /// Serializes a `Duration` as seconds (u64).
+    ///
+    /// # Examples
+    /// ```
+    /// use std::time::Duration;
+    ///
+    /// let value = suon_serde::duration::as_secs::serialize(
+    ///     &Duration::from_secs(42),
+    ///     serde_json::value::Serializer,
+    /// )
+    /// .unwrap();
+    ///
+    /// assert_eq!(value, serde_json::Value::from(42));
+    /// ```
     pub fn serialize<S>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -39,6 +75,16 @@ pub mod as_secs {
     }
 
     /// Deserializes a `Duration` from seconds (u64).
+    ///
+    /// # Examples
+    /// ```
+    /// let duration = suon_serde::duration::as_secs::deserialize(
+    ///     serde_json::Value::from(9),
+    /// )
+    /// .unwrap();
+    ///
+    /// assert_eq!(duration, std::time::Duration::from_secs(9));
+    /// ```
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Duration, D::Error>
     where
         D: Deserializer<'de>,
@@ -178,6 +224,54 @@ mod tests {
         assert!(
             !secs_error.to_string().is_empty(),
             "Seconds deserialization should fail for non-numeric JSON values"
+        );
+    }
+
+    #[test]
+    fn duration_roundtrip_should_preserve_whole_millis_and_secs() {
+        let millis = MillisContainer {
+            duration: Duration::from_millis(8_765),
+        };
+        let secs = SecsContainer {
+            duration: Duration::from_secs(321),
+        };
+
+        let millis_json = serde_json::to_string(&millis).expect("Millis serialization should succeed");
+        let secs_json = serde_json::to_string(&secs).expect("Seconds serialization should succeed");
+
+        let decoded_millis: MillisContainer =
+            serde_json::from_str(&millis_json).expect("Millis deserialization should succeed");
+        let decoded_secs: SecsContainer =
+            serde_json::from_str(&secs_json).expect("Seconds deserialization should succeed");
+
+        assert_eq!(
+            decoded_millis, millis,
+            "Whole-millisecond values should roundtrip through as_millis"
+        );
+        assert_eq!(
+            decoded_secs, secs,
+            "Whole-second values should roundtrip through as_secs"
+        );
+    }
+
+    #[test]
+    fn duration_serialization_should_support_zero_values() {
+        let millis = MillisContainer {
+            duration: Duration::ZERO,
+        };
+        let secs = SecsContainer {
+            duration: Duration::ZERO,
+        };
+
+        assert_eq!(
+            serde_json::to_string(&millis).unwrap(),
+            r#"{"duration":0}"#,
+            "Zero durations should serialize to zero milliseconds"
+        );
+        assert_eq!(
+            serde_json::to_string(&secs).unwrap(),
+            r#"{"duration":0}"#,
+            "Zero durations should serialize to zero seconds"
         );
     }
 }

@@ -1,4 +1,4 @@
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use serde::{Deserialize, Serialize};
 use std::{hint::black_box, time::Duration};
 use suon_serde::duration::{as_millis, as_secs};
@@ -16,37 +16,75 @@ struct SecsContainer {
 }
 
 fn benchmark_duration_serialize(c: &mut Criterion) {
-    let millis_value = MillisContainer {
-        duration: Duration::from_millis(1_234),
-    };
-    let secs_value = SecsContainer {
-        duration: Duration::from_secs(42),
-    };
+    let mut group = c.benchmark_group("serde/duration_serialize");
 
-    c.bench_function("serde/duration_serialize", |b| {
-        b.iter(|| {
-            let millis = serde_json::to_string(black_box(&millis_value))
-                .expect("Millis serialization should succeed");
-            let secs = serde_json::to_string(black_box(&secs_value))
-                .expect("Seconds serialization should succeed");
-            (millis, secs)
-        })
-    });
+    for millis in [1_234u64, 50_000u64, 999_999u64] {
+        let millis_value = MillisContainer {
+            duration: Duration::from_millis(millis),
+        };
+
+        group.bench_with_input(BenchmarkId::new("as_millis", millis), &millis_value, |b, value| {
+            b.iter(|| {
+                serde_json::to_string(black_box(value))
+                    .expect("Millis serialization should succeed")
+            })
+        });
+    }
+
+    for secs in [42u64, 600u64, 3_600u64] {
+        let secs_value = SecsContainer {
+            duration: Duration::from_secs(secs),
+        };
+
+        group.bench_with_input(BenchmarkId::new("as_secs", secs), &secs_value, |b, value| {
+            b.iter(|| {
+                serde_json::to_string(black_box(value))
+                    .expect("Seconds serialization should succeed")
+            })
+        });
+    }
+
+    group.finish();
 }
 
 fn benchmark_duration_deserialize(c: &mut Criterion) {
-    let millis_json = r#"{"duration":1234}"#;
-    let secs_json = r#"{"duration":42}"#;
+    let mut group = c.benchmark_group("serde/duration_deserialize");
 
-    c.bench_function("serde/duration_deserialize", |b| {
-        b.iter(|| {
-            let millis = serde_json::from_str::<MillisContainer>(black_box(millis_json))
-                .expect("Millis deserialization should succeed");
-            let secs = serde_json::from_str::<SecsContainer>(black_box(secs_json))
-                .expect("Seconds deserialization should succeed");
-            (millis, secs)
-        })
-    });
+    for millis_json in [
+        r#"{"duration":1234}"#,
+        r#"{"duration":50000}"#,
+        r#"{"duration":999999}"#,
+    ] {
+        group.bench_with_input(
+            BenchmarkId::new("as_millis", millis_json.len()),
+            &millis_json,
+            |b, json| {
+                b.iter(|| {
+                    serde_json::from_str::<MillisContainer>(black_box(json))
+                        .expect("Millis deserialization should succeed")
+                })
+            },
+        );
+    }
+
+    for secs_json in [
+        r#"{"duration":42}"#,
+        r#"{"duration":600}"#,
+        r#"{"duration":3600}"#,
+    ] {
+        group.bench_with_input(
+            BenchmarkId::new("as_secs", secs_json.len()),
+            &secs_json,
+            |b, json| {
+                b.iter(|| {
+                    serde_json::from_str::<SecsContainer>(black_box(json))
+                        .expect("Seconds deserialization should succeed")
+                })
+            },
+        );
+    }
+
+    group.finish();
 }
 
 criterion_group!(
