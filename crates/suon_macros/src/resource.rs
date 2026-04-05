@@ -17,8 +17,12 @@ use syn::{DeriveInput, parse_macro_input, parse_quote};
 ///
 /// # Example
 /// ```ignore
+/// use suon_macros::Table;
+///
 /// #[derive(Table)]
-/// struct MyTable;
+/// struct MyTable<T> {
+///     value: T,
+/// }
 /// ```
 ///
 /// The macro expands to an empty implementation block with trait bounds.
@@ -70,6 +74,48 @@ mod tests {
         assert!(
             output.contains("Self : Send + Sync + 'static"),
             "The derive macro should inject Send + Sync + 'static bounds into the where clause"
+        );
+    }
+
+    #[test]
+    fn derive_table_preserves_existing_where_clause() {
+        let input: DeriveInput =
+            syn::parse_str("struct Inventory<T>(T) where T: Clone;").expect("Input should parse");
+        let output = expand_derive_table(input).to_string();
+
+        assert!(
+            output.contains("where T : Clone , Self : Send + Sync + 'static"),
+            "The derive macro should preserve existing where predicates while appending \
+             thread-safety bounds"
+        );
+    }
+
+    #[test]
+    fn derive_table_supports_named_structs() {
+        let input: DeriveInput =
+            syn::parse_str("struct Inventory { slots: usize }").expect("Input should parse");
+        let output = expand_derive_table(input).to_string();
+
+        assert!(
+            output.contains("impl suon_database :: Table for Inventory"),
+            "The derive macro should support named-field structs"
+        );
+    }
+
+    #[test]
+    fn derive_table_supports_lifetime_and_type_generics() {
+        let input: DeriveInput = syn::parse_str("struct Borrowed<'a, T>(&'a T);")
+            .expect("Input should parse");
+        let output = expand_derive_table(input).to_string();
+
+        assert!(
+            output.contains("impl < 'a , T > suon_database :: Table for Borrowed < 'a , T >"),
+            "The derive macro should carry lifetime and type generics into the generated impl"
+        );
+
+        assert!(
+            output.contains("Self : Send + Sync + 'static"),
+            "The generated impl should still add thread-safety bounds for generic structs"
         );
     }
 }

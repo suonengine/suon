@@ -1,4 +1,4 @@
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use quote::quote;
 use std::hint::black_box;
 use syn::{DeriveInput, parse_quote};
@@ -20,14 +20,48 @@ fn expand_like_derive_table(input: DeriveInput) -> String {
 }
 
 fn benchmark_derive_table(c: &mut Criterion) {
-    c.bench_function("macros/derive_table_like", |b| {
-        b.iter(|| {
-            let input = syn::parse_str::<DeriveInput>(black_box("struct Inventory<T, U>(T, U);"))
-                .expect("Input should parse");
+    let mut group = c.benchmark_group("macros");
 
-            expand_like_derive_table(input)
+    for (name, source) in [
+        ("unit_struct", "struct Inventory;"),
+        ("tuple_struct", "struct Inventory<T, U>(T, U);"),
+        (
+            "named_struct",
+            "struct Inventory<T> where T: Clone { items: Vec<T>, slots: usize }",
+        ),
+        (
+            "lifetime_generic",
+            "struct Borrowed<'a, T>(&'a T) where T: Send + Sync;",
+        ),
+    ] {
+        group.bench_with_input(BenchmarkId::new("derive_table_like", name), &source, |b, source| {
+            b.iter(|| {
+                let input = syn::parse_str::<DeriveInput>(black_box(source))
+                    .expect("Input should parse");
+
+                expand_like_derive_table(input)
+            })
+        });
+    }
+
+    group.bench_function("derive_table_like/parse_quote_input", |b| {
+        b.iter(|| {
+            let input: DeriveInput = parse_quote! {
+                struct Inventory<T, U>
+                where
+                    T: Clone,
+                    U: Send
+                {
+                    primary: T,
+                    secondary: U,
+                }
+            };
+
+            expand_like_derive_table(black_box(input))
         })
     });
+
+    group.finish();
 }
 
 criterion_group!(benches, benchmark_derive_table);

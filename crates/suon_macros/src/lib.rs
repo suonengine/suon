@@ -1,4 +1,14 @@
 //! Procedural macros shared across the Suon workspace.
+//!
+//! # Examples
+//! ```ignore
+//! use suon_macros::Table;
+//!
+//! #[derive(Table)]
+//! struct Inventory {
+//!     capacity: usize,
+//! }
+//! ```
 
 mod resource;
 
@@ -11,18 +21,16 @@ use proc_macro::TokenStream;
 ///
 /// # Usage
 /// ```ignore
+/// use suon_macros::Table;
+///
 /// #[derive(Table)]
-/// struct MyTable;
+/// struct MyTable {
+///     id: u32,
+/// }
 /// ```
 ///
 /// The macro expands into the necessary code to implement the `Table` trait
 /// for the annotated struct, based on the logic in `resource::derive_table`.
-///
-/// # Arguments
-/// - `input`: The input TokenStream representing the annotated item.
-///
-/// # Returns
-/// - A TokenStream containing the generated code for the `Table` implementation.
 #[proc_macro_derive(Table)]
 pub fn derive_table(input: TokenStream) -> TokenStream {
     // Delegate to the `derive_table` function in the `resource` module.
