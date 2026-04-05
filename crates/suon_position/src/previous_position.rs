@@ -6,6 +6,16 @@ use std::{cmp::*, hash::*};
 #[derive(Component, Clone, Copy, Debug)]
 #[component(immutable)]
 /// Snapshot of the previous tile coordinate in world space.
+///
+/// # Examples
+/// ```
+/// use suon_position::previous_position::PreviousPosition;
+///
+/// let previous = PreviousPosition { x: 5, y: 6 };
+///
+/// assert_eq!(previous.x, 5);
+/// assert_eq!(previous.y, 6);
+/// ```
 pub struct PreviousPosition {
     /// Previous horizontal world coordinate.
     pub x: u16,
@@ -104,6 +114,22 @@ mod tests {
                 PreviousPosition { x: 8, y: 8 },
             ],
             "The total order should be stable enough for ordered collections"
+        );
+    }
+
+    #[test]
+    fn should_clone_and_copy_previous_positions_without_changing_coordinates() {
+        let original = PreviousPosition { x: 44, y: 55 };
+        let copied = original;
+        let cloned = original.clone();
+
+        assert_eq!(
+            copied, original,
+            "Copy should preserve the previous position coordinates"
+        );
+        assert_eq!(
+            cloned, original,
+            "Clone should preserve the previous position coordinates"
         );
     }
 }

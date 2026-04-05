@@ -6,6 +6,16 @@ use std::{cmp::*, hash::*};
 #[derive(Component, Hash, PartialEq, Eq, PartialOrd, Ord, Deref, Clone, Copy, Debug)]
 #[component(immutable)]
 /// Snapshot of the previous vertical layer coordinate.
+///
+/// # Examples
+/// ```
+/// use suon_position::previous_floor::PreviousFloor;
+///
+/// let floor = PreviousFloor { z: 12 };
+///
+/// assert_eq!(*floor, 12);
+/// assert_eq!(floor.z, 12);
+/// ```
 pub struct PreviousFloor {
     /// Previous floor index in the world.
     pub z: u8,
@@ -68,5 +78,15 @@ mod tests {
             1,
             "Equal previous floors should occupy one ordered set entry"
         );
+    }
+
+    #[test]
+    fn should_clone_and_copy_previous_floors_without_changing_z() {
+        let original = PreviousFloor { z: 14 };
+        let copied = original;
+        let cloned = original.clone();
+
+        assert_eq!(copied, original, "Copy should preserve the previous floor value");
+        assert_eq!(cloned, original, "Clone should preserve the previous floor value");
     }
 }

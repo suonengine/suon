@@ -6,6 +6,16 @@ use std::{cmp::*, hash::*};
 #[derive(Component, Clone, Copy, Debug)]
 #[component(immutable)]
 /// Immutable tile coordinate in world space.
+///
+/// # Examples
+/// ```
+/// use suon_position::position::Position;
+///
+/// let position = Position { x: 9, y: 3 };
+///
+/// assert_eq!(position.x, 9);
+/// assert_eq!(position.y, 3);
+/// ```
 pub struct Position {
     /// Horizontal world coordinate.
     pub x: u16,
@@ -106,6 +116,22 @@ mod tests {
                 Position { x: 9, y: 3 },
             ],
             "The Ord implementation should be stable enough for ordered map/set usage"
+        );
+    }
+
+    #[test]
+    fn should_clone_and_copy_positions_without_changing_coordinates() {
+        let original = Position { x: 77, y: 88 };
+        let copied = original;
+        let cloned = original.clone();
+
+        assert_eq!(
+            copied, original,
+            "Copy should preserve the original coordinates exactly"
+        );
+        assert_eq!(
+            cloned, original,
+            "Clone should preserve the original coordinates exactly"
         );
     }
 }

@@ -10,6 +10,26 @@
 //! - [`floor`]: current vertical layer
 //! - [`previous_position`]: previous world-space tile coordinates
 //! - [`previous_floor`]: previous vertical layer
+//!
+//! # Examples
+//! ```
+//! use suon_position::{
+//!     floor::Floor,
+//!     position::Position,
+//!     previous_floor::PreviousFloor,
+//!     previous_position::PreviousPosition,
+//! };
+//!
+//! let position = Position { x: 12, y: 34 };
+//! let floor = Floor { z: 7 };
+//! let previous_position = PreviousPosition { x: 11, y: 34 };
+//! let previous_floor = PreviousFloor { z: 6 };
+//!
+//! assert_eq!(position.x, 12);
+//! assert_eq!(*floor, 7);
+//! assert_eq!(previous_position.y, 34);
+//! assert_eq!(*previous_floor, 6);
+//! ```
 
 pub mod floor;
 pub mod position;

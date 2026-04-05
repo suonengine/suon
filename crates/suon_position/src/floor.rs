@@ -6,6 +6,16 @@ use std::{cmp::*, hash::*};
 #[derive(Component, Hash, PartialEq, Eq, PartialOrd, Ord, Deref, Clone, Copy, Debug)]
 #[component(immutable)]
 /// Immutable vertical layer coordinate.
+///
+/// # Examples
+/// ```
+/// use suon_position::floor::Floor;
+///
+/// let floor = Floor { z: 4 };
+///
+/// assert_eq!(*floor, 4);
+/// assert_eq!(floor.z, 4);
+/// ```
 pub struct Floor {
     /// Floor index in the world.
     pub z: u8,
@@ -56,5 +66,15 @@ mod tests {
             1,
             "Equal floors should occupy one ordered set entry"
         );
+    }
+
+    #[test]
+    fn should_clone_and_copy_floors_without_changing_z() {
+        let original = Floor { z: 9 };
+        let copied = original;
+        let cloned = original.clone();
+
+        assert_eq!(copied, original, "Copy should preserve the floor value");
+        assert_eq!(cloned, original, "Clone should preserve the floor value");
     }
 }
