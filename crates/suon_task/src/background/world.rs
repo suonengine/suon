@@ -220,7 +220,7 @@ mod tests {
             type Output = ();
 
             async fn run(self) -> Self::Output {
-                sleep(Duration::from_millis(10));
+                sleep(Duration::from_millis(1));
             }
         }
 
@@ -262,9 +262,9 @@ mod tests {
         app.add_plugins(MinimalPlugins);
 
         let task_params = vec![
-            (1, Duration::from_millis(10)),
-            (2, Duration::from_millis(20)),
-            (3, Duration::from_millis(30)),
+            (1, Duration::from_millis(1)),
+            (2, Duration::from_millis(2)),
+            (3, Duration::from_millis(3)),
         ];
 
         for (value, delay) in &task_params {

@@ -188,9 +188,22 @@ mod tests {
 
     const ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 8080);
 
+    fn test_throttle() -> Throttle {
+        let mut settings = Settings::default();
+        settings.throttle_policy = ThrottlePolicy {
+            max_attempts: 5,
+            interval_window: Duration::from_millis(50),
+            fast_attempt_threshold: Duration::from_millis(1),
+            block_duration: Duration::from_millis(5),
+            penalty_backoff: Duration::from_millis(2),
+        };
+
+        Throttle::new(settings)
+    }
+
     #[test]
     fn should_allow_the_first_connection_attempt_for_an_address() {
-        let throttle = Throttle::new(Settings::default());
+        let throttle = test_throttle();
 
         let result = throttle.attempt_connection(&ADDRESS);
 
@@ -202,7 +215,7 @@ mod tests {
 
     #[test]
     fn should_reject_fast_repeated_attempts() {
-        let throttle = Throttle::new(Settings::default());
+        let throttle = test_throttle();
 
         assert!(
             throttle.attempt_connection(&ADDRESS).is_ok(),
@@ -220,7 +233,7 @@ mod tests {
 
     #[test]
     fn should_block_an_address_after_too_many_attempts() {
-        let throttle = Throttle::new(Settings::default());
+        let throttle = test_throttle();
 
         for _ in 0..throttle.policy.max_attempts {
             assert!(
@@ -228,7 +241,7 @@ mod tests {
                 "Attempt within the limit should succeed"
             );
 
-            std::thread::sleep(throttle.policy.fast_attempt_threshold + Duration::from_millis(10));
+            std::thread::sleep(throttle.policy.fast_attempt_threshold + Duration::from_millis(1));
         }
 
         let result = throttle.attempt_connection(&ADDRESS);
@@ -241,11 +254,11 @@ mod tests {
 
     #[test]
     fn should_extend_the_block_duration_for_repeated_blocked_attempts() {
-        let throttle = Throttle::new(Settings::default());
+        let throttle = test_throttle();
 
         for _ in 0..=throttle.policy.max_attempts {
             let _ = throttle.attempt_connection(&ADDRESS);
-            std::thread::sleep(throttle.policy.fast_attempt_threshold + Duration::from_millis(10));
+            std::thread::sleep(throttle.policy.fast_attempt_threshold + Duration::from_millis(1));
         }
 
         let first_block_result = throttle.attempt_connection(&ADDRESS);
