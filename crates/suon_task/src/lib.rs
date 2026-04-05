@@ -3,6 +3,26 @@
 //! This crate provides small wrappers around Bevy task pools so world-scoped and
 //! entity-scoped background work can be spawned and reconciled back into ECS
 //! systems once the work finishes.
+//!
+//! # Examples
+//! ```
+//! use bevy::prelude::*;
+//! use suon_task::background::{AppWithBackgroundTasks, BackgroundTask};
+//!
+//! struct ExampleTask;
+//!
+//! impl BackgroundTask for ExampleTask {
+//!     type Output = ();
+//!
+//!     async fn run(self) -> Self::Output {}
+//! }
+//!
+//! let mut app = App::new();
+//! app.add_plugins(MinimalPlugins);
+//! app.add_background_task_systems::<Update, ExampleTask>();
+//!
+//! assert_eq!(std::mem::size_of::<ExampleTask>(), 0);
+//! ```
 
 pub mod background;
 

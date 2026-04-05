@@ -18,11 +18,49 @@ pub(crate) struct WorldTaskTracker<T: BackgroundTask> {
 /// Trait for spawning background tasks within command context.
 pub trait TaskCommands {
     /// Spawns a background task without an associated system.
+    ///
+    /// # Examples
+    /// ```ignore
+    /// use bevy::prelude::*;
+    /// use suon_task::background::{BackgroundTask, world::TaskCommands};
+    ///
+    /// struct ExampleTask;
+    ///
+    /// impl BackgroundTask for ExampleTask {
+    ///     type Output = ();
+    ///
+    ///     async fn run(self) -> Self::Output {}
+    /// }
+    ///
+    /// let mut world = World::new();
+    /// world.spawn_background_task(ExampleTask);
+    /// ```
     fn spawn_background_task<T>(&mut self, task: T)
     where
         T: BackgroundTask;
 
     /// Spawns a background task and registers a system to run upon completion.
+    ///
+    /// # Examples
+    /// ```ignore
+    /// use bevy::prelude::*;
+    /// use suon_task::background::{BackgroundTask, world::TaskCommands};
+    ///
+    /// struct ExampleTask;
+    ///
+    /// impl BackgroundTask for ExampleTask {
+    ///     type Output = i32;
+    ///
+    ///     async fn run(self) -> Self::Output {
+    ///         7
+    ///     }
+    /// }
+    ///
+    /// let mut world = World::new();
+    /// world.spawn_background_task_with_system(ExampleTask, |In(result): In<i32>| {
+    ///     assert_eq!(result, 7);
+    /// });
+    /// ```
     fn spawn_background_task_with_system<T, S, Marker>(&mut self, task: T, system: S)
     where
         T: BackgroundTask,
@@ -315,6 +353,34 @@ mod tests {
                 .next()
                 .is_none(),
             "World task tracker entities should be despawned even without callbacks"
+        );
+    }
+
+    #[test]
+    fn should_allow_spawning_world_background_task_from_commands() {
+        struct ImmediateTask;
+
+        impl BackgroundTask for ImmediateTask {
+            type Output = ();
+
+            async fn run(self) -> Self::Output {}
+        }
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_systems(Startup, |mut commands: Commands| {
+            commands.spawn_background_task(ImmediateTask);
+        });
+        app.add_systems(Update, check_completed_world_tasks::<ImmediateTask>);
+        run_until_world_tasks_finish::<ImmediateTask>(&mut app);
+
+        assert!(
+            app.world_mut()
+                .query::<&WorldTaskTracker<ImmediateTask>>()
+                .iter(app.world())
+                .next()
+                .is_none(),
+            "Commands should be able to spawn world background tasks that are later cleaned up"
         );
     }
 }

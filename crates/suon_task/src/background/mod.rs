@@ -12,6 +12,21 @@ pub trait BackgroundTask: Send + Sync + 'static {
     type Output: Send + Sync + 'static;
 
     /// Executes the task asynchronously, returning a future with the result.
+    ///
+    /// # Examples
+    /// ```
+    /// use suon_task::background::BackgroundTask;
+    ///
+    /// struct SumTask(u32, u32);
+    ///
+    /// impl BackgroundTask for SumTask {
+    ///     type Output = u32;
+    ///
+    ///     async fn run(self) -> Self::Output {
+    ///         self.0 + self.1
+    ///     }
+    /// }
+    /// ```
     fn run(self) -> impl Future<Output = Self::Output> + Send + 'static;
 }
 
@@ -22,6 +37,24 @@ pub trait AppWithBackgroundTasks {
     /// # Type Parameters
     /// - `S`: The schedule label to insert the systems into.
     /// - `T`: The type of background task being managed.
+    ///
+    /// # Examples
+    /// ```
+    /// use bevy::prelude::*;
+    /// use suon_task::background::{AppWithBackgroundTasks, BackgroundTask};
+    ///
+    /// struct ExampleTask;
+    ///
+    /// impl BackgroundTask for ExampleTask {
+    ///     type Output = ();
+    ///
+    ///     async fn run(self) -> Self::Output {}
+    /// }
+    ///
+    /// let mut app = App::new();
+    /// app.add_plugins(MinimalPlugins);
+    /// app.add_background_task_systems::<Update, ExampleTask>();
+    /// ```
     fn add_background_task_systems<S, T>(&mut self) -> &mut Self
     where
         T: BackgroundTask,
@@ -180,6 +213,19 @@ mod tests {
                 .entity(entity)
                 .contains::<EntityTaskTracker<DummyTask>>(),
             "EntityTaskTracker should be removed after task completion"
+        );
+    }
+
+    #[test]
+    fn should_return_the_same_app_reference_for_background_task_system_registration() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let returned = app.add_background_task_systems::<Update, DummyTask>();
+
+        assert!(
+            std::ptr::eq(returned, &mut app),
+            "add_background_task_systems should support fluent chaining by returning the same App"
         );
     }
 }

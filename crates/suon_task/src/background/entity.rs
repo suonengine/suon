@@ -32,11 +32,52 @@ pub(crate) struct EntityTaskTracker<T: BackgroundTask> {
 /// Trait providing methods to spawn background tasks on entities.
 pub trait EntityTaskCommands {
     /// Spawns a background task and attaches a tracker component.
+    ///
+    /// # Examples
+    /// ```ignore
+    /// use bevy::prelude::*;
+    /// use suon_task::background::{BackgroundTask, entity::EntityTaskCommands};
+    ///
+    /// struct ExampleTask;
+    ///
+    /// impl BackgroundTask for ExampleTask {
+    ///     type Output = ();
+    ///
+    ///     async fn run(self) -> Self::Output {}
+    /// }
+    ///
+    /// let mut world = World::new();
+    /// world.spawn_empty().spawn_background_task(ExampleTask);
+    /// ```
     fn spawn_background_task<T>(&mut self, command: T) -> &mut Self
     where
         T: BackgroundTask;
 
     /// Spawns a background task and registers a system to run upon completion.
+    ///
+    /// # Examples
+    /// ```ignore
+    /// use bevy::prelude::*;
+    /// use suon_task::background::{BackgroundTask, entity::{EntityIn, EntityTaskCommands}};
+    ///
+    /// struct ExampleTask;
+    ///
+    /// impl BackgroundTask for ExampleTask {
+    ///     type Output = i32;
+    ///
+    ///     async fn run(self) -> Self::Output {
+    ///         5
+    ///     }
+    /// }
+    ///
+    /// let mut world = World::new();
+    /// world.spawn_empty().spawn_background_task_with_system(
+    ///     ExampleTask,
+    ///     |EntityIn((_, result)): EntityIn<i32>| {
+    ///         assert_eq!(result, 5);
+    ///     },
+    /// );
+    /// ```
     fn spawn_background_task_with_system<T, S, Marker>(
         &mut self,
         command: T,
@@ -342,6 +383,18 @@ mod tests {
                 .entity(entity)
                 .contains::<EntityTaskTracker<ImmediateTask>>(),
             "Entity trackers should still be removed when no completion callback is registered"
+        );
+    }
+
+    #[test]
+    fn entity_in_wrap_should_preserve_entity_and_result() {
+        let entity = Entity::from_bits(77);
+        let wrapped = EntityIn::wrap(EntityIn((entity, 123_i32)));
+
+        assert_eq!(
+            wrapped.0,
+            (entity, 123),
+            "EntityIn::wrap should preserve both the entity and result payload"
         );
     }
 }
