@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  clippy:
+  miri:
     name: Running miri
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -16,6 +16,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: miri
+
+      - name: Setup miri
+        run: cargo miri setup
 
       - name: Run miri
         run: cargo miri test --workspace --all-features --doc

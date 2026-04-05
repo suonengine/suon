@@ -14,6 +14,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
       - uses: baptiste0928/cargo-install@v3.3.2
         with:
           crate: cargo-udeps
