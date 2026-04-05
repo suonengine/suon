@@ -12,7 +12,12 @@ criterion.workspace = true
 quote.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["std"] }
-syn = { workspace = true, features = ["derive", "parsing", "printing", "proc-macro"] }
+syn = { workspace = true, features = [
+  "derive",
+  "parsing",
+  "printing",
+  "proc-macro",
+] }
 
 suon_checksum.workspace = true
 suon_chunk.workspace = true

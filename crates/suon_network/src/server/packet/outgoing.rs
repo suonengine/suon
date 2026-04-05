@@ -1,4 +1,4 @@
-//! Outgoing packet encoding, checksuming and optional XTEA encryption.
+//! Outgoing packet encoding, checksumming and optional XTEA encryption.
 
 use bevy::prelude::*;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
