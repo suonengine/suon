@@ -1,7 +1,6 @@
 use bevy::prelude::*;
-use bytes::Bytes;
 use std::time::Instant;
-use suon_protocol::packets::client::{Decodable, DecodableError, PacketKind};
+use suon_protocol::packets::client::{Decodable, DecodableError};
 use thiserror::Error;
 
 pub mod incoming;
@@ -18,13 +17,6 @@ pub(crate) const PACKET_HEADER_SIZE: usize = 2;
 /// Errors that can occur while decoding a `Packet`.
 #[derive(Debug, Error)]
 pub enum DecodeError {
-    /// The packet KIND does not match the expected type.
-    #[error("packet KIND mismatch: expected {expected}, found {found}")]
-    KindMismatch {
-        expected: PacketKind,
-        found: PacketKind,
-    },
-
     /// Failed to decode the packet from its buffer.
     #[error("failed to decode packet: {0}")]
     Decodable(#[from] DecodableError),
@@ -34,11 +26,12 @@ pub enum DecodeError {
     ExtraBytes(usize),
 }
 
-/// Represents a decoded packet message from a client entity.
-#[derive(Message)]
-pub struct Packet {
-    /// The client entity that sent the packet.
-    pub(crate) client: Entity,
+/// A strongly-typed packet event targeted at the originating client entity.
+#[derive(Debug, EntityEvent)]
+pub struct Packet<P: Decodable + Send + Sync + 'static> {
+    /// The entity that sent the packet.
+    #[event_target]
+    pub(crate) entity: Entity,
 
     /// Timestamp when the packet was received.
     pub(crate) timestamp: Instant,
@@ -46,17 +39,14 @@ pub struct Packet {
     /// The packet checksum for validation.
     pub(crate) checksum: Option<suon_checksum::Adler32Checksum>,
 
-    /// The packet kind identifier.
-    pub(crate) kind: PacketKind,
-
-    /// Raw packet bytes.
-    pub(crate) buffer: Bytes,
+    /// Decoded packet payload.
+    pub(crate) packet: P,
 }
 
-impl Packet {
-    /// Returns the client entity associated with this packet.
-    pub fn client(&self) -> Entity {
-        self.client
+impl<P: Decodable + Send + Sync + 'static> Packet<P> {
+    /// Returns the entity that originated the packet.
+    pub fn entity(&self) -> Entity {
+        self.entity
     }
 
     /// Returns the timestamp when the packet was received.
@@ -64,70 +54,22 @@ impl Packet {
         self.timestamp
     }
 
-    /// Returns the checksum of the packet.
+    /// Returns the packet checksum, when present.
     pub fn checksum(&self) -> Option<suon_checksum::Adler32Checksum> {
         self.checksum
     }
 
-    /// Attempts to decode the raw buffer into a strongly-typed packet.
-    ///
-    /// ### Steps
-    /// 1. Verify that the packet KIND matches the expected type `P`.
-    /// 2. Call `P::decode` on the buffer to attempt decoding.
-    /// 3. Return an error if decoding fails or if extra bytes remain.
-    ///
-    /// ### Returns
-    /// `Ok(P)` if decoding succeeds, otherwise `Err(PacketDecodeError)`.
-    pub fn decode<P: Decodable>(&self) -> Result<P, DecodeError> {
-        // Ensure packet KIND matches
-        if self.kind != P::KIND {
-            warn!(
-                "Packet kind mismatch for client {}: expected {:?}, found {:?}",
-                self.client,
-                P::KIND,
-                self.kind
-            );
-
-            return Err(DecodeError::KindMismatch {
-                expected: P::KIND,
-                found: self.kind,
-            });
-        }
-
-        // Decode the packet from the buffer
-        let mut bytes = &self.buffer[..];
-
-        let packet = match P::decode(&mut bytes) {
-            Ok(p) => p,
-            Err(err) => {
-                error!(
-                    "Failed to decode packet for client {}: {:?}",
-                    self.client, err
-                );
-                return Err(err.into());
-            }
-        };
-
-        // Check for leftover bytes
-        if !bytes.is_empty() {
-            warn!(
-                "Extra bytes detected after decoding packet for client {}: {} bytes",
-                self.client,
-                bytes.len()
-            );
-
-            return Err(DecodeError::ExtraBytes(bytes.len()));
-        }
-
-        debug!("Successfully decoded packet for client {}", self.client);
-
-        Ok(packet)
+    /// Returns the decoded packet payload.
+    pub fn packet(&self) -> &P {
+        &self.packet
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bytes::Bytes;
+    use suon_protocol::packets::client::PacketKind;
 
     #[derive(Debug, PartialEq, Eq)]
     struct PingLatencyPacket;
@@ -151,39 +93,31 @@ mod tests {
         }
     }
 
-    fn build_packet(kind: PacketKind, buffer: &[u8]) -> Packet {
-        Packet {
-            client: Entity::from_bits(7),
-            timestamp: Instant::now(),
-            checksum: None,
-            kind,
-            buffer: Bytes::copy_from_slice(buffer),
+    fn build_packet<P: Decodable + Send + Sync + 'static>(
+        buffer: &[u8],
+    ) -> Result<Packet<P>, DecodeError> {
+        let timestamp = Instant::now();
+        let checksum = None;
+        let entity = Entity::from_bits(7);
+        let raw = Bytes::copy_from_slice(buffer);
+        let mut bytes = raw.as_ref();
+        let packet = P::decode(&mut bytes).map_err(DecodeError::from)?;
+
+        if !bytes.is_empty() {
+            return Err(DecodeError::ExtraBytes(bytes.len()));
         }
-    }
 
-    #[test]
-    fn should_reject_packets_with_mismatched_kinds() {
-        let packet = build_packet(PacketKind::KeepAlive, &[1]);
-
-        let error = packet
-            .decode::<PingLatencyPacket>()
-            .expect_err("Packets should reject decoders for a different packet kind");
-
-        assert!(matches!(
-            error,
-            DecodeError::KindMismatch {
-                expected: PacketKind::PingLatency,
-                found: PacketKind::KeepAlive
-            }
-        ));
+        Ok(Packet {
+            entity,
+            timestamp,
+            checksum,
+            packet,
+        })
     }
 
     #[test]
     fn should_surface_decoder_failures() {
-        let packet = build_packet(PacketKind::PingLatency, &[]);
-
-        let error = packet
-            .decode::<PingLatencyPacket>()
+        let error = build_packet::<PingLatencyPacket>(&[])
             .expect_err("Decoder errors should be surfaced to callers");
 
         assert!(matches!(
@@ -199,10 +133,7 @@ mod tests {
 
     #[test]
     fn should_reject_packets_with_extra_bytes_after_decoding() {
-        let packet = build_packet(PacketKind::PingLatency, &[1, 2]);
-
-        let error = packet
-            .decode::<PingLatencyPacket>()
+        let error = build_packet::<PingLatencyPacket>(&[1, 2])
             .expect_err("Packets should reject decoders that leave unread bytes behind");
 
         assert!(matches!(error, DecodeError::ExtraBytes(1)));
@@ -210,12 +141,10 @@ mod tests {
 
     #[test]
     fn should_decode_packets_when_kind_and_payload_match() {
-        let packet = build_packet(PacketKind::PingLatency, &[1]);
-        let decoded = packet
-            .decode::<PingLatencyPacket>()
+        let decoded = build_packet::<PingLatencyPacket>(&[1])
             .expect("Matching packets should decode successfully");
 
-        assert_eq!(decoded, PingLatencyPacket);
+        assert_eq!(*decoded.packet(), PingLatencyPacket);
     }
 
     #[test]
@@ -223,17 +152,16 @@ mod tests {
         let timestamp = Instant::now();
         let checksum = suon_checksum::Adler32Checksum::from(0xABCD1234);
         let packet = Packet {
-            client: Entity::from_bits(42),
+            entity: Entity::from_bits(42),
             timestamp,
             checksum: Some(checksum),
-            kind: PacketKind::KeepAlive,
-            buffer: Bytes::new(),
+            packet: PingLatencyPacket,
         };
 
         assert_eq!(
-            packet.client(),
+            packet.entity(),
             Entity::from_bits(42),
-            "client should expose the entity that produced the packet"
+            "entity should expose the entity that produced the packet"
         );
         assert_eq!(
             packet.timestamp(),
@@ -244,6 +172,39 @@ mod tests {
             packet.checksum(),
             Some(checksum),
             "checksum should return the stored packet checksum when one is present"
+        );
+    }
+
+    #[test]
+    fn should_decode_typed_packets_with_metadata() {
+        let timestamp = Instant::now();
+        let checksum = suon_checksum::Adler32Checksum::from(0xABCD1234);
+        let event = Packet {
+            entity: Entity::from_bits(42),
+            timestamp,
+            checksum: Some(checksum),
+            packet: PingLatencyPacket,
+        };
+
+        assert_eq!(
+            event.entity(),
+            Entity::from_bits(42),
+            "typed packet events should preserve the originating entity"
+        );
+        assert_eq!(
+            event.timestamp(),
+            timestamp,
+            "typed packet events should preserve the original timestamp"
+        );
+        assert_eq!(
+            event.checksum(),
+            Some(checksum),
+            "typed packet events should preserve the checksum metadata"
+        );
+        assert_eq!(
+            event.event_target(),
+            Entity::from_bits(42),
+            "the event target should match the originating client entity"
         );
     }
 }
