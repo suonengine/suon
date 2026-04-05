@@ -3,6 +3,7 @@ use thiserror::Error;
 mod accept_market_offer;
 mod browse_market;
 mod cancel_market_offer;
+mod cancel_steps;
 mod create_buddy;
 mod create_market_offer;
 mod delete_buddy;
@@ -10,8 +11,8 @@ mod keep_alive;
 mod leave_market;
 mod movement;
 mod ping_latency;
-mod stop_auto_walk;
-mod turn;
+mod steps;
+mod face;
 mod update_buddy;
 
 pub mod prelude {
@@ -20,15 +21,16 @@ pub mod prelude {
         accept_market_offer::AcceptMarketOfferPacket,
         browse_market::BrowseMarketPacket,
         cancel_market_offer::CancelMarketOfferPacket,
+        cancel_steps::CancelStepsPacket,
         create_buddy::CreateBuddyPacket,
         create_market_offer::{CreateMarketOfferPacket, MarketOfferKind},
         delete_buddy::DeleteBuddyPacket,
+        face::FacePacket,
         keep_alive::KeepAlivePacket,
         leave_market::LeaveMarketPacket,
-        movement::MovePacket,
+        movement::StepPacket,
         ping_latency::PingLatencyPacket,
-        stop_auto_walk::StopAutoWalkPacket,
-        turn::TurnPacket,
+        steps::StepsPacket,
         update_buddy::UpdateBuddyPacket,
     };
 }
@@ -126,32 +128,35 @@ pub enum PacketKind {
     /// Sent when a client logs out.
     Logout = 20,
 
-    /// Requests a one-tile move to the north.
-    MoveNorth = 101,
-    /// Requests a one-tile move to the east.
-    MoveEast = 102,
-    /// Requests a one-tile move to the south.
-    MoveSouth = 103,
-    /// Requests a one-tile move to the west.
-    MoveWest = 104,
-    /// Requests that any active auto-walk be stopped.
-    StopAutoWalk = 105,
-    /// Requests a one-tile move to the north-east.
-    MoveNorthEast = 106,
-    /// Requests a one-tile move to the south-east.
-    MoveSouthEast = 107,
-    /// Requests a one-tile move to the south-west.
-    MoveSouthWest = 108,
-    /// Requests a one-tile move to the north-west.
-    MoveNorthWest = 109,
-    /// Requests a turn to the north.
-    TurnNorth = 111,
-    /// Requests a turn to the east.
-    TurnEast = 112,
-    /// Requests a turn to the south.
-    TurnSouth = 113,
-    /// Requests a turn to the west.
-    TurnWest = 114,
+    /// Requests a multi-step path.
+    Steps = 100,
+    /// Requests a one-tile step to the north.
+    StepNorth = 101,
+    /// Requests a one-tile step to the east.
+    StepEast = 102,
+    /// Requests a one-tile step to the south.
+    StepSouth = 103,
+    /// Requests a one-tile step to the west.
+    StepWest = 104,
+    /// Requests that any active step sequence be canceled.
+    CancelSteps = 105,
+    /// Requests a one-tile step to the north-east.
+    StepNorthEast = 106,
+    /// Requests a one-tile step to the south-east.
+    StepSouthEast = 107,
+    /// Requests a one-tile step to the south-west.
+    StepSouthWest = 108,
+    /// Requests a one-tile step to the north-west.
+    StepNorthWest = 109,
+
+    /// Faces north.
+    FaceNorth = 111,
+    /// Faces east.
+    FaceEast = 112,
+    /// Faces south.
+    FaceSouth = 113,
+    /// Faces west.
+    FaceWest = 114,
 
     /// Sent to measure latency between client and server.
     PingLatency = 29,
@@ -185,29 +190,30 @@ impl TryFrom<u8> for PacketKind {
             0 => Ok(Self::ServerName),
             10 => Ok(Self::Login),
             20 => Ok(Self::Logout),
-            101 => Ok(Self::MoveNorth),
-            102 => Ok(Self::MoveEast),
-            103 => Ok(Self::MoveSouth),
-            104 => Ok(Self::MoveWest),
-            105 => Ok(Self::StopAutoWalk),
-            106 => Ok(Self::MoveNorthEast),
-            107 => Ok(Self::MoveSouthEast),
-            108 => Ok(Self::MoveSouthWest),
-            109 => Ok(Self::MoveNorthWest),
-            111 => Ok(Self::TurnNorth),
-            112 => Ok(Self::TurnEast),
-            113 => Ok(Self::TurnSouth),
-            114 => Ok(Self::TurnWest),
+            100 => Ok(Self::Steps),
+            101 => Ok(Self::StepNorth),
+            102 => Ok(Self::StepEast),
+            103 => Ok(Self::StepSouth),
+            104 => Ok(Self::StepWest),
+            105 => Ok(Self::CancelSteps),
+            106 => Ok(Self::StepNorthEast),
+            107 => Ok(Self::StepSouthEast),
+            108 => Ok(Self::StepSouthWest),
+            109 => Ok(Self::StepNorthWest),
+            111 => Ok(Self::FaceNorth),
+            112 => Ok(Self::FaceEast),
+            113 => Ok(Self::FaceSouth),
+            114 => Ok(Self::FaceWest),
             29 => Ok(Self::PingLatency),
             30 => Ok(Self::KeepAlive),
-            0xF4 => Ok(Self::LeaveMarket),
-            0xF5 => Ok(Self::BrowseMarket),
-            0xF6 => Ok(Self::CreateMarketOffer),
-            0xF7 => Ok(Self::CancelMarketOffer),
-            0xF8 => Ok(Self::AcceptMarketOffer),
-            0xDC => Ok(Self::CreateBuddy),
-            0xDD => Ok(Self::DeleteBuddy),
-            0xDE => Ok(Self::UpdateBuddy),
+            220 => Ok(Self::CreateBuddy),
+            221 => Ok(Self::DeleteBuddy),
+            222 => Ok(Self::UpdateBuddy),
+            244 => Ok(Self::LeaveMarket),
+            245 => Ok(Self::BrowseMarket),
+            246 => Ok(Self::CreateMarketOffer),
+            247 => Ok(Self::CancelMarketOffer),
+            248 => Ok(Self::AcceptMarketOffer),
             _ => Err(value),
         }
     }
@@ -300,8 +306,8 @@ mod tests {
         );
         assert_eq!(
             PacketKind::try_from(101),
-            Ok(PacketKind::MoveNorth),
-            "Wire value 101 should decode to the move-north client packet kind"
+            Ok(PacketKind::StepNorth),
+            "Wire value 101 should decode to the step-north client packet kind"
         );
         assert_eq!(
             PacketKind::PingLatency.to_string(),
@@ -309,9 +315,9 @@ mod tests {
             "Display should include both the variant name and hexadecimal id"
         );
         assert_eq!(
-            PacketKind::try_from(0xDE),
+            PacketKind::try_from(222),
             Ok(PacketKind::UpdateBuddy),
-            "Wire value 0xDE should decode to the update-buddy client packet kind"
+            "Wire value 222 should decode to the update-buddy client packet kind"
         );
     }
 }

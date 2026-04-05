@@ -1,7 +1,12 @@
 use bevy::prelude::*;
 use suon_protocol::packets::client::{
     Decodable, PacketKind,
-    prelude::{KeepAlivePacket, MovePacket, PingLatencyPacket, StopAutoWalkPacket, TurnPacket},
+    prelude::{
+        AcceptMarketOfferPacket, BrowseMarketPacket, CancelMarketOfferPacket,
+        CancelStepsPacket, CreateBuddyPacket, CreateMarketOfferPacket, DeleteBuddyPacket,
+        FacePacket, KeepAlivePacket, LeaveMarketPacket, PingLatencyPacket, StepPacket,
+        StepsPacket, UpdateBuddyPacket,
+    },
 };
 
 use crate::server::{
@@ -96,9 +101,18 @@ pub(crate) fn process_incoming_client_packets(
                 incoming_packet;
                 KeepAlivePacket,
                 PingLatencyPacket,
-                MovePacket,
-                TurnPacket,
-                StopAutoWalkPacket,
+                StepPacket,
+                StepsPacket,
+                FacePacket,
+                CancelStepsPacket,
+                CreateBuddyPacket,
+                DeleteBuddyPacket,
+                UpdateBuddyPacket,
+                LeaveMarketPacket,
+                BrowseMarketPacket,
+                CreateMarketOfferPacket,
+                CancelMarketOfferPacket,
+                AcceptMarketOfferPacket,
             );
         }
     }
@@ -169,13 +183,21 @@ mod tests {
         metadata.0 = Some((event.entity(), event.timestamp(), event.checksum()));
     }
 
-    fn observe_move_packet(
-        event: On<Packet<MovePacket>>,
+    fn observe_step_packet(
+        event: On<Packet<StepPacket>>,
         mut observed: ResMut<ObservedPackets>,
         mut directions: ResMut<MoveDirections>,
     ) {
-        observed.0.push("move");
+        observed.0.push("step");
         directions.0.push(event.packet().direction);
+    }
+
+    fn observe_steps_packet(event: On<Packet<StepsPacket>>, mut observed: ResMut<ObservedPackets>) {
+        observed.0.push("steps");
+        assert!(
+            !event.packet().path.is_empty(),
+            "Steps observers should receive at least one decoded direction"
+        );
     }
 
     fn build_connection(packets: impl IntoIterator<Item = IncomingPacket>) -> Connection {
@@ -206,7 +228,8 @@ mod tests {
         app.init_resource::<MoveDirections>();
         app.add_observer(observe_keep_alive);
         app.add_observer(observe_ping_latency);
-        app.add_observer(observe_move_packet);
+        app.add_observer(observe_step_packet);
+        app.add_observer(observe_steps_packet);
         app.add_systems(Update, process_incoming_client_packets);
         app
     }
@@ -293,8 +316,14 @@ mod tests {
             IncomingPacket {
                 timestamp: Instant::now(),
                 checksum: None,
-                kind: PacketKind::MoveNorthWest,
+                kind: PacketKind::StepNorthWest,
                 buffer: Bytes::new(),
+            },
+            IncomingPacket {
+                timestamp: Instant::now(),
+                checksum: None,
+                kind: PacketKind::Steps,
+                buffer: Bytes::from_static(&[2, 1, 3]),
             },
         ]);
 
@@ -306,7 +335,7 @@ mod tests {
 
         assert_eq!(
             observed.0,
-            vec!["keep_alive", "ping_latency", "move"],
+            vec!["keep_alive", "ping_latency", "step", "steps"],
             "process_incoming_client_packets should dispatch all packets currently queued in \
              receive order"
         );
