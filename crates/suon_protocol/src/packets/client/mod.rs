@@ -4,15 +4,21 @@ mod accept_market_offer;
 mod browse_market;
 mod cancel_market_offer;
 mod cancel_steps;
+mod change_shared_party_experience;
 mod create_buddy;
 mod create_market_offer;
 mod delete_buddy;
+mod face;
+mod invite_to_party;
+mod join_party;
 mod keep_alive;
 mod leave_market;
+mod leave_party;
 mod movement;
+mod pass_party_leadership;
 mod ping_latency;
+mod revoke_party_invite;
 mod steps;
-mod face;
 mod update_buddy;
 
 pub mod prelude {
@@ -22,14 +28,20 @@ pub mod prelude {
         browse_market::BrowseMarketPacket,
         cancel_market_offer::CancelMarketOfferPacket,
         cancel_steps::CancelStepsPacket,
+        change_shared_party_experience::ChangeSharedPartyExperiencePacket,
         create_buddy::CreateBuddyPacket,
         create_market_offer::{CreateMarketOfferPacket, MarketOfferKind},
         delete_buddy::DeleteBuddyPacket,
         face::FacePacket,
+        invite_to_party::InviteToPartyPacket,
+        join_party::JoinPartyPacket,
         keep_alive::KeepAlivePacket,
         leave_market::LeaveMarketPacket,
+        leave_party::LeavePartyPacket,
         movement::StepPacket,
+        pass_party_leadership::PassPartyLeadershipPacket,
         ping_latency::PingLatencyPacket,
+        revoke_party_invite::RevokePartyInvitePacket,
         steps::StepsPacket,
         update_buddy::UpdateBuddyPacket,
     };
@@ -170,6 +182,19 @@ pub enum PacketKind {
     /// Updates a buddy entry.
     UpdateBuddy = 222,
 
+    /// Invites a player to the party.
+    InviteToParty = 163,
+    /// Joins a party through a target player's invitation.
+    JoinParty = 164,
+    /// Revokes a previously sent party invite.
+    RevokePartyInvite = 165,
+    /// Passes party leadership to another player.
+    PassPartyLeadership = 166,
+    /// Leaves the current party.
+    LeaveParty = 167,
+    /// Changes the shared party experience state.
+    ChangeSharedPartyExperience = 168,
+
     /// Leaves the market view.
     LeaveMarket = 244,
     /// Browses a market category, own offers, or own history.
@@ -188,8 +213,13 @@ impl TryFrom<u8> for PacketKind {
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             0 => Ok(Self::ServerName),
+
             10 => Ok(Self::Login),
             20 => Ok(Self::Logout),
+
+            29 => Ok(Self::PingLatency),
+            30 => Ok(Self::KeepAlive),
+
             100 => Ok(Self::Steps),
             101 => Ok(Self::StepNorth),
             102 => Ok(Self::StepEast),
@@ -200,20 +230,29 @@ impl TryFrom<u8> for PacketKind {
             107 => Ok(Self::StepSouthEast),
             108 => Ok(Self::StepSouthWest),
             109 => Ok(Self::StepNorthWest),
+
             111 => Ok(Self::FaceNorth),
             112 => Ok(Self::FaceEast),
             113 => Ok(Self::FaceSouth),
             114 => Ok(Self::FaceWest),
-            29 => Ok(Self::PingLatency),
-            30 => Ok(Self::KeepAlive),
+
+            163 => Ok(Self::InviteToParty),
+            164 => Ok(Self::JoinParty),
+            165 => Ok(Self::RevokePartyInvite),
+            166 => Ok(Self::PassPartyLeadership),
+            167 => Ok(Self::LeaveParty),
+            168 => Ok(Self::ChangeSharedPartyExperience),
+
             220 => Ok(Self::CreateBuddy),
             221 => Ok(Self::DeleteBuddy),
             222 => Ok(Self::UpdateBuddy),
+
             244 => Ok(Self::LeaveMarket),
             245 => Ok(Self::BrowseMarket),
             246 => Ok(Self::CreateMarketOffer),
             247 => Ok(Self::CancelMarketOffer),
             248 => Ok(Self::AcceptMarketOffer),
+
             _ => Err(value),
         }
     }
