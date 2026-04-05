@@ -14,6 +14,17 @@ use bytes::{Bytes, BytesMut};
 ///
 /// # Returns
 /// Encrypted data as [`Bytes`], padded to a multiple of 8 bytes if necessary.
+///
+/// # Examples
+/// ```rust
+/// use suon_xtea::{XTEAKey, encrypt};
+///
+/// let key: XTEAKey = [0xA56BABCD, 0x00000000, 0xFFFFFFFF, 0x12345678];
+/// let ciphertext = encrypt(b"hello", &key);
+///
+/// assert_eq!(ciphertext.len() % 8, 0);
+/// assert!(!ciphertext.is_empty());
+/// ```
 pub fn encrypt(plaintext: &[u8], key: &XTEAKey) -> Bytes {
     // Create a mutable buffer from the plaintext for padding.
     let mut padded_plaintext = BytesMut::from(plaintext);

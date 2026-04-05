@@ -2,6 +2,25 @@
 //!
 //! The crate exposes key expansion plus block-based encryption and decryption for
 //! packet buffers that use a two-byte little-endian inner-length prefix.
+//!
+//! # Examples
+//! ```rust
+//! use bytes::Bytes;
+//! use suon_xtea::{XTEAKey, decrypt, encrypt, expand_key};
+//!
+//! let key: XTEAKey = [0xA56BABCD, 0x00000000, 0xFFFFFFFF, 0x12345678];
+//! let payload = b"hello";
+//!
+//! let mut packet = (payload.len() as u16).to_le_bytes().to_vec();
+//! packet.extend_from_slice(payload);
+//!
+//! let round_keys = expand_key(&key);
+//! let encrypted = encrypt(&packet, &key);
+//! let decrypted = decrypt(&encrypted, &key).unwrap();
+//!
+//! assert_eq!(round_keys.len(), 64);
+//! assert_eq!(decrypted, Bytes::from(packet));
+//! ```
 
 mod decrypt;
 mod encrypt;
@@ -11,17 +30,26 @@ pub use decrypt::{XTEADecryptError, decrypt};
 pub use encrypt::encrypt;
 pub use expand_key::expand_key;
 
-/// Represents a 128-bit XTEA key composed of four 32-bit words (4 × u32 = 16 bytes).
+/// Represents a 128-bit XTEA key composed of four 32-bit words (4 x `u32` = 16 bytes).
 ///
 /// Each 32-bit word contributes to the overall 128-bit key used during
 /// encryption and decryption rounds. This type ensures a consistent
 /// and well-defined key structure across all XTEA operations.
+///
+/// # Examples
+/// ```rust
+/// use suon_xtea::XTEAKey;
+///
+/// let key: XTEAKey = [0xDEADBEEF, 0xCAFEBABE, 0x01234567, 0x89ABCDEF];
+///
+/// assert_eq!(key.len(), 4);
+/// ```
 pub type XTEAKey = [u32; 4];
 
 /// Represents the fully expanded round key schedule used internally by XTEA.
 ///
-/// Each XTEA round requires two 32-bit subkeys — one for the sum phase and
-/// another for the difference phase — resulting in a total of
+/// Each XTEA round requires two 32-bit subkeys, one for the sum phase and
+/// another for the difference phase, resulting in a total of
 /// `XTEA_NUM_ROUNDS * 2` 32-bit round keys.
 ///
 /// This precomputed key schedule improves performance by avoiding redundant
@@ -31,7 +59,7 @@ pub(crate) type XTEARoundKeys = [u32; XTEA_NUM_ROUNDS * 2];
 /// The delta constant used by the XTEA algorithm to adjust the running sum per round.
 ///
 /// This value, derived from the golden ratio, ensures a good distribution of bits
-/// across rounds and is fundamental to XTEA’s diffusion properties.
+/// across rounds and is fundamental to XTEA's diffusion properties.
 /// Each encryption or decryption round increments or decrements the sum by this delta.
 pub(crate) const XTEA_DELTA: u32 = 0x9E3779B9;
 
@@ -75,6 +103,14 @@ mod tests {
             round_keys.iter().any(|&k| k != 0),
             "Expanded keys should contain non-zero values"
         );
+    }
+
+    #[test]
+    fn should_expand_key_deterministically() {
+        let first = expand_key(&SAMPLE_KEY);
+        let second = expand_key(&SAMPLE_KEY);
+
+        assert_eq!(first, second);
     }
 
     #[test]
@@ -171,6 +207,20 @@ mod tests {
     }
 
     #[test]
+    fn should_truncate_decrypted_padding_using_inner_length() {
+        const MESSAGE: &[u8] = b"abc";
+
+        let mut data = (MESSAGE.len() as u16).to_le_bytes().to_vec();
+        data.extend_from_slice(MESSAGE);
+
+        let ciphertext = encrypt(&data, &SAMPLE_KEY);
+        let decrypted = decrypt(&ciphertext, &SAMPLE_KEY).expect("Decryption should succeed");
+
+        assert_eq!(decrypted, Bytes::from(data));
+        assert_eq!(decrypted.len(), MESSAGE.len() + 2);
+    }
+
+    #[test]
     fn should_encrypt_and_decrypt_aligned_input() {
         const PAYLOAD: &[u8] = b"12345678";
 
@@ -222,6 +272,19 @@ mod tests {
         assert!(
             ciphertext.is_empty(),
             "Encrypting an empty payload should not emit any ciphertext bytes"
+        );
+    }
+
+    #[test]
+    fn should_format_decrypt_errors_with_context() {
+        let error = XTEADecryptError::InnerLengthTooLarge {
+            inner_length: 99,
+            buffer_length: 16,
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "Inner length (99) is larger than buffer length (16)"
         );
     }
 }

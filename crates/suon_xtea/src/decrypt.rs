@@ -35,6 +35,21 @@ pub enum XTEADecryptError {
 /// # Returns
 /// - `Ok(Bytes)`: The decrypted payload, including the header and inner data.
 /// - `Err(XTEADecryptError)`: If the ciphertext is invalid.
+///
+/// # Examples
+/// ```rust
+/// use bytes::Bytes;
+/// use suon_xtea::{XTEAKey, decrypt, encrypt};
+///
+/// let key: XTEAKey = [0xA56BABCD, 0x00000000, 0xFFFFFFFF, 0x12345678];
+/// let mut packet = (5u16).to_le_bytes().to_vec();
+/// packet.extend_from_slice(b"hello");
+///
+/// let ciphertext = encrypt(&packet, &key);
+/// let decrypted = decrypt(&ciphertext, &key).unwrap();
+///
+/// assert_eq!(decrypted, Bytes::from(packet));
+/// ```
 pub fn decrypt(ciphertext: &[u8], key: &XTEAKey) -> Result<Bytes, XTEADecryptError> {
     // Check if input length is a multiple of block size.
     if !ciphertext.len().is_multiple_of(XTEA_BLOCK_SIZE) {

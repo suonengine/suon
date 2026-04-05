@@ -10,6 +10,17 @@ use crate::{XTEA_DELTA, XTEA_NUM_ROUNDS, XTEAKey, XTEARoundKeys};
 ///
 /// # Returns
 /// An array of `XTEARoundKeys` containing `XTEA_NUM_ROUNDS * 2` 32-bit subkeys.
+///
+/// # Examples
+/// ```rust
+/// use suon_xtea::{XTEAKey, expand_key};
+///
+/// let key: XTEAKey = [0xA56BABCD, 0x00000000, 0xFFFFFFFF, 0x12345678];
+/// let round_keys = expand_key(&key);
+///
+/// assert_eq!(round_keys.len(), 64);
+/// assert!(round_keys.iter().any(|round_key| *round_key != 0));
+/// ```
 pub fn expand_key(key: &XTEAKey) -> XTEARoundKeys {
     // Prepare the array to hold 64 subkeys (2 per round for 32 rounds)
     let mut expanded = [0u32; XTEA_NUM_ROUNDS * 2];
