@@ -7,9 +7,22 @@ pub struct Adler32Checksum(u32);
 
 impl Adler32Checksum {
     /// Adler-32 modulus constant.
+    ///
+    /// # Examples
+    /// ```
+    /// assert_eq!(suon_checksum::Adler32Checksum::MOD_ADLER, 65_521);
+    /// ```
     pub const MOD_ADLER: u32 = 65_521;
 
     /// The initial Adler-32 checksum value, used when no data has been processed.
+    ///
+    /// # Examples
+    /// ```
+    /// let checksum = suon_checksum::Adler32Checksum::calculate(b"");
+    ///
+    /// assert_eq!(*checksum, suon_checksum::Adler32Checksum::INITIAL);
+    /// assert!(checksum.is_initial());
+    /// ```
     pub const INITIAL: u32 = 1;
 
     /// Calculates the Adler-32 checksum for the given byte slice.
@@ -24,6 +37,7 @@ impl Adler32Checksum {
     /// ```
     /// let checksum = suon_checksum::Adler32Checksum::calculate(b"hello");
     /// assert_eq!(*checksum, 0x062C0215);
+    /// assert_eq!(checksum.to_string(), "062C0215");
     /// ```
     #[inline]
     pub fn calculate(data: &[u8]) -> Self {
@@ -42,6 +56,12 @@ impl Adler32Checksum {
     ///
     /// # Returns
     /// - `true` if checksum is initial; `false` otherwise.
+    ///
+    /// # Examples
+    /// ```
+    /// assert!(suon_checksum::Adler32Checksum::calculate(b"").is_initial());
+    /// assert!(!suon_checksum::Adler32Checksum::calculate(b"hello").is_initial());
+    /// ```
     #[inline(always)]
     pub const fn is_initial(&self) -> bool {
         self.0 == Self::INITIAL
@@ -54,6 +74,13 @@ impl Adler32Checksum {
     ///
     /// # Returns
     /// - Tuple `(a_component, b_component)`
+    ///
+    /// # Examples
+    /// ```
+    /// let checksum = suon_checksum::Adler32Checksum::calculate(b"hello");
+    ///
+    /// assert_eq!(checksum.components(), (0x0215, 0x062C));
+    /// ```
     #[inline(always)]
     pub const fn components(&self) -> (u16, u16) {
         let a = (self.0 & 0xFFFF) as u16;
@@ -66,6 +93,13 @@ impl std::ops::Deref for Adler32Checksum {
     type Target = u32;
 
     /// Dereferences to the internal `u32` checksum value.
+    ///
+    /// # Examples
+    /// ```
+    /// let checksum = suon_checksum::Adler32Checksum::from(0x1234_5678);
+    ///
+    /// assert_eq!(*checksum, 0x1234_5678);
+    /// ```
     #[inline(always)]
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -74,6 +108,13 @@ impl std::ops::Deref for Adler32Checksum {
 
 impl From<u32> for Adler32Checksum {
     /// Converts a `u32` directly into an `Adler32Checksum`.
+    ///
+    /// # Examples
+    /// ```
+    /// let checksum = suon_checksum::Adler32Checksum::from(0xABCD_1234);
+    ///
+    /// assert_eq!(checksum.components(), (0x1234, 0xABCD));
+    /// ```
     #[inline(always)]
     fn from(value: u32) -> Self {
         Self(value)
@@ -82,6 +123,13 @@ impl From<u32> for Adler32Checksum {
 
 impl From<&[u8]> for Adler32Checksum {
     /// Creates an `Adler32Checksum` from a byte slice using the calculation method.
+    ///
+    /// # Examples
+    /// ```
+    /// let checksum = suon_checksum::Adler32Checksum::from(b"hello".as_slice());
+    ///
+    /// assert_eq!(*checksum, 0x062C0215);
+    /// ```
     #[inline(always)]
     fn from(bytes: &[u8]) -> Self {
         Self::calculate(bytes)
@@ -90,6 +138,13 @@ impl From<&[u8]> for Adler32Checksum {
 
 impl From<Vec<u8>> for Adler32Checksum {
     /// Creates an `Adler32Checksum` from a `Vec<u8>` using the calculation method.
+    ///
+    /// # Examples
+    /// ```
+    /// let checksum = suon_checksum::Adler32Checksum::from(b"hello".to_vec());
+    ///
+    /// assert_eq!(checksum.to_string(), "062C0215");
+    /// ```
     #[inline(always)]
     fn from(vec: Vec<u8>) -> Self {
         Self::calculate(&vec)
@@ -98,6 +153,13 @@ impl From<Vec<u8>> for Adler32Checksum {
 
 impl<const N: usize> From<&[u8; N]> for Adler32Checksum {
     /// Creates an `Adler32Checksum` from a fixed-size byte array.
+    ///
+    /// # Examples
+    /// ```
+    /// let checksum = suon_checksum::Adler32Checksum::from(b"hello");
+    ///
+    /// assert_eq!(checksum.components(), (0x0215, 0x062C));
+    /// ```
     #[inline(always)]
     fn from(array: &[u8; N]) -> Self {
         Self::calculate(array)
@@ -106,6 +168,13 @@ impl<const N: usize> From<&[u8; N]> for Adler32Checksum {
 
 impl std::fmt::Display for Adler32Checksum {
     /// Formats the checksum as an 8-digit uppercase hexadecimal string.
+    ///
+    /// # Examples
+    /// ```
+    /// let checksum = suon_checksum::Adler32Checksum::calculate(b"hello");
+    ///
+    /// assert_eq!(checksum.to_string(), "062C0215");
+    /// ```
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:08X}", self.0)
     }
@@ -151,6 +220,21 @@ mod tests {
         assert!(
             checksum.is_initial(),
             "is_initial() should return true for the initial checksum"
+        );
+    }
+
+    #[test]
+    fn should_expose_adler32_constants() {
+        assert_eq!(
+            Adler32Checksum::MOD_ADLER,
+            65_521,
+            "MOD_ADLER should expose the standard Adler-32 modulus"
+        );
+
+        assert_eq!(
+            Adler32Checksum::INITIAL,
+            1,
+            "INITIAL should expose the standard Adler-32 starting value"
         );
     }
 
@@ -205,6 +289,17 @@ mod tests {
             formatted_checksum,
             formatted_checksum.to_uppercase(),
             "Formatted checksum should be uppercase"
+        );
+    }
+
+    #[test]
+    fn should_format_known_checksum_as_expected_hex() {
+        let checksum = Adler32Checksum::calculate(b"hello");
+
+        assert_eq!(
+            checksum.to_string(),
+            "062C0215",
+            "Display should emit the exact uppercase hexadecimal checksum"
         );
     }
 

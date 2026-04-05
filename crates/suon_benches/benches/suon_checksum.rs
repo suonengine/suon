@@ -3,11 +3,38 @@ use std::hint::black_box;
 use suon_checksum::Adler32Checksum;
 
 fn benchmark_checksum(c: &mut Criterion) {
-    const PAYLOAD: &[u8] = b"benchmark-payload-for-adler32";
+    let mut group = c.benchmark_group("checksum");
+    let tiny = vec![0xAB; 16];
+    let small = vec![0xCD; 256];
+    let medium = vec![0xEF; 4_096];
+    let large = vec![0x42; 65_536];
 
-    c.bench_function("checksum/calculate", |b| {
-        b.iter(|| Adler32Checksum::calculate(black_box(PAYLOAD)))
+    for (name, payload) in [
+        ("empty", &[][..]),
+        ("tiny", tiny.as_slice()),
+        ("small", small.as_slice()),
+        ("medium", medium.as_slice()),
+        ("large", large.as_slice()),
+    ] {
+        group.bench_function(format!("calculate/{name}"), |b| {
+            b.iter(|| Adler32Checksum::calculate(black_box(payload)))
+        });
+
+        group.bench_function(format!("from-slice/{name}"), |b| {
+            b.iter(|| Adler32Checksum::from(black_box(payload)))
+        });
+    }
+
+    group.bench_function("from-vec/small", |b| {
+        b.iter(|| Adler32Checksum::from(black_box(small.clone())))
     });
+
+    let display_checksum = Adler32Checksum::calculate(&large);
+    group.bench_function("display/large", |b| {
+        b.iter(|| black_box(display_checksum).to_string())
+    });
+
+    group.finish();
 }
 
 criterion_group!(benches, benchmark_checksum);
