@@ -150,7 +150,8 @@ mod tests {
         assert_eq!(
             queued.len(),
             2,
-            "initialize_listener should enqueue every accepted connection that passes the listener loop"
+            "initialize_listener should enqueue every accepted connection that passes the \
+             listener loop"
         );
         assert_eq!(
             queued[0]
@@ -222,7 +223,8 @@ mod tests {
 
             assert!(
                 Instant::now() < deadline,
-                "initialize_listener did not enqueue the expected number of accepted streams in time"
+                "initialize_listener did not enqueue the expected number of accepted streams in \
+                 time"
             );
 
             thread::sleep(Duration::from_millis(10));

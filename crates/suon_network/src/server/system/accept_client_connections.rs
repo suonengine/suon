@@ -369,7 +369,8 @@ mod tests {
     }
 
     fn build_subsequent_packet_bytes(payload: &[u8], checksum: u32) -> Vec<u8> {
-        let mut plaintext = Vec::with_capacity(crate::server::packet::PACKET_HEADER_SIZE + payload.len());
+        let mut plaintext =
+            Vec::with_capacity(crate::server::packet::PACKET_HEADER_SIZE + payload.len());
         plaintext.extend_from_slice(&(payload.len() as u16).to_le_bytes());
         plaintext.extend_from_slice(payload);
 
@@ -456,8 +457,9 @@ mod tests {
         let client = Entity::from_bits(11);
         let outgoing_connections = OutgoingConnections::default();
         let (outgoing_sender, outgoing_receiver) = crossbeam_channel::unbounded();
-        let expected = crate::server::packet::outgoing::OutgoingPacket::new(Bytes::from_static(b"\x01\x02"))
-            .encode();
+        let expected =
+            crate::server::packet::outgoing::OutgoingPacket::new(Bytes::from_static(b"\x01\x02"))
+                .encode();
 
         spawn_writer_task(
             server_stream,
@@ -469,9 +471,9 @@ mod tests {
         );
 
         outgoing_sender
-            .send(crate::server::packet::outgoing::OutgoingPacket::new(Bytes::from_static(
-                b"\x01\x02",
-            )))
+            .send(crate::server::packet::outgoing::OutgoingPacket::new(
+                Bytes::from_static(b"\x01\x02"),
+            ))
             .expect("the writer task should accept one outgoing packet");
         drop(outgoing_sender);
 
@@ -484,8 +486,7 @@ mod tests {
         });
 
         assert_eq!(
-            encoded,
-            expected,
+            encoded, expected,
             "spawn_writer_task should write the packet bytes exactly as encoded"
         );
 

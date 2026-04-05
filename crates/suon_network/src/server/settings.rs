@@ -438,18 +438,15 @@ mod tests {
             .expect("load_or_default should load the existing configuration");
 
         assert_eq!(
-            loaded.address,
-            expected.address,
+            loaded.address, expected.address,
             "load_or_default should preserve the configured bind address"
         );
         assert_eq!(
-            loaded.use_nagle_algorithm,
-            expected.use_nagle_algorithm,
+            loaded.use_nagle_algorithm, expected.use_nagle_algorithm,
             "load_or_default should preserve the configured Nagle setting"
         );
         assert_eq!(
-            loaded.session_quota.max_total,
-            expected.session_quota.max_total,
+            loaded.session_quota.max_total, expected.session_quota.max_total,
             "load_or_default should preserve the configured total session quota"
         );
         assert_eq!(
@@ -458,8 +455,7 @@ mod tests {
             "load_or_default should preserve the configured incoming overflow policy"
         );
         assert_eq!(
-            loaded.packet_policy.outgoing.max_length,
-            expected.packet_policy.outgoing.max_length,
+            loaded.packet_policy.outgoing.max_length, expected.packet_policy.outgoing.max_length,
             "load_or_default should preserve the configured outgoing packet limit"
         );
     }

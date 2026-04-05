@@ -20,8 +20,7 @@ pub(crate) fn initialize_settings(mut commands: Commands) {
 mod tests {
     use super::*;
     use std::{
-        env,
-        fs,
+        env, fs,
         path::PathBuf,
         process,
         sync::{Mutex, OnceLock},
