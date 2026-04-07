@@ -1,4 +1,5 @@
 use bytes::Buf;
+use suon_position::{floor::Floor, position::Position};
 use thiserror::Error;
 
 /// Errors that can occur when decoding a packet from a byte buffer.
@@ -49,6 +50,12 @@ pub trait Decoder {
 
     /// Reads a UTF-8 string prefixed with a 16-bit length field.
     fn get_string(&mut self) -> Result<String, DecoderError>;
+
+    /// Reads a protocol tile position without the floor component.
+    fn get_position(&mut self) -> Result<Position, DecoderError>;
+
+    /// Reads a protocol floor component.
+    fn get_floor(&mut self) -> Result<Floor, DecoderError>;
 
     /// Returns all remaining bytes in the buffer.
     fn take_remaining(&mut self) -> &[u8];
@@ -140,6 +147,17 @@ impl Decoder for &mut &[u8] {
         Ok(str.to_owned())
     }
 
+    fn get_position(&mut self) -> Result<Position, DecoderError> {
+        Ok(Position {
+            x: Decoder::get_u16(self)?,
+            y: Decoder::get_u16(self)?,
+        })
+    }
+
+    fn get_floor(&mut self) -> Result<Floor, DecoderError> {
+        Ok(Decoder::get_u8(self)?.into())
+    }
+
     fn take_remaining(&mut self) -> &[u8] {
         let length = self.len();
 
@@ -153,6 +171,7 @@ impl Decoder for &mut &[u8] {
 #[cfg(test)]
 mod tests {
     use super::{Decoder, DecoderError};
+    use suon_position::{floor::Floor, position::Position};
 
     #[test]
     fn get_bool_returns_true_and_false() {
@@ -519,6 +538,32 @@ mod tests {
         assert_eq!(buf.get_u64().expect("Should get u64"), U64_9876543210);
         assert_eq!(buf.get_string().expect("Should get string"), STRING);
         assert_eq!(buf.len(), 0, "Buffer should be empty");
+    }
+
+    #[test]
+    fn get_position_returns_value() {
+        let data = vec![0x34, 0x12, 0x78, 0x56];
+        let mut data: &mut &[u8] = &mut data.as_slice();
+
+        let position = data.get_position().expect("Should get position");
+
+        assert_eq!(
+            position,
+            Position {
+                x: 0x1234,
+                y: 0x5678
+            }
+        );
+    }
+
+    #[test]
+    fn get_floor_returns_value() {
+        let data = vec![7];
+        let mut data: &mut &[u8] = &mut data.as_slice();
+
+        let floor = data.get_floor().expect("Should get floor");
+
+        assert_eq!(floor, Floor { z: 7 });
     }
 
     #[test]

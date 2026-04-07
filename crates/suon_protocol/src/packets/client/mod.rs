@@ -2,56 +2,135 @@ use thiserror::Error;
 
 mod accept_market_offer;
 mod accept_trade;
+mod browse_field;
 mod browse_market;
 mod cancel_market_offer;
 mod cancel_steps;
+mod cancel_target_and_trail;
+mod change_podium;
 mod change_shared_party_experience;
+mod channels;
+mod close_container;
 mod close_trade;
 mod create_buddy;
 mod create_market_offer;
+mod create_private_channel;
 mod delete_buddy;
+mod equip_item;
 mod face;
 mod inspect_trade;
+mod invite_private_channel;
 mod invite_to_party;
+mod invite_to_private_channel;
+mod join_channel;
 mod join_party;
 mod keep_alive;
+mod leave_channel;
 mod leave_market;
+mod leave_npc_channel;
 mod leave_party;
-mod movement;
+mod leave_npc_shop;
+mod logout;
+mod look_at;
+mod look_in_battle_list;
+mod look_in_npc_shop;
+mod modal_window_answer;
+mod move_up_container;
+mod offer_trade;
 mod pass_party_leadership;
 mod ping_latency;
-mod request_trade;
+mod purchase_npc_shop;
+mod refresh_container;
+mod remove_from_private_channel;
 mod revoke_party_invite;
+mod rotate_item;
+mod rule_violation_report;
+mod say;
+mod seek_in_container;
+mod sell_npc_shop;
+mod step;
 mod steps;
+mod submit_house_window;
+mod submit_text_window;
+mod target;
+mod throw_item;
+mod trail;
 mod update_buddy;
+mod update_fight_modes;
+mod update_outfit;
+mod use_item;
+mod use_item_with_creature;
+mod use_item_with_target;
+mod wrap_item;
 
 pub mod prelude {
     pub use super::{
         Decodable, DecodableError, PacketKind,
         accept_market_offer::AcceptMarketOfferPacket,
         accept_trade::AcceptTradePacket,
+        browse_field::BrowseFieldPacket,
         browse_market::BrowseMarketPacket,
         cancel_market_offer::CancelMarketOfferPacket,
         cancel_steps::CancelStepsPacket,
+        cancel_target_and_trail::CancelTargetAndTrailPacket,
+        change_podium::ChangePodiumPacket,
         change_shared_party_experience::ChangeSharedPartyExperiencePacket,
+        channels::ChannelsPacket,
+        close_container::CloseContainerPacket,
         close_trade::CloseTradePacket,
         create_buddy::CreateBuddyPacket,
         create_market_offer::{CreateMarketOfferPacket, MarketOfferKind},
+        create_private_channel::CreatePrivateChannelPacket,
         delete_buddy::DeleteBuddyPacket,
+        equip_item::EquipItemPacket,
         face::FacePacket,
         inspect_trade::InspectTradePacket,
+        invite_private_channel::InvitePrivateChannelPacket,
         invite_to_party::InviteToPartyPacket,
+        invite_to_private_channel::InviteToPrivateChannelPacket,
+        join_channel::JoinChannelPacket,
         join_party::JoinPartyPacket,
         keep_alive::KeepAlivePacket,
+        leave_channel::LeaveChannelPacket,
         leave_market::LeaveMarketPacket,
+        leave_npc_channel::LeaveNpcChannelPacket,
         leave_party::LeavePartyPacket,
-        movement::StepPacket,
+        leave_npc_shop::LeaveNpcShopPacket,
+        logout::LogoutPacket,
+        look_at::LookAtPacket,
+        look_in_battle_list::LookInBattleListPacket,
+        look_in_npc_shop::LookInNpcShopPacket,
+        modal_window_answer::ModalWindowAnswerPacket,
+        move_up_container::MoveUpContainerPacket,
+        offer_trade::OfferTradePacket,
         pass_party_leadership::PassPartyLeadershipPacket,
         ping_latency::PingLatencyPacket,
-        request_trade::RequestTradePacket,
+        purchase_npc_shop::PurchaseNpcShopPacket,
+        refresh_container::RefreshContainerPacket,
+        remove_from_private_channel::RemoveFromPrivateChannelPacket,
         revoke_party_invite::RevokePartyInvitePacket,
+        rotate_item::RotateItemPacket,
+        rule_violation_report::RuleViolationReportPacket,
+        say::{SayPacket, SpeakClass},
+        seek_in_container::SeekInContainerPacket,
+        sell_npc_shop::SellNpcShopPacket,
+        step::StepPacket,
         steps::StepsPacket,
+        submit_house_window::SubmitHouseWindowPacket,
+        submit_text_window::SubmitTextWindowPacket,
+        target::TargetPacket,
+        throw_item::ThrowItemPacket,
+        trail::TrailPacket,
         update_buddy::UpdateBuddyPacket,
+        update_fight_modes::{ChaseMode, FightMode, SecureMode, UpdateFightModesPacket},
+        update_outfit::{
+            OutfitAppearance, OutfitMountAppearance, OutfitPreviewDetails, OutfitWindowDetails,
+            PodiumOutfitDetails, PodiumTarget, UpdateOutfitDetails, UpdateOutfitPacket,
+        },
+        use_item::UseItemPacket,
+        use_item_with_creature::UseItemWithCreaturePacket,
+        use_item_with_target::UseItemWithTargetPacket,
+        wrap_item::WrapItemPacket,
     };
 }
 
@@ -183,14 +262,71 @@ pub enum PacketKind {
     /// Keeps the connection alive.
     KeepAlive = 30,
 
-    /// Requests a trade with another player for a specific item.
-    RequestTrade = 125,
+    /// Equips an item directly from the client interface.
+    EquipItem = 119,
+    /// Throws or moves an item from one tile to another.
+    ThrowItem = 120,
+    /// Looks at an item shown in the NPC shop window.
+    LookInNpcShop = 121,
+    /// Purchases an item from an NPC shop.
+    PurchaseNpcShop = 122,
+    /// Sells an item to an NPC shop.
+    SellNpcShop = 123,
+    /// Leaves the NPC shop window.
+    LeaveNpcShop = 124,
+
+    /// Offers an item for trade to another player.
+    OfferTrade = 125,
     /// Inspects one of the items shown in the trade window.
     InspectTrade = 126,
     /// Accepts the current trade.
     AcceptTrade = 127,
     /// Closes the current trade.
     CloseTrade = 128,
+
+    /// Uses an item directly.
+    UseItem = 130,
+    /// Uses an item on another target.
+    UseItemWithTarget = 131,
+    /// Uses an item on a creature.
+    UseItemWithCreature = 132,
+    /// Rotates an item.
+    RotateItem = 133,
+    /// Opens podium editing for an item.
+    ChangePodium = 134,
+    /// Closes a container.
+    CloseContainer = 135,
+    /// Moves up one level in a container view.
+    MoveUpContainer = 136,
+    /// Submits a text window.
+    SubmitTextWindow = 137,
+    /// Submits a house window.
+    SubmitHouseWindow = 138,
+    /// Wraps an item.
+    WrapItem = 139,
+    /// Looks at a thing on the map.
+    LookAt = 140,
+    /// Looks at a creature from the battle list.
+    LookInBattleList = 141,
+
+    /// Sends spoken text.
+    Say = 150,
+    /// Lists the available channels.
+    Channels = 151,
+    /// Opens a channel.
+    JoinChannel = 152,
+    /// Leaves a channel.
+    LeaveChannel = 153,
+    /// Invites or opens a private conversation with a receiver.
+    InvitePrivateChannel = 154,
+    /// Leaves the NPC channel.
+    LeaveNpcChannel = 158,
+    /// Changes fight modes.
+    UpdateFightModes = 160,
+    /// Targets a creature for attack.
+    Target = 161,
+    /// Trails a creature.
+    Trail = 162,
 
     /// Creates a buddy entry.
     CreateBuddy = 220,
@@ -211,6 +347,25 @@ pub enum PacketKind {
     LeaveParty = 167,
     /// Changes the shared party experience state.
     ChangeSharedPartyExperience = 168,
+    /// Creates a private channel.
+    CreatePrivateChannel = 170,
+    /// Invites a player to a private channel.
+    InviteToPrivateChannel = 171,
+    /// Removes a player from a private channel.
+    RemoveFromPrivateChannel = 172,
+
+    /// Cancels both target and trail states.
+    CancelTargetAndTrail = 190,
+    /// Refreshes an open container.
+    RefreshContainer = 202,
+    /// Browses a field.
+    BrowseField = 203,
+    /// Seeks to an index inside a container.
+    SeekInContainer = 204,
+    /// Changes outfit or podium appearance.
+    UpdateOutfit = 211,
+    /// Reports a rule violation.
+    RuleViolationReport = 242,
 
     /// Leaves the market view.
     LeaveMarket = 244,
@@ -222,6 +377,9 @@ pub enum PacketKind {
     CancelMarketOffer = 247,
     /// Accepts a market offer.
     AcceptMarketOffer = 248,
+
+    /// Answers a modal window.
+    ModalWindowAnswer = 249,
 }
 
 impl TryFrom<u8> for PacketKind {
@@ -236,6 +394,12 @@ impl TryFrom<u8> for PacketKind {
 
             29 => Ok(Self::PingLatency),
             30 => Ok(Self::KeepAlive),
+            119 => Ok(Self::EquipItem),
+            120 => Ok(Self::ThrowItem),
+            121 => Ok(Self::LookInNpcShop),
+            122 => Ok(Self::PurchaseNpcShop),
+            123 => Ok(Self::SellNpcShop),
+            124 => Ok(Self::LeaveNpcShop),
 
             100 => Ok(Self::Steps),
             101 => Ok(Self::StepNorth),
@@ -253,10 +417,31 @@ impl TryFrom<u8> for PacketKind {
             113 => Ok(Self::FaceSouth),
             114 => Ok(Self::FaceWest),
 
-            125 => Ok(Self::RequestTrade),
+            125 => Ok(Self::OfferTrade),
             126 => Ok(Self::InspectTrade),
             127 => Ok(Self::AcceptTrade),
             128 => Ok(Self::CloseTrade),
+            130 => Ok(Self::UseItem),
+            131 => Ok(Self::UseItemWithTarget),
+            132 => Ok(Self::UseItemWithCreature),
+            133 => Ok(Self::RotateItem),
+            134 => Ok(Self::ChangePodium),
+            135 => Ok(Self::CloseContainer),
+            136 => Ok(Self::MoveUpContainer),
+            137 => Ok(Self::SubmitTextWindow),
+            138 => Ok(Self::SubmitHouseWindow),
+            139 => Ok(Self::WrapItem),
+            140 => Ok(Self::LookAt),
+            141 => Ok(Self::LookInBattleList),
+            150 => Ok(Self::Say),
+            151 => Ok(Self::Channels),
+            152 => Ok(Self::JoinChannel),
+            153 => Ok(Self::LeaveChannel),
+            154 => Ok(Self::InvitePrivateChannel),
+            158 => Ok(Self::LeaveNpcChannel),
+            160 => Ok(Self::UpdateFightModes),
+            161 => Ok(Self::Target),
+            162 => Ok(Self::Trail),
 
             163 => Ok(Self::InviteToParty),
             164 => Ok(Self::JoinParty),
@@ -264,16 +449,27 @@ impl TryFrom<u8> for PacketKind {
             166 => Ok(Self::PassPartyLeadership),
             167 => Ok(Self::LeaveParty),
             168 => Ok(Self::ChangeSharedPartyExperience),
+            170 => Ok(Self::CreatePrivateChannel),
+            171 => Ok(Self::InviteToPrivateChannel),
+            172 => Ok(Self::RemoveFromPrivateChannel),
+            190 => Ok(Self::CancelTargetAndTrail),
+            202 => Ok(Self::RefreshContainer),
+            203 => Ok(Self::BrowseField),
+            204 => Ok(Self::SeekInContainer),
+            211 => Ok(Self::UpdateOutfit),
 
             220 => Ok(Self::CreateBuddy),
             221 => Ok(Self::DeleteBuddy),
             222 => Ok(Self::UpdateBuddy),
+            242 => Ok(Self::RuleViolationReport),
 
             244 => Ok(Self::LeaveMarket),
             245 => Ok(Self::BrowseMarket),
             246 => Ok(Self::CreateMarketOffer),
             247 => Ok(Self::CancelMarketOffer),
             248 => Ok(Self::AcceptMarketOffer),
+
+            249 => Ok(Self::ModalWindowAnswer),
 
             _ => Err(value),
         }

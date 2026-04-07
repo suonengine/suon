@@ -21,6 +21,12 @@ pub struct Floor {
     pub z: u8,
 }
 
+impl From<u8> for Floor {
+    fn from(z: u8) -> Self {
+        Self { z }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -80,5 +86,10 @@ mod tests {
 
         assert_eq!(copied, original, "Copy should preserve the floor value");
         assert_eq!(cloned, original, "Clone should preserve the floor value");
+    }
+
+    #[test]
+    fn should_create_floor_from_u8() {
+        assert_eq!(Floor::from(7), Floor { z: 7 });
     }
 }
