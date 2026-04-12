@@ -15,13 +15,15 @@ pub const MAX_BUDDY_ICON_ID: u32 = 10;
 /// ```
 /// use suon_protocol::packets::client::{Decodable, prelude::UpdateBuddyPacket};
 ///
-/// let mut payload: &[u8] = &[0x78, 0x56, 0x34, 0x12, 4, 0, b'n', b'o', b't', b'e', 3, 0, 0, 0, 1];
+/// let mut payload: &[u8] =
+///     &[0x78, 0x56, 0x34, 0x12, 4, 0, b'n', b'o', b't', b'e', 3, 0, 0, 0, 1, 0];
 /// let packet = UpdateBuddyPacket::decode(&mut payload).unwrap();
 ///
 /// assert_eq!(packet.guid, 0x12345678);
 /// assert_eq!(packet.description, "note");
 /// assert_eq!(packet.icon_id, 3);
 /// assert!(packet.notify_login);
+/// assert!(packet.group_ids.is_empty());
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UpdateBuddyPacket {
@@ -36,6 +38,9 @@ pub struct UpdateBuddyPacket {
 
     /// Whether login notifications should be enabled.
     pub notify_login: bool,
+
+    /// Buddy-group ids associated with the entry.
+    pub group_ids: Vec<u8>,
 }
 
 impl Decodable for UpdateBuddyPacket {
@@ -46,12 +51,18 @@ impl Decodable for UpdateBuddyPacket {
         let description = bytes.get_string()?;
         let icon_id = bytes.get_u32()?.min(MAX_BUDDY_ICON_ID);
         let notify_login = bytes.get_bool()?;
+        let group_count = bytes.get_u8()?;
+        let mut group_ids = Vec::with_capacity(group_count as usize);
+        for _ in 0..group_count {
+            group_ids.push(bytes.get_u8()?);
+        }
 
         Ok(Self {
             guid,
             description,
             icon_id,
             notify_login,
+            group_ids,
         })
     }
 }
@@ -63,7 +74,7 @@ mod tests {
     #[test]
     fn should_decode_update_buddy() {
         let mut payload: &[u8] = &[
-            0x78, 0x56, 0x34, 0x12, 4, 0, b'n', b'o', b't', b'e', 3, 0, 0, 0, 1,
+            0x78, 0x56, 0x34, 0x12, 4, 0, b'n', b'o', b't', b'e', 3, 0, 0, 0, 1, 2, 7, 9,
         ];
 
         let packet = UpdateBuddyPacket::decode(&mut payload)
@@ -73,6 +84,7 @@ mod tests {
         assert_eq!(packet.description, "note");
         assert_eq!(packet.icon_id, 3);
         assert!(packet.notify_login);
+        assert_eq!(packet.group_ids, vec![7, 9]);
         assert!(
             payload.is_empty(),
             "UpdateBuddy decoding should consume the whole payload"
@@ -81,7 +93,7 @@ mod tests {
 
     #[test]
     fn should_clamp_update_buddy_icon_id_to_protocol_maximum() {
-        let mut payload: &[u8] = &[0x78, 0x56, 0x34, 0x12, 0, 0, 42, 0, 0, 0, 0];
+        let mut payload: &[u8] = &[0x78, 0x56, 0x34, 0x12, 0, 0, 42, 0, 0, 0, 0, 0];
 
         let packet = UpdateBuddyPacket::decode(&mut payload)
             .expect("UpdateBuddy packets should clamp icon ids above the protocol maximum");

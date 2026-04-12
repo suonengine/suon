@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use suon_protocol::packets::client::{Decodable, PacketKind, prelude::*};
+use suon_protocol::packets::client::{Decodable, prelude::*};
 
 use crate::server::{
     connection::Connection,
@@ -10,64 +10,59 @@ macro_rules! dispatch_packet {
     ($commands:expr, $client:expr, $incoming_packet:expr; $( $packet_ty:ty ),* $(,)?) => {
         {
             let incoming_packet = $incoming_packet;
+            let mut dispatched = false;
 
-            if matches!(incoming_packet.kind, PacketKind::ServerName) {
-                // First packet sent by the client during the connection handshake.
-            } else {
-                let mut dispatched = false;
+            $(
+                if !dispatched && <$packet_ty>::accepts_kind(incoming_packet.kind) {
+                    dispatched = true;
 
-                $(
-                    if !dispatched && <$packet_ty>::accepts_kind(incoming_packet.kind) {
-                        dispatched = true;
+                    (|| {
+                        let kind = incoming_packet.kind;
+                        let timestamp = incoming_packet.timestamp;
+                        let checksum = incoming_packet.checksum;
+                        let mut bytes = incoming_packet.buffer.as_ref();
 
-                        (|| {
-                            let kind = incoming_packet.kind;
-                            let timestamp = incoming_packet.timestamp;
-                            let checksum = incoming_packet.checksum;
-                            let mut bytes = incoming_packet.buffer.as_ref();
-
-                            let packet = match <$packet_ty>::decode_with_kind(kind, &mut bytes) {
-                                Ok(packet) => packet,
-                                Err(err) => {
-                                    error!("Failed to decode packet for client {}: {:?}", $client, err);
-                                    let error = DecodeError::from(err);
-                                    warn!(
-                                        "Failed to dispatch typed packet event for client {} and kind {:?}: {}",
-                                        $client, kind, error
-                                    );
-                                    return None;
-                                }
-                            };
-
-                            if !bytes.is_empty() {
-                                let error = DecodeError::ExtraBytes(bytes.len());
+                        let packet = match <$packet_ty>::decode_with_kind(kind, &mut bytes) {
+                            Ok(packet) => packet,
+                            Err(err) => {
+                                error!("Failed to decode packet for client {}: {:?}", $client, err);
+                                let error = DecodeError::from(err);
                                 warn!(
                                     "Failed to dispatch typed packet event for client {} and kind {:?}: {}",
                                     $client, kind, error
                                 );
                                 return None;
                             }
+                        };
 
-                            debug!("Successfully decoded packet for client {}", $client);
+                        if !bytes.is_empty() {
+                            let error = DecodeError::ExtraBytes(bytes.len());
+                            warn!(
+                                "Failed to dispatch typed packet event for client {} and kind {:?}: {}",
+                                $client, kind, error
+                            );
+                            return None;
+                        }
 
-                            Some(Packet {
-                                entity: $client,
-                                timestamp,
-                                checksum,
-                                packet,
-                            })
-                        })()
-                        .map(|packet| $commands.trigger(packet));
-                    }
-                )*
+                        debug!("Successfully decoded packet for client {}", $client);
 
-                if !dispatched {
-                    trace!(
-                        "Skipping typed dispatch for client packet kind {:?} until a typed event \
-                        is registered",
-                        incoming_packet.kind
-                    );
+                        Some(Packet {
+                            entity: $client,
+                            timestamp,
+                            checksum,
+                            packet,
+                        })
+                    })()
+                    .map(|packet| $commands.trigger(packet));
                 }
+            )*
+
+            if !dispatched {
+                trace!(
+                    "Skipping typed dispatch for client packet kind {:?} until a typed event \
+                    is registered",
+                    incoming_packet.kind
+                );
             }
         }
     };
@@ -93,14 +88,28 @@ pub(crate) fn process_incoming_client_packets(
                 incoming_packet;
                 AcceptMarketOfferPacket,
                 AcceptTradePacket,
+                AimAtTargetPacket,
+                FriendSystemActionPacket,
+                LoginPacket,
+                LeaderFinderActionPacket,
+                MemberFinderActionPacket,
+                OpenParentContainerPacket,
+                QueryDepotSearchItemPacket,
+                RetrieveDepotSearchPacket,
+                ServerNamePacket,
+                SetMonsterPodiumPacket,
+                SetTypingStatePacket,
+                TaskHuntingActionPacket,
                 TargetPacket,
                 BrowseFieldPacket,
                 BrowseMarketPacket,
                 CancelTargetAndTrailPacket,
                 CancelMarketOfferPacket,
                 CancelStepsPacket,
+                ChangeMapAwareRangePacket,
                 ChangePodiumPacket,
                 ChangeSharedPartyExperiencePacket,
+                ExivaRestrictionsPacket,
                 LeaveChannelPacket,
                 CloseContainerPacket,
                 LeaveNpcChannelPacket,
@@ -148,7 +157,6 @@ pub(crate) fn process_incoming_client_packets(
                 SubmitTextWindowPacket,
                 ThrowItemPacket,
                 UpdateBuddyPacket,
-                RefreshContainerPacket,
                 UseItemPacket,
                 UseItemWithCreaturePacket,
                 UseItemWithTargetPacket,
@@ -232,6 +240,27 @@ mod tests {
         directions.0.push(event.packet().direction);
     }
 
+    fn observe_server_name(
+        event: On<Packet<ServerNamePacket>>,
+        mut observed: ResMut<ObservedPackets>,
+    ) {
+        observed.0.push("server_name");
+        assert_eq!(
+            event.packet().server_name,
+            "otserv",
+            "The server-name observer should receive the decoded handshake string"
+        );
+    }
+
+    fn observe_login(event: On<Packet<LoginPacket>>, mut observed: ResMut<ObservedPackets>) {
+        observed.0.push("login");
+        assert_eq!(
+            event.packet().payload,
+            vec![1, 2, 3],
+            "The login observer should receive the preserved raw login payload"
+        );
+    }
+
     fn observe_steps_packet(event: On<Packet<StepsPacket>>, mut observed: ResMut<ObservedPackets>) {
         observed.0.push("steps");
         assert!(
@@ -267,7 +296,9 @@ mod tests {
         app.init_resource::<PingLatencyMeta>();
         app.init_resource::<MoveDirections>();
         app.add_observer(observe_keep_alive);
+        app.add_observer(observe_login);
         app.add_observer(observe_ping_latency);
+        app.add_observer(observe_server_name);
         app.add_observer(observe_step_packet);
         app.add_observer(observe_steps_packet);
         app.add_systems(Update, process_incoming_client_packets);
@@ -382,23 +413,24 @@ mod tests {
     }
 
     #[test]
-    fn should_ignore_server_name_packets_during_dispatch() {
+    fn should_dispatch_server_name_packets_when_a_typed_packet_is_registered() {
         let mut app = build_app();
 
         let connection = build_connection([IncomingPacket {
             timestamp: Instant::now(),
             checksum: None,
             kind: PacketKind::ServerName,
-            buffer: Bytes::from_static(b"otserv\n"),
+            buffer: Bytes::from_static(&[6, 0, b'o', b't', b's', b'e', b'r', b'v']),
         }]);
 
         app.world_mut().spawn(connection);
         app.update();
         app.update();
 
-        assert!(
-            app.world().resource::<ObservedPackets>().0.is_empty(),
-            "ServerName packets should be ignored by the typed packet dispatcher"
+        assert_eq!(
+            app.world().resource::<ObservedPackets>().0,
+            vec!["server_name"],
+            "ServerName packets should dispatch once a typed packet is registered"
         );
     }
 
@@ -409,7 +441,7 @@ mod tests {
         let connection = build_connection([IncomingPacket {
             timestamp: Instant::now(),
             checksum: None,
-            kind: PacketKind::Login,
+            kind: PacketKind::OpenStore,
             buffer: Bytes::new(),
         }]);
 
@@ -420,6 +452,28 @@ mod tests {
         assert!(
             app.world().resource::<ObservedPackets>().0.is_empty(),
             "Unregistered packet kinds should not emit typed packet events"
+        );
+    }
+
+    #[test]
+    fn should_dispatch_login_packets_when_a_typed_packet_is_registered() {
+        let mut app = build_app();
+
+        let connection = build_connection([IncomingPacket {
+            timestamp: Instant::now(),
+            checksum: None,
+            kind: PacketKind::Login,
+            buffer: Bytes::from_static(&[1, 2, 3]),
+        }]);
+
+        app.world_mut().spawn(connection);
+        app.update();
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<ObservedPackets>().0,
+            vec!["login"],
+            "Login packets should dispatch once a typed packet is registered"
         );
     }
 

@@ -378,7 +378,7 @@ mod tests {
 
     #[test]
     fn should_reject_subsequent_packet_with_unknown_kind_after_decryption() {
-        let payload = [0xFF];
+        let payload = [0xCE];
         let packet_bytes = build_subsequent_packet_payload(&payload, 0);
         let checksum = *suon_checksum::Adler32Checksum::from(
             &packet_bytes[PACKET_HEADER_SIZE + PACKET_CHECKSUM_SIZE..],
@@ -392,7 +392,7 @@ mod tests {
             .take_packet(XTEA_KEY, MAX_LENGTH)
             .expect_err("Unknown packet ids should be rejected after decryption");
 
-        assert!(matches!(error, PacketReadError::UnknownId(0xFF)));
+        assert!(matches!(error, PacketReadError::UnknownId(0xCE)));
     }
 
     #[test]

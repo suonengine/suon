@@ -2,22 +2,50 @@ use thiserror::Error;
 
 mod accept_market_offer;
 mod accept_trade;
+mod aim_at_target;
+mod apply_imbuement;
+mod browse_character_info;
 mod browse_field;
+mod browse_forge_history;
 mod browse_market;
+mod browse_store_offers;
+mod browse_transaction_history;
+mod buddy_group_action;
+mod bug_report;
+mod buy_charm_rune;
+mod buy_store_offer;
 mod cancel_market_offer;
+mod cancel_rule_violation;
 mod cancel_steps;
 mod cancel_target_and_trail;
+mod change_map_aware_range;
 mod change_podium;
 mod change_shared_party_experience;
 mod channels;
+mod clear_imbuement;
 mod close_container;
+mod close_imbuing_window;
+mod close_rule_violation;
 mod close_trade;
+mod collect_reward_chest;
+mod configure_boss_slot;
 mod create_buddy;
 mod create_market_offer;
 mod create_private_channel;
+mod cyclopedia_house_auction;
 mod delete_buddy;
+mod disband_party;
+mod enter_game;
 mod equip_item;
+mod exiva_restrictions;
+mod extended_opcode;
 mod face;
+mod forge_action;
+mod friend_system_action;
+mod get_reward_daily;
+mod inspect_item_details;
+mod inspect_object;
+mod inspect_offer;
 mod inspect_trade;
 mod invite_private_channel;
 mod invite_to_party;
@@ -25,42 +53,82 @@ mod invite_to_private_channel;
 mod join_channel;
 mod join_party;
 mod keep_alive;
+mod leader_finder_action;
 mod leave_channel;
 mod leave_market;
 mod leave_npc_channel;
-mod leave_party;
 mod leave_npc_shop;
+mod leave_party;
+mod login;
 mod logout;
 mod look_at;
 mod look_in_battle_list;
 mod look_in_npc_shop;
+mod loot_container;
+mod member_finder_action;
 mod modal_window_answer;
 mod move_up_container;
 mod offer_trade;
+mod open_bestiary;
+mod open_bestiary_overview;
+mod open_bless_dialog;
+mod open_bosstiary;
+mod open_outfit_dialog;
+mod open_parent_container;
+mod open_prey_dialog;
+mod open_quest_line;
+mod open_quest_log;
+mod open_reward_history;
+mod open_reward_wall;
+mod open_rule_violation;
+mod open_store;
+mod open_tracked_quest_log;
+mod open_transaction_history;
+mod open_wheel;
+mod party_analyzer_action;
 mod pass_party_leadership;
 mod ping_latency;
+mod prey_action;
 mod purchase_npc_shop;
-mod refresh_container;
+mod query_boss_slot_info;
+mod query_depot_search_item;
+mod query_highscores;
+mod quick_loot;
+mod quick_loot_filter;
 mod remove_from_private_channel;
+mod retrieve_depot_search;
 mod revoke_party_invite;
 mod rotate_item;
 mod rule_violation_report;
+mod save_wheel;
 mod say;
+mod search_bestiary;
 mod seek_in_container;
 mod sell_npc_shop;
+mod server_name;
+mod set_monster_podium;
+mod set_mount_state;
+mod set_typing_state;
+mod stash_action;
 mod step;
 mod steps;
 mod submit_house_window;
 mod submit_text_window;
 mod target;
+mod task_hunting_action;
+mod teleport;
 mod throw_item;
 mod trail;
+mod transfer_coins;
 mod update_buddy;
 mod update_fight_modes;
+mod update_inventory_imbuements;
+mod update_monster_tracker;
 mod update_outfit;
 mod use_item;
 mod use_item_with_creature;
 mod use_item_with_target;
+mod wheel_gem_action;
 mod wrap_item;
 
 pub mod prelude {
@@ -68,22 +136,52 @@ pub mod prelude {
         Decodable, DecodableError, PacketKind,
         accept_market_offer::AcceptMarketOfferPacket,
         accept_trade::AcceptTradePacket,
+        aim_at_target::{AimAtTargetPacket, AimAtTargetSpell},
+        apply_imbuement::ApplyImbuementPacket,
+        browse_character_info::{BrowseCharacterInfoPacket, CharacterInfoKind},
         browse_field::BrowseFieldPacket,
+        browse_forge_history::BrowseForgeHistoryPacket,
         browse_market::BrowseMarketPacket,
+        browse_store_offers::{BrowseStoreOffersPacket, StoreBrowseAction},
+        browse_transaction_history::{
+            BrowseTransactionHistoryPacket, TransactionHistoryBrowseFormat,
+        },
+        buddy_group_action::{BuddyGroupAction, BuddyGroupActionPacket},
+        bug_report::BugReportPacket,
+        buy_charm_rune::BuyCharmRunePacket,
+        buy_store_offer::BuyStoreOfferPacket,
         cancel_market_offer::CancelMarketOfferPacket,
+        cancel_rule_violation::CancelRuleViolationPacket,
         cancel_steps::CancelStepsPacket,
         cancel_target_and_trail::CancelTargetAndTrailPacket,
+        change_map_aware_range::ChangeMapAwareRangePacket,
         change_podium::ChangePodiumPacket,
         change_shared_party_experience::ChangeSharedPartyExperiencePacket,
         channels::ChannelsPacket,
+        clear_imbuement::ClearImbuementPacket,
         close_container::CloseContainerPacket,
+        close_imbuing_window::CloseImbuingWindowPacket,
+        close_rule_violation::CloseRuleViolationPacket,
         close_trade::CloseTradePacket,
+        collect_reward_chest::CollectRewardChestPacket,
+        configure_boss_slot::ConfigureBossSlotPacket,
         create_buddy::CreateBuddyPacket,
         create_market_offer::{CreateMarketOfferPacket, MarketOfferKind},
         create_private_channel::CreatePrivateChannelPacket,
+        cyclopedia_house_auction::{CyclopediaHouseAuctionAction, CyclopediaHouseAuctionPacket},
         delete_buddy::DeleteBuddyPacket,
+        disband_party::DisbandPartyPacket,
+        enter_game::EnterGamePacket,
         equip_item::EquipItemPacket,
+        exiva_restrictions::ExivaRestrictionsPacket,
+        extended_opcode::ExtendedOpcodePacket,
         face::FacePacket,
+        forge_action::{ForgeActionKind, ForgeActionPacket},
+        friend_system_action::FriendSystemActionPacket,
+        get_reward_daily::{DailyRewardItem, GetRewardDailyPacket},
+        inspect_item_details::InspectItemDetailsPacket,
+        inspect_object::{InspectObjectKind, InspectObjectPacket},
+        inspect_offer::InspectOfferPacket,
         inspect_trade::InspectTradePacket,
         invite_private_channel::InvitePrivateChannelPacket,
         invite_to_party::InviteToPartyPacket,
@@ -91,38 +189,82 @@ pub mod prelude {
         join_channel::JoinChannelPacket,
         join_party::JoinPartyPacket,
         keep_alive::KeepAlivePacket,
+        leader_finder_action::{
+            LeaderFinderAction, LeaderFinderActionPacket, TeamFinderActivity, TeamFinderListing,
+        },
         leave_channel::LeaveChannelPacket,
         leave_market::LeaveMarketPacket,
         leave_npc_channel::LeaveNpcChannelPacket,
-        leave_party::LeavePartyPacket,
         leave_npc_shop::LeaveNpcShopPacket,
+        leave_party::LeavePartyPacket,
+        login::{
+            LatestLoginCredentials, LatestLoginHeader, LatestLoginPacket, LoginBlockDecoder,
+            LoginPacket, LoginPacketDecodeError,
+        },
         logout::LogoutPacket,
         look_at::LookAtPacket,
         look_in_battle_list::LookInBattleListPacket,
         look_in_npc_shop::LookInNpcShopPacket,
+        loot_container::{LootContainerAction, LootContainerPacket},
+        member_finder_action::{MemberFinderAction, MemberFinderActionPacket},
         modal_window_answer::ModalWindowAnswerPacket,
         move_up_container::MoveUpContainerPacket,
         offer_trade::OfferTradePacket,
+        open_bestiary::OpenBestiaryPacket,
+        open_bestiary_overview::OpenBestiaryOverviewPacket,
+        open_bless_dialog::OpenBlessDialogPacket,
+        open_bosstiary::OpenBosstiaryPacket,
+        open_outfit_dialog::OpenOutfitDialogPacket,
+        open_parent_container::OpenParentContainerPacket,
+        open_prey_dialog::OpenPreyDialogPacket,
+        open_quest_line::OpenQuestLinePacket,
+        open_quest_log::OpenQuestLogPacket,
+        open_reward_history::OpenRewardHistoryPacket,
+        open_reward_wall::OpenRewardWallPacket,
+        open_rule_violation::OpenRuleViolationPacket,
+        open_store::OpenStorePacket,
+        open_tracked_quest_log::OpenTrackedQuestLogPacket,
+        open_transaction_history::OpenTransactionHistoryPacket,
+        open_wheel::OpenWheelPacket,
+        party_analyzer_action::{PartyAnalyzerAction, PartyAnalyzerActionPacket},
         pass_party_leadership::PassPartyLeadershipPacket,
         ping_latency::PingLatencyPacket,
+        prey_action::{PreyActionKind, PreyActionPacket},
         purchase_npc_shop::PurchaseNpcShopPacket,
-        refresh_container::RefreshContainerPacket,
+        query_boss_slot_info::QueryBossSlotInfoPacket,
+        query_depot_search_item::QueryDepotSearchItemPacket,
+        query_highscores::{HighscoreQueryKind, QueryHighscoresPacket},
+        quick_loot::{QuickLootAction, QuickLootPacket},
+        quick_loot_filter::QuickLootFilterPacket,
         remove_from_private_channel::RemoveFromPrivateChannelPacket,
+        retrieve_depot_search::RetrieveDepotSearchPacket,
         revoke_party_invite::RevokePartyInvitePacket,
         rotate_item::RotateItemPacket,
         rule_violation_report::RuleViolationReportPacket,
+        save_wheel::SaveWheelPacket,
         say::{SayPacket, SpeakClass},
+        search_bestiary::{BestiarySearchKind, SearchBestiaryPacket},
         seek_in_container::SeekInContainerPacket,
         sell_npc_shop::SellNpcShopPacket,
+        server_name::ServerNamePacket,
+        set_monster_podium::SetMonsterPodiumPacket,
+        set_mount_state::SetMountStatePacket,
+        set_typing_state::SetTypingStatePacket,
+        stash_action::{StashAction, StashActionPacket},
         step::StepPacket,
         steps::StepsPacket,
         submit_house_window::SubmitHouseWindowPacket,
         submit_text_window::SubmitTextWindowPacket,
         target::TargetPacket,
+        task_hunting_action::TaskHuntingActionPacket,
+        teleport::TeleportPacket,
         throw_item::ThrowItemPacket,
         trail::TrailPacket,
+        transfer_coins::TransferCoinsPacket,
         update_buddy::UpdateBuddyPacket,
         update_fight_modes::{ChaseMode, FightMode, SecureMode, UpdateFightModesPacket},
+        update_inventory_imbuements::UpdateInventoryImbuementsPacket,
+        update_monster_tracker::UpdateMonsterTrackerPacket,
         update_outfit::{
             OutfitAppearance, OutfitMountAppearance, OutfitPreviewDetails, OutfitWindowDetails,
             PodiumOutfitDetails, PodiumTarget, UpdateOutfitDetails, UpdateOutfitPacket,
@@ -130,6 +272,7 @@ pub mod prelude {
         use_item::UseItemPacket,
         use_item_with_creature::UseItemWithCreaturePacket,
         use_item_with_target::UseItemWithTargetPacket,
+        wheel_gem_action::WheelGemActionPacket,
         wrap_item::WrapItemPacket,
     };
 }
@@ -224,8 +367,35 @@ pub enum PacketKind {
 
     /// Sent when a client attempts to log in.
     Login = 10,
+    /// Sent after the login handshake to enter the game world.
+    EnterGame = 15,
     /// Sent when a client logs out.
     Logout = 20,
+    /// Uses the stash system.
+    StashAction = 40,
+    /// Retrieves an item from the depot-search results.
+    RetrieveDepotSearch = 41,
+    /// Updates a cyclopedia monster-tracker entry.
+    UpdateMonsterTracker = 42,
+    /// Updates the party analyzer.
+    PartyAnalyzerAction = 43,
+    /// Manages the leader-finder window state.
+    LeaderFinderAction = 44,
+    /// Manages the member-finder window state.
+    MemberFinderAction = 45,
+    /// Sends an extended opcode payload.
+    ExtendedOpcode = 50,
+    /// Updates the map-aware range dimensions requested by the client.
+    ChangeMapAwareRange = 51,
+    /// Updates the typing-indicator state.
+    SetTypingState = 56,
+
+    /// Updates the inventory imbuement tracker state.
+    UpdateInventoryImbuements = 96,
+    /// Opens the wheel window for a given owner.
+    OpenWheel = 97,
+    /// Saves the wheel state payload.
+    SaveWheel = 98,
 
     /// Requests a multi-step path.
     Steps = 100,
@@ -256,6 +426,8 @@ pub enum PacketKind {
     FaceSouth = 113,
     /// Faces west.
     FaceWest = 114,
+    /// Requests a teleport position.
+    TeleportLegacy = 115,
 
     /// Sent to measure latency between client and server.
     PingLatency = 29,
@@ -283,6 +455,8 @@ pub enum PacketKind {
     AcceptTrade = 127,
     /// Closes the current trade.
     CloseTrade = 128,
+    /// Performs a friend-system action.
+    FriendSystemAction = 129,
 
     /// Uses an item directly.
     UseItem = 130,
@@ -308,6 +482,16 @@ pub enum PacketKind {
     LookAt = 140,
     /// Looks at a creature from the battle list.
     LookInBattleList = 141,
+    /// Performs a quick-loot action.
+    QuickLoot = 143,
+    /// Updates a managed loot container.
+    LootContainer = 144,
+    /// Updates the quick-loot filter list.
+    QuickLootFilter = 145,
+    /// Queries one item entry from depot search.
+    QueryDepotSearchItem = 148,
+    /// Opens the parent container from a depot-search entry.
+    OpenParentContainer = 149,
 
     /// Sends spoken text.
     Say = 150,
@@ -319,8 +503,16 @@ pub enum PacketKind {
     LeaveChannel = 153,
     /// Invites or opens a private conversation with a receiver.
     InvitePrivateChannel = 154,
+    /// Opens a rule-violation conversation.
+    OpenRuleViolation = 155,
+    /// Closes a rule-violation conversation.
+    CloseRuleViolation = 156,
+    /// Cancels an in-progress rule-violation conversation.
+    CancelRuleViolation = 157,
     /// Leaves the NPC channel.
     LeaveNpcChannel = 158,
+    /// Configures a monster podium entry.
+    SetMonsterPodium = 159,
     /// Changes fight modes.
     UpdateFightModes = 160,
     /// Targets a creature for attack.
@@ -334,6 +526,32 @@ pub enum PacketKind {
     DeleteBuddy = 221,
     /// Updates a buddy entry.
     UpdateBuddy = 222,
+    /// Updates buddy groups.
+    BuddyGroupAction = 223,
+    /// Opens the bestiary main data view.
+    OpenBestiary = 225,
+    /// Opens the bestiary overview.
+    OpenBestiaryOverview = 226,
+    /// Searches the bestiary.
+    SearchBestiary = 227,
+    /// Buys or assigns a charm rune.
+    BuyCharmRune = 228,
+    /// Browses cyclopedia character information.
+    BrowseCharacterInfo = 229,
+    /// Reports a bug.
+    BugReport = 230,
+    /// Sends a wheel gem action payload.
+    WheelGemAction = 231,
+    /// Performs a prey action.
+    PreyAction = 235,
+    /// Opens the prey window contents.
+    OpenPreyDialog = 237,
+    /// Transfers transferable coins to another character.
+    TransferCoins = 239,
+    /// Opens the quest log.
+    OpenQuestLog = 240,
+    /// Opens a quest line.
+    OpenQuestLine = 241,
 
     /// Invites a player to the party.
     InviteToParty = 163,
@@ -347,25 +565,71 @@ pub enum PacketKind {
     LeaveParty = 167,
     /// Changes the shared party experience state.
     ChangeSharedPartyExperience = 168,
+    /// Disbands the current party.
+    DisbandParty = 169,
     /// Creates a private channel.
     CreatePrivateChannel = 170,
     /// Invites a player to a private channel.
     InviteToPrivateChannel = 171,
     /// Removes a player from a private channel.
     RemoveFromPrivateChannel = 172,
+    /// Performs a cyclopedia house-auction action.
+    CyclopediaHouseAuction = 173,
+    /// Opens the bosstiary overview data.
+    OpenBosstiary = 174,
+    /// Queries bosstiary slot information.
+    QueryBossSlotInfo = 175,
+    /// Configures a bosstiary boss slot.
+    ConfigureBossSlot = 176,
+    /// Queries highscores data.
+    QueryHighscores = 177,
+    /// Performs a task-hunting action.
+    TaskHuntingAction = 186,
 
     /// Cancels both target and trail states.
     CancelTargetAndTrail = 190,
-    /// Refreshes an open container.
-    RefreshContainer = 202,
+    /// Performs a forge action.
+    ForgeAction = 191,
+    /// Browses forge history.
+    BrowseForgeHistory = 192,
+    /// Updates target-aim spell bindings.
+    AimAtTarget = 200,
+    /// Updates exiva restrictions in no-pvp worlds.
+    ExivaRestrictions = 202,
     /// Browses a field.
     BrowseField = 203,
     /// Seeks to an index inside a container.
     SeekInContainer = 204,
+    /// Inspects an object from the map, trade, or cyclopedia.
+    InspectObject = 205,
+    /// Opens the blessings dialog.
+    OpenBlessDialog = 207,
+    /// Opens the tracked quest log.
+    OpenTrackedQuestLog = 208,
+    /// Opens the outfit selection window.
+    OpenOutfitDialog = 210,
     /// Changes outfit or podium appearance.
     UpdateOutfit = 211,
+    /// Enables or disables the current mount state.
+    SetMountState = 212,
+    /// Applies an imbuement to a slot.
+    ApplyImbuement = 213,
+    /// Clears an imbuement slot.
+    ClearImbuement = 214,
+    /// Closes the imbuing window.
+    CloseImbuingWindow = 215,
+    /// Opens the reward wall.
+    OpenRewardWall = 216,
+    /// Opens reward history.
+    OpenRewardHistory = 217,
+    /// Claims the selected daily reward payload.
+    GetRewardDaily = 218,
     /// Reports a rule violation.
     RuleViolationReport = 242,
+    /// Inspects detailed item info.
+    InspectItemDetails = 243,
+    /// Requests an offer description payload.
+    InspectOffer = 232,
 
     /// Leaves the market view.
     LeaveMarket = 244,
@@ -380,6 +644,20 @@ pub enum PacketKind {
 
     /// Answers a modal window.
     ModalWindowAnswer = 249,
+    /// Collects items from the reward chest.
+    CollectRewardChest = 255,
+    /// Opens the in-game store.
+    OpenStore = 250,
+    /// Browses store offers using a typed action payload.
+    BrowseStoreOffers = 251,
+    /// Attempts to buy or redeem a store offer.
+    BuyStoreOffer = 252,
+    /// Opens the store transaction-history view.
+    OpenTransactionHistory = 253,
+    /// Browses a page from the transaction-history view.
+    BrowseTransactionHistory = 254,
+    /// Requests a teleport position.
+    Teleport = 201,
 }
 
 impl TryFrom<u8> for PacketKind {
@@ -390,10 +668,23 @@ impl TryFrom<u8> for PacketKind {
             0 => Ok(Self::ServerName),
 
             10 => Ok(Self::Login),
+            15 => Ok(Self::EnterGame),
             20 => Ok(Self::Logout),
+            40 => Ok(Self::StashAction),
+            41 => Ok(Self::RetrieveDepotSearch),
+            42 => Ok(Self::UpdateMonsterTracker),
+            43 => Ok(Self::PartyAnalyzerAction),
+            44 => Ok(Self::LeaderFinderAction),
+            45 => Ok(Self::MemberFinderAction),
+            50 => Ok(Self::ExtendedOpcode),
+            51 => Ok(Self::ChangeMapAwareRange),
+            56 => Ok(Self::SetTypingState),
 
             29 => Ok(Self::PingLatency),
             30 => Ok(Self::KeepAlive),
+            96 => Ok(Self::UpdateInventoryImbuements),
+            97 => Ok(Self::OpenWheel),
+            98 => Ok(Self::SaveWheel),
             119 => Ok(Self::EquipItem),
             120 => Ok(Self::ThrowItem),
             121 => Ok(Self::LookInNpcShop),
@@ -416,11 +707,13 @@ impl TryFrom<u8> for PacketKind {
             112 => Ok(Self::FaceEast),
             113 => Ok(Self::FaceSouth),
             114 => Ok(Self::FaceWest),
+            115 => Ok(Self::TeleportLegacy),
 
             125 => Ok(Self::OfferTrade),
             126 => Ok(Self::InspectTrade),
             127 => Ok(Self::AcceptTrade),
             128 => Ok(Self::CloseTrade),
+            129 => Ok(Self::FriendSystemAction),
             130 => Ok(Self::UseItem),
             131 => Ok(Self::UseItemWithTarget),
             132 => Ok(Self::UseItemWithCreature),
@@ -433,12 +726,21 @@ impl TryFrom<u8> for PacketKind {
             139 => Ok(Self::WrapItem),
             140 => Ok(Self::LookAt),
             141 => Ok(Self::LookInBattleList),
+            143 => Ok(Self::QuickLoot),
+            144 => Ok(Self::LootContainer),
+            145 => Ok(Self::QuickLootFilter),
+            148 => Ok(Self::QueryDepotSearchItem),
+            149 => Ok(Self::OpenParentContainer),
             150 => Ok(Self::Say),
             151 => Ok(Self::Channels),
             152 => Ok(Self::JoinChannel),
             153 => Ok(Self::LeaveChannel),
             154 => Ok(Self::InvitePrivateChannel),
+            155 => Ok(Self::OpenRuleViolation),
+            156 => Ok(Self::CloseRuleViolation),
+            157 => Ok(Self::CancelRuleViolation),
             158 => Ok(Self::LeaveNpcChannel),
+            159 => Ok(Self::SetMonsterPodium),
             160 => Ok(Self::UpdateFightModes),
             161 => Ok(Self::Target),
             162 => Ok(Self::Trail),
@@ -449,19 +751,56 @@ impl TryFrom<u8> for PacketKind {
             166 => Ok(Self::PassPartyLeadership),
             167 => Ok(Self::LeaveParty),
             168 => Ok(Self::ChangeSharedPartyExperience),
+            169 => Ok(Self::DisbandParty),
             170 => Ok(Self::CreatePrivateChannel),
             171 => Ok(Self::InviteToPrivateChannel),
             172 => Ok(Self::RemoveFromPrivateChannel),
+            173 => Ok(Self::CyclopediaHouseAuction),
+            174 => Ok(Self::OpenBosstiary),
+            175 => Ok(Self::QueryBossSlotInfo),
+            176 => Ok(Self::ConfigureBossSlot),
+            177 => Ok(Self::QueryHighscores),
+            186 => Ok(Self::TaskHuntingAction),
             190 => Ok(Self::CancelTargetAndTrail),
-            202 => Ok(Self::RefreshContainer),
+            191 => Ok(Self::ForgeAction),
+            192 => Ok(Self::BrowseForgeHistory),
+            200 => Ok(Self::AimAtTarget),
+            202 => Ok(Self::ExivaRestrictions),
             203 => Ok(Self::BrowseField),
             204 => Ok(Self::SeekInContainer),
+            205 => Ok(Self::InspectObject),
+            207 => Ok(Self::OpenBlessDialog),
+            208 => Ok(Self::OpenTrackedQuestLog),
+            210 => Ok(Self::OpenOutfitDialog),
             211 => Ok(Self::UpdateOutfit),
+            212 => Ok(Self::SetMountState),
+            213 => Ok(Self::ApplyImbuement),
+            214 => Ok(Self::ClearImbuement),
+            215 => Ok(Self::CloseImbuingWindow),
+            216 => Ok(Self::OpenRewardWall),
+            217 => Ok(Self::OpenRewardHistory),
+            218 => Ok(Self::GetRewardDaily),
+            201 => Ok(Self::Teleport),
 
             220 => Ok(Self::CreateBuddy),
             221 => Ok(Self::DeleteBuddy),
             222 => Ok(Self::UpdateBuddy),
+            223 => Ok(Self::BuddyGroupAction),
+            225 => Ok(Self::OpenBestiary),
+            226 => Ok(Self::OpenBestiaryOverview),
+            227 => Ok(Self::SearchBestiary),
+            228 => Ok(Self::BuyCharmRune),
+            229 => Ok(Self::BrowseCharacterInfo),
+            230 => Ok(Self::BugReport),
+            231 => Ok(Self::WheelGemAction),
+            232 => Ok(Self::InspectOffer),
+            235 => Ok(Self::PreyAction),
+            237 => Ok(Self::OpenPreyDialog),
+            239 => Ok(Self::TransferCoins),
+            240 => Ok(Self::OpenQuestLog),
+            241 => Ok(Self::OpenQuestLine),
             242 => Ok(Self::RuleViolationReport),
+            243 => Ok(Self::InspectItemDetails),
 
             244 => Ok(Self::LeaveMarket),
             245 => Ok(Self::BrowseMarket),
@@ -470,6 +809,12 @@ impl TryFrom<u8> for PacketKind {
             248 => Ok(Self::AcceptMarketOffer),
 
             249 => Ok(Self::ModalWindowAnswer),
+            250 => Ok(Self::OpenStore),
+            251 => Ok(Self::BrowseStoreOffers),
+            252 => Ok(Self::BuyStoreOffer),
+            253 => Ok(Self::OpenTransactionHistory),
+            254 => Ok(Self::BrowseTransactionHistory),
+            255 => Ok(Self::CollectRewardChest),
 
             _ => Err(value),
         }
