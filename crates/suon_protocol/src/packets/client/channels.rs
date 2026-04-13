@@ -3,16 +3,6 @@
 use super::prelude::*;
 
 /// Packet sent by the client to request the list of available chat channels.
-///
-/// # Examples
-/// ```
-/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::Channels};
-///
-/// let mut payload: &[u8] = &[];
-/// let packet = Channels::decode(PacketKind::Channels, &mut payload).unwrap();
-///
-/// assert!(matches!(packet, Channels));
-/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Channels;
 

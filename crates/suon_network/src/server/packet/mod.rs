@@ -72,9 +72,9 @@ mod tests {
     use suon_protocol::packets::client::PacketKind;
 
     #[derive(Debug, PartialEq, Eq)]
-    struct PingLatencyPacket;
+    struct Dummy;
 
-    impl Decodable for PingLatencyPacket {
+    impl Decodable for Dummy {
         fn decode(_: PacketKind, bytes: &mut &[u8]) -> Result<Self, DecodableError> {
             if bytes.is_empty() {
                 return Err(DecodableError::Decoder(
@@ -100,7 +100,6 @@ mod tests {
         let raw = Bytes::copy_from_slice(buffer);
         let mut bytes = raw.as_ref();
         let packet = P::decode(PacketKind::PingLatency, &mut bytes).map_err(DecodeError::from)?;
-
         if !bytes.is_empty() {
             return Err(DecodeError::ExtraBytes(bytes.len()));
         }
@@ -115,8 +114,8 @@ mod tests {
 
     #[test]
     fn should_surface_decoder_failures() {
-        let error = build_packet::<PingLatencyPacket>(&[])
-            .expect_err("Decoder errors should be surfaced to callers");
+        let error =
+            build_packet::<Dummy>(&[]).expect_err("Decoder errors should be surfaced to callers");
 
         assert!(matches!(
             error,
@@ -131,7 +130,7 @@ mod tests {
 
     #[test]
     fn should_reject_packets_with_extra_bytes_after_decoding() {
-        let error = build_packet::<PingLatencyPacket>(&[1, 2])
+        let error = build_packet::<Dummy>(&[1, 2])
             .expect_err("Packets should reject decoders that leave unread bytes behind");
 
         assert!(matches!(error, DecodeError::ExtraBytes(1)));
@@ -139,10 +138,10 @@ mod tests {
 
     #[test]
     fn should_decode_packets_when_kind_and_payload_match() {
-        let decoded = build_packet::<PingLatencyPacket>(&[1])
-            .expect("Matching packets should decode successfully");
+        let decoded =
+            build_packet::<Dummy>(&[1]).expect("Matching packets should decode successfully");
 
-        assert_eq!(*decoded.packet(), PingLatencyPacket);
+        assert_eq!(*decoded.packet(), Dummy);
     }
 
     #[test]
@@ -153,7 +152,7 @@ mod tests {
             entity: Entity::from_bits(42),
             timestamp,
             checksum: Some(checksum),
-            packet: PingLatencyPacket,
+            packet: Dummy,
         };
 
         assert_eq!(
@@ -161,11 +160,13 @@ mod tests {
             Entity::from_bits(42),
             "entity should expose the entity that produced the packet"
         );
+
         assert_eq!(
             packet.timestamp(),
             timestamp,
             "timestamp should expose the reception instant stored in the packet"
         );
+
         assert_eq!(
             packet.checksum(),
             Some(checksum),
@@ -181,7 +182,7 @@ mod tests {
             entity: Entity::from_bits(42),
             timestamp,
             checksum: Some(checksum),
-            packet: PingLatencyPacket,
+            packet: Dummy,
         };
 
         assert_eq!(
@@ -189,16 +190,19 @@ mod tests {
             Entity::from_bits(42),
             "typed packet events should preserve the originating entity"
         );
+
         assert_eq!(
             event.timestamp(),
             timestamp,
             "typed packet events should preserve the original timestamp"
         );
+
         assert_eq!(
             event.checksum(),
             Some(checksum),
             "typed packet events should preserve the checksum metadata"
         );
+
         assert_eq!(
             event.event_target(),
             Entity::from_bits(42),

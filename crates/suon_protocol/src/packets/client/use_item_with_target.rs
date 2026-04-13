@@ -14,18 +14,25 @@ use suon_position::{floor::Floor, position::Position};
 pub struct UseItemWithTarget {
     /// Map coordinates of the source tile or container slot providing the item.
     pub from_position: Position,
+
     /// Floor component of the source coordinates.
     pub from_floor: Floor,
+
     /// Advertised item type currently present at the source slot.
     pub from_item_id: u16,
+
     /// Stack slot of the source item inside the addressed tile or container.
     pub from_stack_position: u8,
+
     /// Map coordinates of the destination tile or container slot.
     pub to_position: Position,
+
     /// Floor component of the destination coordinates.
     pub to_floor: Floor,
+
     /// Advertised item type currently present at the destination slot.
     pub to_item_id: u16,
+
     /// Stack slot of the destination item inside the addressed tile or container.
     pub to_stack_position: u8,
 }

@@ -12,6 +12,7 @@ pub enum BestiarySearchKind {
         /// Race ids included in the query.
         race_ids: Vec<u16>,
     },
+
     /// Searches by a free-form race name.
     ByName {
         /// Free-form race name.

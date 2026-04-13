@@ -13,16 +13,22 @@ use suon_position::{floor::Floor, position::Position};
 pub struct ThrowItem {
     /// Map coordinates of the tile or container slot providing the item.
     pub from_position: Position,
+
     /// Floor component of the source coordinates.
     pub from_floor: Floor,
+
     /// Advertised item type currently present at the source slot.
     pub item_id: u16,
+
     /// Stack slot of the item inside the source tile or container.
     pub from_stack_position: u8,
+
     /// Map coordinates of the destination tile receiving the move.
     pub to_position: Position,
+
     /// Floor component of the destination coordinates.
     pub to_floor: Floor,
+
     /// Number of units to move from the referenced stack.
     pub count: u8,
 }

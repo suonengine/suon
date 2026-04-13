@@ -19,6 +19,7 @@ pub enum StashActionKind {
         /// Count requested by the client.
         count: u8,
     },
+
     /// Stows all valid items from a container.
     StowContainer {
         /// Position of the source container.
@@ -28,6 +29,7 @@ pub enum StashActionKind {
         /// Stack position of the container.
         stack_position: u8,
     },
+
     /// Stows an item stack as a whole.
     StowStack {
         /// Position of the source stack.
@@ -37,6 +39,7 @@ pub enum StashActionKind {
         /// Stack position of the item.
         stack_position: u8,
     },
+
     /// Withdraws an item amount from stash storage.
     Withdraw {
         /// Item id to withdraw.

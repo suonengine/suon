@@ -1,7 +1,7 @@
 //! Client set-monster-podium packet.
 
 use crate::packets::decoder::Decoder;
-use suon_position::position::Position;
+use suon_position::{floor::Floor, position::Position};
 
 use super::prelude::*;
 
@@ -13,6 +13,9 @@ pub struct SetMonsterPodium {
 
     /// Position of the podium item.
     pub position: Position,
+
+    /// Floor of the podium item.
+    pub floor: Floor,
 
     /// Podium item id.
     pub item_id: u16,
@@ -35,6 +38,7 @@ impl Decodable for SetMonsterPodium {
         Ok(Self {
             monster_race_id: bytes.get_u32()?,
             position: bytes.get_position()?,
+            floor: bytes.get_floor()?,
             item_id: bytes.get_u16()?,
             stack_position: bytes.get_u8()?,
             direction: bytes.get_u8()?,

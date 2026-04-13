@@ -8,6 +8,7 @@ use crate::packets::decoder::Decoder;
 pub struct LookInNpcShop {
     /// NPC-shop item type being inspected.
     pub item_id: u16,
+
     /// Count or subtype byte sent together with the NPC-shop item reference.
     pub count: u8,
 }

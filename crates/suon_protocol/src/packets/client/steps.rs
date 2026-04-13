@@ -7,20 +7,6 @@ use crate::packets::decoder::Decoder;
 use super::prelude::*;
 
 /// Packet sent by the client to request a multi-step path.
-///
-/// # Examples
-/// ```
-/// use suon_position::direction::Direction;
-/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::Steps};
-///
-/// let mut payload: &[u8] = &[3, 1, 3, 5];
-/// let packet = Steps::decode(PacketKind::Steps, &mut payload).unwrap();
-///
-/// assert_eq!(
-///     packet.path,
-///     vec![Direction::East, Direction::North, Direction::West]
-/// );
-/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Steps {
     /// Ordered path requested by the client.

@@ -7,22 +7,6 @@ use crate::packets::decoder::Decoder;
 use super::prelude::*;
 
 /// Packet sent by the client to accept an existing market offer.
-///
-/// # Examples
-/// ```
-/// use std::time::UNIX_EPOCH;
-/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::AcceptMarketOffer};
-///
-/// let mut payload: &[u8] = &[0x78, 0x56, 0x34, 0x12, 0x34, 0x12, 0x05, 0x00];
-/// let packet = AcceptMarketOffer::decode(PacketKind::AcceptMarketOffer, &mut payload).unwrap();
-///
-/// assert_eq!(
-///     packet.timestamp.duration_since(UNIX_EPOCH).unwrap().as_secs(),
-///     0x12345678
-/// );
-/// assert_eq!(packet.offer_counter, 0x1234);
-/// assert_eq!(packet.amount, 5);
-/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AcceptMarketOffer {
     /// Timestamp that identifies the offer.

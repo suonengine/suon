@@ -6,7 +6,7 @@ use super::prelude::*;
 
 /// Spell-state pair sent by the client for the target-aim system.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct AimAtTargetSpell {
+pub struct Spell {
     /// Spell identifier.
     pub spell_id: u16,
 
@@ -18,7 +18,7 @@ pub struct AimAtTargetSpell {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AimAtTarget {
     /// Spell entries included in the payload.
-    pub spells: Vec<AimAtTargetSpell>,
+    pub spells: Vec<Spell>,
 }
 
 impl Decodable for AimAtTarget {
@@ -27,7 +27,7 @@ impl Decodable for AimAtTarget {
         let mut spells = Vec::with_capacity(count);
 
         for _ in 0..count {
-            spells.push(AimAtTargetSpell {
+            spells.push(Spell {
                 spell_id: bytes.get_u16()?,
                 state: bytes.get_u8()?,
             });
@@ -51,11 +51,11 @@ mod tests {
         assert_eq!(
             packet.spells,
             vec![
-                AimAtTargetSpell {
+                Spell {
                     spell_id: 0x1234,
                     state: 1,
                 },
-                AimAtTargetSpell {
+                Spell {
                     spell_id: 0x5678,
                     state: 0,
                 },

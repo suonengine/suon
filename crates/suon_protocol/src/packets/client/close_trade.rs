@@ -3,16 +3,6 @@
 use super::prelude::*;
 
 /// Packet sent by the client to close the current trade without payload data.
-///
-/// # Examples
-/// ```
-/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::CloseTrade};
-///
-/// let mut payload: &[u8] = &[];
-/// let packet = CloseTrade::decode(PacketKind::CloseTrade, &mut payload).unwrap();
-///
-/// assert!(matches!(packet, CloseTrade));
-/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CloseTrade;
 

@@ -1,15 +1,9 @@
 use thiserror::Error;
 
 mod accept_market_offer;
-mod accept_trade;
-mod aim_at_target;
-mod apply_imbuement;
-mod browse_character_info;
-mod browse_field;
-mod browse_forge_history;
-mod browse_market;
-mod browse_store_offers;
-mod browse_transaction_history;
+mod accept_trade_offer;
+mod add_imbuement;
+mod aim_at_target_spell;
 mod buddy_group_action;
 mod bug_report;
 mod buy_charm_rune;
@@ -22,6 +16,7 @@ mod change_map_aware_range;
 mod change_podium;
 mod change_shared_party_experience;
 mod channels;
+mod character;
 mod clear_imbuement;
 mod close_container;
 mod close_imbuing_window;
@@ -41,6 +36,7 @@ mod exiva_restrictions;
 mod extended_opcode;
 mod face;
 mod forge_action;
+mod forge_history;
 mod friend_system_action;
 mod get_reward_daily;
 mod inspect_item_details;
@@ -65,6 +61,7 @@ mod look_at;
 mod look_in_battle_list;
 mod look_in_npc_shop;
 mod loot_container;
+mod market;
 mod member_finder_action;
 mod modal_window_answer;
 mod move_up_container;
@@ -112,13 +109,16 @@ mod set_typing_state;
 mod stash_action;
 mod step;
 mod steps;
+mod store;
 mod submit_house_window;
 mod submit_text_window;
 mod target;
 mod task_hunting_action;
 mod teleport;
 mod throw_item;
+mod tile;
 mod trail;
+mod transaction_history;
 mod transfer_coins;
 mod update_buddy;
 mod update_fight_modes;
@@ -128,22 +128,16 @@ mod update_outfit;
 mod use_item;
 mod use_item_with_creature;
 mod use_item_with_target;
-mod wheel_gem_action;
-mod wrap_item;
+mod wheel_gem;
+mod wrap;
 
 pub mod prelude {
     pub use super::{
         Decodable, DecodableError, PacketKind,
         accept_market_offer::AcceptMarketOffer,
-        accept_trade::AcceptTrade,
-        aim_at_target::{AimAtTarget, AimAtTargetSpell},
-        apply_imbuement::ApplyImbuement,
-        browse_character_info::{BrowseCharacterInfo, CharacterInfoKind},
-        browse_field::BrowseField,
-        browse_forge_history::BrowseForgeHistory,
-        browse_market::BrowseMarket,
-        browse_store_offers::{BrowseStoreOffers, StoreBrowseAction},
-        browse_transaction_history::{BrowseTransactionHistory, TransactionHistoryBrowseFormat},
+        accept_trade_offer::AcceptTradeOffer,
+        add_imbuement::AddImbuement,
+        aim_at_target_spell::AimAtTarget,
         buddy_group_action::{BuddyGroupAction, BuddyGroupActionKind},
         bug_report::BugReport,
         buy_charm_rune::BuyCharmRune,
@@ -156,6 +150,7 @@ pub mod prelude {
         change_podium::ChangePodium,
         change_shared_party_experience::ChangeSharedPartyExperience,
         channels::Channels,
+        character::{Character, Kind},
         clear_imbuement::ClearImbuement,
         close_container::CloseContainer,
         close_imbuing_window::CloseImbuingWindow,
@@ -175,6 +170,7 @@ pub mod prelude {
         extended_opcode::ExtendedOpcode,
         face::Face,
         forge_action::{ForgeAction, ForgeActionKind},
+        forge_history::ForgeHistory,
         friend_system_action::FriendSystemAction,
         get_reward_daily::{DailyRewardItem, GetRewardDaily},
         inspect_item_details::InspectItemDetails,
@@ -204,6 +200,7 @@ pub mod prelude {
         look_in_battle_list::LookInBattleList,
         look_in_npc_shop::LookInNpcShop,
         loot_container::{LootContainer, LootContainerAction},
+        market::Market,
         member_finder_action::{MemberFinderAction, MemberFinderActionKind},
         modal_window_answer::ModalWindowAnswer,
         move_up_container::MoveUpContainer,
@@ -251,28 +248,30 @@ pub mod prelude {
         stash_action::{StashAction, StashActionKind},
         step::Step,
         steps::Steps,
+        store::{BrowseStoreOffers, Store},
         submit_house_window::SubmitHouseWindow,
         submit_text_window::SubmitTextWindow,
         target::Target,
         task_hunting_action::TaskHuntingAction,
         teleport::Teleport,
         throw_item::ThrowItem,
+        tile::Tile,
         trail::Trail,
+        transaction_history::{Format, TransactionHistory},
         transfer_coins::TransferCoins,
         update_buddy::UpdateBuddy,
         update_fight_modes::{ChaseMode, FightMode, SecureMode, UpdateFightModes},
         update_inventory_imbuements::UpdateInventoryImbuements,
         update_monster_tracker::UpdateMonsterTracker,
         update_outfit::{
-            OutfitAppearance, OutfitMountAppearance, OutfitOtClientExtensions,
-            OutfitPreviewDetails, OutfitWindowDetails, PodiumOutfitDetails, PodiumTarget,
-            UpdateOutfit, UpdateOutfitDetails,
+            OutfitAppearance, OutfitMountAppearance, OutfitPreviewDetails, OutfitWindowDetails,
+            PodiumOutfitDetails, PodiumTarget, UpdateOutfit, UpdateOutfitDetails,
         },
         use_item::UseItem,
         use_item_with_creature::UseItemWithCreature,
         use_item_with_target::UseItemWithTarget,
-        wheel_gem_action::WheelGemAction,
-        wrap_item::WrapItem,
+        wheel_gem::WheelGem,
+        wrap::Wrap,
     };
 }
 
@@ -522,7 +521,7 @@ pub enum PacketKind {
     /// Reports a bug.
     BugReport = 230,
     /// Sends a wheel gem action payload.
-    WheelGemAction = 231,
+    WheelGem = 231,
     /// Performs a prey action.
     PreyAction = 235,
     /// Requests the prey dialog contents.
@@ -593,8 +592,8 @@ pub enum PacketKind {
     UpdateOutfit = 211,
     /// Enables or disables the current mount state.
     SetMountState = 212,
-    /// Applies an imbuement to a slot.
-    ApplyImbuement = 213,
+    /// Adds an imbuement to a slot.
+    AddImbuement = 213,
     /// Clears an imbuement slot.
     ClearImbuement = 214,
     /// Closes the imbuing window.
@@ -755,7 +754,7 @@ impl TryFrom<u8> for PacketKind {
             210 => Ok(Self::OpenOutfitDialog),
             211 => Ok(Self::UpdateOutfit),
             212 => Ok(Self::SetMountState),
-            213 => Ok(Self::ApplyImbuement),
+            213 => Ok(Self::AddImbuement),
             214 => Ok(Self::ClearImbuement),
             215 => Ok(Self::CloseImbuingWindow),
             216 => Ok(Self::OpenRewardWall),
@@ -773,7 +772,7 @@ impl TryFrom<u8> for PacketKind {
             228 => Ok(Self::BuyCharmRune),
             229 => Ok(Self::BrowseCharacterInfo),
             230 => Ok(Self::BugReport),
-            231 => Ok(Self::WheelGemAction),
+            231 => Ok(Self::WheelGem),
             232 => Ok(Self::InspectOffer),
             235 => Ok(Self::PreyAction),
             237 => Ok(Self::OpenPreyDialog),

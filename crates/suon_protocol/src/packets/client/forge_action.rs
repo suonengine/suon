@@ -22,6 +22,7 @@ pub enum ForgeActionKind {
         /// Whether tier-loss reduction should be applied.
         reduce_tier_loss: bool,
     },
+
     /// Transfers an item tier from one item to another.
     Transfer {
         /// Whether the transfer uses convergence mode.
@@ -33,10 +34,13 @@ pub enum ForgeActionKind {
         /// Receiver item id.
         second_item_id: u16,
     },
+
     /// Converts forge dust into slivers.
     ConvertDustToSlivers,
+
     /// Converts forge slivers into cores.
     ConvertSliversToCores,
+
     /// Increases the forge dust limit.
     IncreaseDustLimit,
 }

@@ -11,8 +11,10 @@ use crate::packets::decoder::Decoder;
 pub struct SubmitHouseWindow {
     /// Door or access-list slot addressed by the house text window.
     pub door_id: u8,
+
     /// House identifier owning the edited text window.
     pub house_id: u32,
+
     /// Final text blob that should be stored for the addressed house entry.
     pub text: String,
 }

@@ -9,10 +9,13 @@ use suon_position::{floor::Floor, position::Position};
 pub struct ChangePodium {
     /// Map coordinates of the podium item to edit.
     pub position: Position,
+
     /// Floor component of the podium item coordinates.
     pub floor: Floor,
+
     /// Advertised item type currently present at the addressed podium slot.
     pub item_id: u16,
+
     /// Stack slot of the podium item inside the addressed tile.
     pub stack_position: u8,
 }

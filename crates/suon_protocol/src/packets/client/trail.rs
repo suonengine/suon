@@ -5,9 +5,6 @@ use crate::packets::decoder::Decoder;
 
 /// Packet sent by the client to start or redirect the chase trail to a
 /// creature.
-///
-/// The wire payload is only the target creature id. The server resolves that id
-/// against the current game state and updates tracking behavior accordingly.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Trail {
     /// Creature identifier that should become the active trail target.

@@ -17,6 +17,7 @@ pub enum QuickLootAction {
         /// Stack position of the corpse.
         stack_position: u8,
     },
+
     /// Loots all corpses around the selected position.
     LootAll {
         /// Position of the reference corpse.
@@ -26,6 +27,7 @@ pub enum QuickLootAction {
         /// Stack position of the corpse.
         stack_position: u8,
     },
+
     /// Loots nearby corpses without a position payload.
     LootNearby,
 }

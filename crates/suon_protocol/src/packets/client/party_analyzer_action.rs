@@ -9,8 +9,10 @@ use super::prelude::*;
 pub enum PartyAnalyzerActionKind {
     /// Resets the analyzer data.
     Reset,
+
     /// Switches the analyzer price type.
     SwitchPriceType,
+
     /// Updates item custom prices.
     UpdatePrices {
         /// Item-price pairs being updated.

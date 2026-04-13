@@ -1,7 +1,7 @@
 //! Client teleport packet.
 
 use crate::packets::decoder::Decoder;
-use suon_position::position::Position;
+use suon_position::{floor::Floor, position::Position};
 
 use super::prelude::*;
 
@@ -10,12 +10,16 @@ use super::prelude::*;
 pub struct Teleport {
     /// Destination position requested by the client.
     pub position: Position,
+
+    /// Destination floor requested by the client.
+    pub floor: Floor,
 }
 
 impl Decodable for Teleport {
     fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             position: bytes.get_position()?,
+            floor: bytes.get_floor()?,
         })
     }
 }

@@ -11,14 +11,19 @@ use super::prelude::*;
 pub struct OutfitAppearance {
     /// Base outfit or creature look type id selected by the client.
     pub look_type: u16,
+
     /// Head color channel for the shared appearance block.
     pub look_head: u8,
+
     /// Body color channel for the shared appearance block.
     pub look_body: u8,
+
     /// Legs color channel for the shared appearance block.
     pub look_legs: u8,
+
     /// Feet color channel for the shared appearance block.
     pub look_feet: u8,
+
     /// Addon bitmask enabled for the shared appearance block.
     pub look_addons: u8,
 }
@@ -38,19 +43,6 @@ pub struct OutfitMountAppearance {
     pub mount_feet: u8,
 }
 
-/// Optional OTClient extension block that may trail the regular outfit-window branch.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct OutfitOtClientExtensions {
-    /// Wing appearance id forwarded by OTClient-based builds.
-    pub wing_id: u16,
-    /// Aura appearance id forwarded by OTClient-based builds.
-    pub aura_id: u16,
-    /// Effect appearance id forwarded by OTClient-based builds.
-    pub effect_id: u16,
-    /// Shader name string forwarded by OTClient-based builds.
-    pub shader_name: String,
-}
-
 /// Branch payload used when the client submits the regular outfit window.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OutfitWindowDetails {
@@ -62,8 +54,6 @@ pub struct OutfitWindowDetails {
     pub familiar_look_type: u16,
     /// Whether the client requested mount randomization in the outfit window.
     pub randomize_mount: bool,
-    /// Optional OTClient-only extension block that can trail this branch.
-    pub otclient_extensions: Option<OutfitOtClientExtensions>,
 }
 
 /// Branch payload used when the client enters the preview-only outfit branch.
@@ -169,7 +159,6 @@ impl Decodable for UpdateOutfit {
                 set_mount: bytes.get_bool()?,
                 familiar_look_type: bytes.get_u16()?,
                 randomize_mount: bytes.get_bool()?,
-                otclient_extensions: decode_otclient_extensions(&mut bytes)?,
             }),
             1 => UpdateOutfitDetails::Preview(OutfitPreviewDetails {
                 raw_state: bytes.get_u32()?,
@@ -207,21 +196,6 @@ impl Decodable for UpdateOutfit {
     }
 }
 
-fn decode_otclient_extensions(
-    bytes: &mut &mut &[u8],
-) -> Result<Option<OutfitOtClientExtensions>, DecodableError> {
-    if bytes.is_empty() {
-        return Ok(None);
-    }
-
-    Ok(Some(OutfitOtClientExtensions {
-        wing_id: bytes.get_u16()?,
-        aura_id: bytes.get_u16()?,
-        effect_id: bytes.get_u16()?,
-        shader_name: bytes.get_string()?,
-    }))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -245,32 +219,7 @@ mod tests {
                 set_mount: true,
                 familiar_look_type: 12,
                 randomize_mount: true,
-                otclient_extensions: None,
             })
-        ));
-        assert!(payload.is_empty());
-    }
-
-    #[test]
-    fn should_decode_update_outfit_window_variant_with_otclient_extensions() {
-        let mut payload: &[u8] = &[
-            0, 1, 0, 2, 3, 4, 5, 6, 7, 0, 8, 9, 10, 11, 1, 12, 0, 0, 21, 0, 22, 0, 23, 0, 4, 0,
-            b'g', b'l', b'o', b'w',
-        ];
-
-        let packet = UpdateOutfit::decode(PacketKind::UpdateOutfit, &mut payload).unwrap();
-
-        assert!(matches!(
-            packet.details,
-            UpdateOutfitDetails::Window(OutfitWindowDetails {
-                otclient_extensions: Some(OutfitOtClientExtensions {
-                    wing_id: 21,
-                    aura_id: 22,
-                    effect_id: 23,
-                    ref shader_name,
-                }),
-                ..
-            }) if shader_name == "glow"
         ));
         assert!(payload.is_empty());
     }

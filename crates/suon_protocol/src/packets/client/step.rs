@@ -5,17 +5,6 @@ use suon_position::direction::Direction;
 use super::prelude::*;
 
 /// Packet sent by the client to request a one-tile step.
-///
-/// # Examples
-/// ```
-/// use suon_position::direction::Direction;
-/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::Step};
-///
-/// let mut payload: &[u8] = &[];
-/// let packet = Step::decode(PacketKind::StepNorthEast, &mut payload).unwrap();
-///
-/// assert_eq!(packet.direction, Direction::NorthEast);
-/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Step {
     /// Direction requested by the client.

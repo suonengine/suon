@@ -9,11 +9,13 @@ use super::prelude::*;
 pub enum MemberFinderActionKind {
     /// Requests the available team-finder list.
     OpenList,
+
     /// Requests to join a leader listing.
     JoinRequest {
         /// Target leader guid.
         leader_guid: u32,
     },
+
     /// Cancels a previously sent join request.
     CancelRequest {
         /// Target leader guid.

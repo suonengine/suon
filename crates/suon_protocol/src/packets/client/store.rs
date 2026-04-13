@@ -6,14 +6,16 @@ use super::prelude::*;
 
 /// Store browse action selected by the client.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum StoreBrowseAction {
+pub enum Store {
     /// Opens the store home view.
     Home,
+
     /// Opens the premium-boost entry point.
     PremiumBoost {
         /// Extra selector byte sent by the client.
         service_type: u8,
     },
+
     /// Opens a category and subcategory.
     Category {
         /// Top-level category name.
@@ -25,11 +27,13 @@ pub enum StoreBrowseAction {
         /// Service type requested by the client.
         service_type: u8,
     },
+
     /// Opens the useful-things group by list identifier.
     UsefulThings {
         /// Useful-things list id.
         offer_list_id: u8,
     },
+
     /// Opens a store offer by id.
     Offer {
         /// Store offer id.
@@ -39,6 +43,7 @@ pub enum StoreBrowseAction {
         /// Service type requested by the client.
         service_type: u8,
     },
+
     /// Searches store offers by query text.
     Search {
         /// Search text sent by the client.
@@ -54,31 +59,31 @@ pub enum StoreBrowseAction {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BrowseStoreOffers {
     /// Store browse action selected by the client.
-    pub action: StoreBrowseAction,
+    pub action: Store,
 }
 
 impl Decodable for BrowseStoreOffers {
     fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let action = match bytes.get_u8()? {
-            0 => StoreBrowseAction::Home,
-            1 => StoreBrowseAction::PremiumBoost {
+            0 => Store::Home,
+            1 => Store::PremiumBoost {
                 service_type: bytes.get_u8()?,
             },
-            2 => StoreBrowseAction::Category {
+            2 => Store::Category {
                 category_name: bytes.get_string()?,
                 subcategory_name: bytes.get_string()?,
                 sort_order: bytes.get_u8()?,
                 service_type: bytes.get_u8()?,
             },
-            3 => StoreBrowseAction::UsefulThings {
+            3 => Store::UsefulThings {
                 offer_list_id: bytes.get_u8()?,
             },
-            4 => StoreBrowseAction::Offer {
+            4 => Store::Offer {
                 offer_id: bytes.get_u32()?,
                 sort_order: bytes.get_u8()?,
                 service_type: bytes.get_u8()?,
             },
-            5 => StoreBrowseAction::Search {
+            5 => Store::Search {
                 query: bytes.get_string()?,
                 sort_order: bytes.get_u8()?,
                 service_type: bytes.get_u8()?,
@@ -110,7 +115,7 @@ mod tests {
 
         assert_eq!(
             packet.action,
-            StoreBrowseAction::Category {
+            Store::Category {
                 category_name: "Home".into(),
                 subcategory_name: "Outfits".into(),
                 sort_order: 3,
@@ -129,7 +134,7 @@ mod tests {
 
         assert_eq!(
             packet.action,
-            StoreBrowseAction::Search {
+            Store::Search {
                 query: "boot".into(),
                 sort_order: 2,
                 service_type: 0,
@@ -147,7 +152,7 @@ mod tests {
 
         assert_eq!(
             packet.action,
-            StoreBrowseAction::Offer {
+            Store::Offer {
                 offer_id: 0x12345678,
                 sort_order: 3,
                 service_type: 1,

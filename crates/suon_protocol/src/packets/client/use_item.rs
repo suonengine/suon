@@ -25,12 +25,16 @@ use suon_position::{floor::Floor, position::Position};
 pub struct UseItem {
     /// Map coordinates of the tile or container slot providing the item.
     pub position: Position,
+
     /// Floor component of the source coordinates.
     pub floor: Floor,
+
     /// Advertised item type currently present at the addressed slot.
     pub item_id: u16,
+
     /// Stack slot of the item inside the addressed tile or container.
     pub stack_position: u8,
+
     /// Protocol subaction byte selecting which use behavior should run.
     pub use_index: u8,
 }

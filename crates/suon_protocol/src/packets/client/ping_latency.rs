@@ -3,16 +3,6 @@
 use super::prelude::*;
 
 /// Packet sent by the client to request a latency measurement without payload data.
-///
-/// # Examples
-/// ```
-/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::PingLatency};
-///
-/// let mut payload: &[u8] = &[];
-/// let packet = PingLatency::decode(PacketKind::PingLatency, &mut payload).unwrap();
-///
-/// assert!(matches!(packet, PingLatency));
-/// ```
 pub struct PingLatency;
 
 impl Decodable for PingLatency {

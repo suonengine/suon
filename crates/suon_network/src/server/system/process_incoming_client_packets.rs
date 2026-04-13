@@ -87,15 +87,15 @@ pub(crate) fn process_incoming_client_packets(
             client,
             incoming_packet;
             PacketKind::AcceptMarketOffer => AcceptMarketOffer,
-            PacketKind::AcceptTrade => AcceptTrade,
+            PacketKind::AcceptTrade => AcceptTradeOffer,
             PacketKind::AimAtTarget => AimAtTarget,
-            PacketKind::ApplyImbuement => ApplyImbuement,
-            PacketKind::BrowseCharacterInfo => BrowseCharacterInfo,
-            PacketKind::BrowseField => BrowseField,
-            PacketKind::BrowseForgeHistory => BrowseForgeHistory,
-            PacketKind::BrowseMarket => BrowseMarket,
+            PacketKind::AddImbuement => AddImbuement,
+            PacketKind::BrowseCharacterInfo => Character,
+            PacketKind::BrowseField => Tile,
+            PacketKind::BrowseForgeHistory => ForgeHistory,
+            PacketKind::BrowseMarket => Market,
             PacketKind::BrowseStoreOffers => BrowseStoreOffers,
-            PacketKind::BrowseTransactionHistory => BrowseTransactionHistory,
+            PacketKind::BrowseTransactionHistory => TransactionHistory,
             PacketKind::BuddyGroupAction => BuddyGroupAction,
             PacketKind::BugReport => BugReport,
             PacketKind::BuyCharmRune => BuyCharmRune,
@@ -218,8 +218,8 @@ pub(crate) fn process_incoming_client_packets(
             PacketKind::UseItem => UseItem,
             PacketKind::UseItemWithCreature => UseItemWithCreature,
             PacketKind::UseItemWithTarget => UseItemWithTarget,
-            PacketKind::WheelGemAction => WheelGemAction,
-            PacketKind::WrapItem => WrapItem,
+            PacketKind::WheelGem => WheelGem,
+            PacketKind::WrapItem => Wrap,
         );
     }
 }
@@ -250,9 +250,9 @@ mod tests {
     struct MoveDirections(Vec<suon_position::direction::Direction>);
 
     #[derive(Debug)]
-    struct FailingPacket;
+    struct Failing;
 
-    impl Decodable for FailingPacket {
+    impl Decodable for Failing {
         fn decode(_: PacketKind, _: &mut &[u8]) -> Result<Self, DecodableError> {
             Err(DecodableError::Decoder(
                 suon_protocol::packets::decoder::DecoderError::Incomplete {
@@ -562,17 +562,14 @@ mod tests {
                     kind: PacketKind::PingLatency,
                     buffer: Bytes::new(),
                 };
-                PacketKind::PingLatency => FailingPacket,
+                PacketKind::PingLatency => Failing,
             );
         });
 
         #[derive(Resource, Default)]
         struct Triggered(bool);
 
-        fn observe_failing_packet(
-            _event: On<Packet<FailingPacket>>,
-            mut triggered: ResMut<Triggered>,
-        ) {
+        fn observe_failing_packet(_event: On<Packet<Failing>>, mut triggered: ResMut<Triggered>) {
             triggered.0 = true;
         }
 

@@ -10,14 +10,14 @@ use super::prelude::*;
 /// The wire packet contains a plain header followed by an RSA-encrypted login
 /// block. That RSA block carries the negotiated XTEA key used only for packets
 /// sent after login. This type preserves the original payload and exposes
-/// higher-level decoding helpers for the latest OTClient layout.
+/// higher-level decoding helpers for the layout.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Login {
     /// Raw login payload bytes after the `0x0A` packet kind.
     pub payload: Vec<u8>,
 }
 
-/// Decoded fixed header used by the latest OTClient login packet.
+/// Decoded fixed header used by the login packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LatestLoginHeader {
     /// Client operating system identifier.
@@ -39,17 +39,13 @@ pub struct LatestLoginHeader {
     pub preview_state: u8,
 }
 
-/// Decrypted RSA block used by the latest OTClient login packet.
+/// Decrypted RSA block used by the login packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LatestLoginCredentials {
-    /// First RSA byte, expected to be zero in OTClient.
+    /// First RSA byte, expected to be zero.
     pub leading_zero: u8,
 
     /// Negotiated XTEA key embedded in the RSA-protected login block.
-    ///
-    /// OTClient enables XTEA only after the login packet is sent, so this is
-    /// the key that will be used to encrypt subsequent packets rather than a
-    /// second encrypted block inside the login packet itself.
     pub xtea_key: [u32; 4],
 
     /// Gamemaster flag sent by the client.
@@ -83,7 +79,7 @@ pub struct LatestLogin {
 
 /// Abstraction used by `Login` to decrypt the RSA-protected login block.
 ///
-/// The latest OTClient login packet does not carry an additional XTEA-encrypted
+/// The login packet does not carry an additional XTEA-encrypted
 /// inner block. Instead, the decrypted RSA payload contains the XTEA key that
 /// becomes active for packets sent after the login handshake completes.
 pub trait LoginBlockDecoder {
@@ -116,10 +112,7 @@ pub enum LoginDecodeError {
 }
 
 impl Login {
-    /// Decodes the latest OTClient login layout using the provided RSA decoder.
-    ///
-    /// This matches the field order emitted by `ProtocolGame::sendLogin`
-    /// on the newest OTClient code path:
+    /// Decodes the login layout using the provided RSA decoder.
     ///
     /// 1. plain header fields
     /// 2. RSA-encrypted block containing XTEA key and credentials
@@ -222,7 +215,7 @@ mod tests {
 
         let decoded = packet
             .decode_latest(&PassthroughBlockDecoder)
-            .expect("decode_latest should parse the latest OTClient login layout");
+            .expect("decode_latest should parse the login layout");
 
         assert_eq!(decoded.header.operating_system, 0x1234);
         assert_eq!(decoded.header.protocol_version, 0x5678);

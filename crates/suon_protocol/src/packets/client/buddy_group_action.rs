@@ -12,6 +12,7 @@ pub enum BuddyGroupActionKind {
         /// Display name of the new group.
         name: String,
     },
+
     /// Renames an existing buddy group.
     Rename {
         /// Group identifier being renamed.
@@ -19,6 +20,7 @@ pub enum BuddyGroupActionKind {
         /// New display name for the group.
         name: String,
     },
+
     /// Removes an existing buddy group.
     Remove {
         /// Group identifier being removed.

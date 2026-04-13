@@ -24,10 +24,13 @@ use suon_position::{floor::Floor, position::Position};
 pub struct LookAt {
     /// Map coordinates of the tile being inspected.
     pub position: Position,
+
     /// Floor component of the inspected tile coordinates.
     pub floor: Floor,
+
     /// Client-sent thing type marker consumed by the server before the stack slot.
     pub item_id: u16,
+
     /// Stack slot of the thing to describe at the addressed tile.
     pub stack_position: u8,
 }

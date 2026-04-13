@@ -19,21 +19,25 @@ pub enum LootContainerAction {
         /// Stack position of the container item.
         stack_position: u8,
     },
+
     /// Clears a fallback container category.
     ClearFallbackContainer {
         /// Category being cleared.
         category: u8,
     },
+
     /// Opens a fallback container category.
     OpenFallbackContainer {
         /// Category being opened.
         category: u8,
     },
+
     /// Sets the quick-loot fallback behavior.
     SetMainFallback {
         /// Whether the main backpack should be used as fallback.
         use_main_as_fallback: bool,
     },
+
     /// Assigns a primary managed container.
     SetPrimaryContainer {
         /// Category being configured.
@@ -45,11 +49,13 @@ pub enum LootContainerAction {
         /// Stack position of the container item.
         stack_position: u8,
     },
+
     /// Clears a primary managed container category.
     ClearPrimaryContainer {
         /// Category being cleared.
         category: u8,
     },
+
     /// Opens a primary managed container category.
     OpenPrimaryContainer {
         /// Category being opened.

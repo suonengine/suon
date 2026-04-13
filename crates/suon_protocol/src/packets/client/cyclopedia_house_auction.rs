@@ -12,6 +12,7 @@ pub enum CyclopediaHouseAuctionAction {
         /// Town name used by the query.
         town_name: String,
     },
+
     /// Places a bid for a house.
     PlaceBid {
         /// House identifier receiving the bid.
@@ -19,6 +20,7 @@ pub enum CyclopediaHouseAuctionAction {
         /// Bid value in gold.
         bid_value: u64,
     },
+
     /// Schedules a move-out for a house.
     ScheduleMoveOut {
         /// House identifier.
@@ -26,6 +28,7 @@ pub enum CyclopediaHouseAuctionAction {
         /// Timestamp associated with the move-out window.
         timestamp: u32,
     },
+
     /// Transfers a house to a new owner.
     Transfer {
         /// House identifier.
@@ -37,21 +40,25 @@ pub enum CyclopediaHouseAuctionAction {
         /// Transfer bid value.
         bid_value: u64,
     },
+
     /// Cancels a scheduled move-out.
     CancelMoveOut {
         /// House identifier.
         house_id: u32,
     },
+
     /// Cancels an in-progress transfer.
     CancelTransfer {
         /// House identifier.
         house_id: u32,
     },
+
     /// Accepts a house transfer.
     AcceptTransfer {
         /// House identifier.
         house_id: u32,
     },
+
     /// Rejects a house transfer.
     RejectTransfer {
         /// House identifier.

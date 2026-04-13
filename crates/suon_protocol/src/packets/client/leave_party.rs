@@ -3,16 +3,6 @@
 use super::prelude::*;
 
 /// Packet sent by the client to leave the current party without payload data.
-///
-/// # Examples
-/// ```
-/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::LeaveParty};
-///
-/// let mut payload: &[u8] = &[];
-/// let packet = LeaveParty::decode(PacketKind::LeaveParty, &mut payload).unwrap();
-///
-/// assert!(matches!(packet, LeaveParty));
-/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LeaveParty;
 

@@ -11,6 +11,7 @@ use crate::packets::decoder::Decoder;
 pub struct SubmitTextWindow {
     /// Server-provided text-window id being submitted back to the server.
     pub window_text_id: u32,
+
     /// Final text content entered or confirmed in the window.
     pub text: String,
 }

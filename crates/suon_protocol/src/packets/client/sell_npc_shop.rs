@@ -12,10 +12,13 @@ use crate::packets::decoder::Decoder;
 pub struct SellNpcShop {
     /// NPC-shop item type that should be sold.
     pub item_id: u16,
+
     /// Count or subtype byte taken from the referenced item stack.
     pub count: u8,
+
     /// Number of sale iterations requested for the selected offer.
     pub amount: u16,
+
     /// Whether equipped items may be consumed as sale sources.
     pub ignore_equipped: bool,
 }

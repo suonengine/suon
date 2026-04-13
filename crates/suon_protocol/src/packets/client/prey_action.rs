@@ -9,20 +9,25 @@ use super::prelude::*;
 pub enum PreyActionKind {
     /// Rerolls the prey list for a slot.
     ListReroll,
+
     /// Rerolls the prey bonus for a slot.
     BonusReroll,
+
     /// Selects a monster by list index.
     MonsterSelection {
         /// Index chosen inside the current monster list.
         index: u8,
     },
+
     /// Opens the full list using prey cards.
     ListAllCards,
+
     /// Selects a race from the full list.
     ListAllSelection {
         /// Race id selected from the full list.
         race_id: u16,
     },
+
     /// Updates a prey option toggle.
     Option {
         /// Option identifier toggled by the client.

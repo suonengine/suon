@@ -9,10 +9,13 @@ use suon_position::{floor::Floor, position::Position};
 pub struct RotateItem {
     /// Map coordinates of the tile containing the item to rotate.
     pub position: Position,
+
     /// Floor component of the addressed tile coordinates.
     pub floor: Floor,
+
     /// Advertised item type currently present at the addressed slot.
     pub item_id: u16,
+
     /// Stack slot of the item that should be rotated.
     pub stack_position: u8,
 }

@@ -8,8 +8,10 @@ use crate::packets::decoder::Decoder;
 pub struct ModalWindowAnswer {
     /// Server-provided modal-window id being answered.
     pub window_id: u32,
+
     /// Button identifier pressed by the player.
     pub button_id: u8,
+
     /// Choice identifier selected by the player inside the modal window.
     pub choice_id: u8,
 }

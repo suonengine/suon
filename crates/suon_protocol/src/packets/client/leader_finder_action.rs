@@ -9,6 +9,7 @@ use super::prelude::*;
 pub enum TeamFinderActivity {
     /// Boss team listing.
     Boss { boss_id: u16 },
+
     /// Hunt team listing.
     Hunt {
         /// Hunt type selector.
@@ -16,8 +17,10 @@ pub enum TeamFinderActivity {
         /// Hunt area selector.
         hunt_area: u16,
     },
+
     /// Quest team listing.
     Quest { quest_id: u16 },
+
     /// Unknown team listing kind kept as a raw value.
     Other { team_type: u8 },
 }

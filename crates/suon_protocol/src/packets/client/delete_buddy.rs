@@ -5,16 +5,6 @@ use crate::packets::decoder::Decoder;
 use super::prelude::*;
 
 /// Packet sent by the client to delete a buddy entry by guid.
-///
-/// # Examples
-/// ```
-/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::DeleteBuddy};
-///
-/// let mut payload: &[u8] = &[0x78, 0x56, 0x34, 0x12];
-/// let packet = DeleteBuddy::decode(PacketKind::DeleteBuddy, &mut payload).unwrap();
-///
-/// assert_eq!(packet.guid, 0x12345678);
-/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DeleteBuddy {
     /// Guid of the buddy entry to delete.

@@ -13,6 +13,7 @@ pub enum InspectObjectKind {
         /// Position of the object being inspected.
         position: Position,
     },
+
     /// Inspects an item listed in the NPC trade window.
     NpcTradeItem {
         /// Item id being inspected.
@@ -20,6 +21,7 @@ pub enum InspectObjectKind {
         /// Item count shown to the user.
         count: u8,
     },
+
     /// Inspects an item shown in the cyclopedia.
     CyclopediaItem {
         /// Item id being inspected.
