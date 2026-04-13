@@ -4,10 +4,10 @@ use crate::packets::decoder::Decoder;
 
 use super::prelude::*;
 
-/// Packet sent by the client to notify whether the inventory-imbuement tracker is open.
+/// Packet sent by the client to notify whether the inventory-imbuement tracker is active.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UpdateInventoryImbuements {
-    /// Whether the tracker window is currently open.
+    /// Whether the tracker state is currently enabled on the client.
     pub is_open: bool,
 }
 

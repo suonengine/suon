@@ -2,6 +2,17 @@
 
 use super::prelude::*;
 
+/// Packet sent by the client to cancel both the active attack target and any creature trail simultaneously.
+///
+/// # Examples
+/// ```
+/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::CancelTargetAndTrail};
+///
+/// let mut payload: &[u8] = &[];
+/// let packet = CancelTargetAndTrail::decode(PacketKind::CancelTargetAndTrail, &mut payload).unwrap();
+///
+/// assert!(matches!(packet, CancelTargetAndTrail));
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CancelTargetAndTrail;
 

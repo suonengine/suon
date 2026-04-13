@@ -3,8 +3,10 @@
 use super::prelude::*;
 use crate::packets::decoder::Decoder;
 
+/// Packet sent by the client to request the description of a creature selected from the battle list.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LookInBattleList {
+    /// Creature identifier selected in the battle list.
     pub creature_id: u32,
 }
 

@@ -2,7 +2,10 @@
 
 use super::prelude::*;
 
-/// Sent by the client after a successful login to enter the game world.
+/// Packet sent by the client to confirm character entry after login.
+///
+/// The opcode has no body. Once received, the server may transition the
+/// connection from the login flow into the in-game protocol state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EnterGame;
 
@@ -19,9 +22,10 @@ mod tests {
     #[test]
     fn should_decode_enter_game() {
         let mut payload: &[u8] = &[];
-        assert!(matches!(
-            EnterGame::decode(PacketKind::EnterGame, &mut payload).unwrap(),
-            EnterGame
-        ));
+        let packet = EnterGame::decode(PacketKind::EnterGame, &mut payload)
+            .expect("EnterGame packets should decode empty payloads");
+
+        assert!(matches!(packet, EnterGame));
+        assert!(payload.is_empty());
     }
 }

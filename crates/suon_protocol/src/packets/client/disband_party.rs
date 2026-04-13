@@ -2,7 +2,11 @@
 
 use super::prelude::*;
 
-/// Sent by the party leader to forcibly disband the entire party.
+/// Packet sent by the client to dissolve the current party immediately.
+///
+/// This opcode carries no payload bytes on the wire. Its presence alone tells
+/// the server that the acting player wants to disband the whole party instead
+/// of merely leaving it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DisbandParty;
 

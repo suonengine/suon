@@ -2,7 +2,11 @@
 
 use super::prelude::*;
 
-/// Sent by the client to open the daily reward history window.
+/// Packet sent by the client to request the daily reward history data.
+///
+/// The packet has no embedded fields. The server interprets the opcode as a
+/// request to send back the reward history content for the account or
+/// character, depending on protocol state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct OpenRewardHistory;
 

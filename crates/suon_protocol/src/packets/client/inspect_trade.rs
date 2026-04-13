@@ -4,7 +4,7 @@ use crate::packets::decoder::Decoder;
 
 use super::prelude::*;
 
-/// Packet sent by the client to inspect an item shown in the trade window.
+/// Packet sent by the client to inspect one item entry from the current trade payload.
 ///
 /// # Examples
 /// ```
@@ -15,6 +15,7 @@ use super::prelude::*;
 ///
 /// assert!(packet.is_counter_offer);
 /// assert_eq!(packet.index, 7);
+/// assert!(payload.is_empty());
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InspectTrade {

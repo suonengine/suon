@@ -3,8 +3,10 @@
 use super::prelude::*;
 use crate::packets::decoder::Decoder;
 
+/// Packet sent by the client to invite a player into a private chat channel by name.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InviteToPrivateChannel {
+    /// Character name that should be added to the private channel.
     pub name: String,
 }
 

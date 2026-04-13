@@ -3,8 +3,10 @@
 use super::prelude::*;
 use crate::packets::decoder::Decoder;
 
+/// Packet sent by the client to remove a player from a private chat channel by name.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RemoveFromPrivateChannel {
+    /// Character name that should be removed from the private channel.
     pub name: String,
 }
 

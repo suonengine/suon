@@ -6,11 +6,19 @@ use crate::packets::decoder::Decoder;
 
 use super::prelude::*;
 
+/// Packet sent by the client to wrap the referenced item at its current slot.
+///
+/// The wire payload names the exact position and stack slot of the item to be
+/// transformed into its wrapped representation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct WrapItem {
+    /// Map coordinates of the tile or container slot holding the item to wrap.
     pub position: Position,
+    /// Floor component of the addressed coordinates.
     pub floor: Floor,
+    /// Advertised item type currently present at the addressed slot.
     pub item_id: u16,
+    /// Stack slot of the item that should be transformed into its wrapped form.
     pub stack_position: u8,
 }
 

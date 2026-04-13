@@ -2,7 +2,10 @@
 
 use super::prelude::*;
 
-/// Sent by the client to open the bestiary window.
+/// Packet sent by the client to request the bestiary entrypoint state.
+///
+/// No additional payload is sent. The opcode itself is the trigger for the
+/// server to answer with the data needed to populate the feature.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct OpenBestiary;
 

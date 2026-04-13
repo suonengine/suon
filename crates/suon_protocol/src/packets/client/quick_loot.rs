@@ -96,5 +96,43 @@ mod tests {
                 stack_position: 6,
             }
         );
+        assert!(payload.is_empty());
+    }
+
+    #[test]
+    fn should_decode_quick_loot_single() {
+        let mut payload: &[u8] = &[0, 0x34, 0x12, 0x78, 0x56, 0xBC, 0x9A, 6];
+
+        let packet = QuickLoot::decode(PacketKind::QuickLoot, &mut payload)
+            .expect("QuickLoot packets should decode the single-loot variant");
+
+        assert_eq!(
+            packet.action,
+            QuickLootAction::LootSingle {
+                position: Position {
+                    x: 0x1234,
+                    y: 0x5678,
+                },
+                item_id: 0x9ABC,
+                stack_position: 6,
+            }
+        );
+        assert!(payload.is_empty());
+    }
+
+    #[test]
+    fn should_reject_unknown_quick_loot_variant() {
+        let mut payload: &[u8] = &[9];
+
+        let error = QuickLoot::decode(PacketKind::QuickLoot, &mut payload)
+            .expect_err("QuickLoot packets should reject unsupported variants");
+
+        assert!(matches!(
+            error,
+            DecodableError::InvalidFieldValue {
+                field: "variant",
+                value: 9,
+            }
+        ));
     }
 }

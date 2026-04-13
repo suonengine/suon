@@ -2,7 +2,7 @@
 
 use super::prelude::*;
 
-/// Packet sent by the client to close the market interface without payload data.
+/// Packet sent by the client to leave the market flow without payload data.
 ///
 /// # Examples
 /// ```
@@ -12,6 +12,7 @@ use super::prelude::*;
 /// let packet = LeaveMarket::decode(PacketKind::LeaveMarket, &mut payload).unwrap();
 ///
 /// assert!(matches!(packet, LeaveMarket));
+/// assert!(payload.is_empty());
 /// ```
 pub struct LeaveMarket;
 

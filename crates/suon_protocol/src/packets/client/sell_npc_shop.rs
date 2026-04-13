@@ -3,11 +3,20 @@
 use super::prelude::*;
 use crate::packets::decoder::Decoder;
 
+/// Packet sent by the client to sell an item stack to an NPC trade endpoint.
+///
+/// The payload identifies the item type, how many units from the selected
+/// stack are being referenced, how many trade iterations should be applied, and
+/// whether equipped items may be consumed as sale sources.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SellNpcShop {
+    /// NPC-shop item type that should be sold.
     pub item_id: u16,
+    /// Count or subtype byte taken from the referenced item stack.
     pub count: u8,
+    /// Number of sale iterations requested for the selected offer.
     pub amount: u16,
+    /// Whether equipped items may be consumed as sale sources.
     pub ignore_equipped: bool,
 }
 

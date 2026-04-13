@@ -3,9 +3,12 @@
 use super::prelude::*;
 use crate::packets::decoder::Decoder;
 
+/// Packet sent by the client to request the description of an item displayed in the NPC shop.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LookInNpcShop {
+    /// NPC-shop item type being inspected.
     pub item_id: u16,
+    /// Count or subtype byte sent together with the NPC-shop item reference.
     pub count: u8,
 }
 

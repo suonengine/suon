@@ -3,8 +3,10 @@
 use super::prelude::*;
 use crate::packets::decoder::Decoder;
 
+/// Packet sent by the client to leave an open chat channel by its numeric identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LeaveChannel {
+    /// Numeric channel identifier that the client wants to leave.
     pub channel_id: u16,
 }
 

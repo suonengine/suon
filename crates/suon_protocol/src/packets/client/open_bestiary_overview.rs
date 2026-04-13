@@ -2,7 +2,7 @@
 
 use super::prelude::*;
 
-/// Packet sent by the client to open the bestiary overview screen.
+/// Packet sent by the client to request the bestiary overview data.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct OpenBestiaryOverview;
 

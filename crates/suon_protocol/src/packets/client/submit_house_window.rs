@@ -3,10 +3,17 @@
 use super::prelude::*;
 use crate::packets::decoder::Decoder;
 
+/// Packet sent by the client to submit edited text for a house-related window.
+///
+/// On the wire the client sends the addressed door slot, the owning house id,
+/// and the resulting text blob to persist on the server side.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SubmitHouseWindow {
+    /// Door or access-list slot addressed by the house text window.
     pub door_id: u8,
+    /// House identifier owning the edited text window.
     pub house_id: u32,
+    /// Final text blob that should be stored for the addressed house entry.
     pub text: String,
 }
 

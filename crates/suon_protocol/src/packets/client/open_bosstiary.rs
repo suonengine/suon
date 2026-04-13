@@ -2,7 +2,10 @@
 
 use super::prelude::*;
 
-/// Sent by the client to open the bosstiary window.
+/// Packet sent by the client to request bosstiary data from the server.
+///
+/// The opcode is payload-free and serves as the feature entry command for the
+/// bosstiary flow.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct OpenBosstiary;
 

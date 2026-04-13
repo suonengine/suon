@@ -3,8 +3,10 @@
 use super::prelude::*;
 use crate::packets::decoder::Decoder;
 
+/// Packet sent by the client to navigate one level up in the container hierarchy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MoveUpContainer {
+    /// Numeric identifier of the container view whose parent should be opened.
     pub container_id: u8,
 }
 

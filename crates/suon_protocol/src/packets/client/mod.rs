@@ -264,8 +264,9 @@ pub mod prelude {
         update_inventory_imbuements::UpdateInventoryImbuements,
         update_monster_tracker::UpdateMonsterTracker,
         update_outfit::{
-            OutfitAppearance, OutfitMountAppearance, OutfitPreviewDetails, OutfitWindowDetails,
-            PodiumOutfitDetails, PodiumTarget, UpdateOutfit, UpdateOutfitDetails,
+            OutfitAppearance, OutfitMountAppearance, OutfitOtClientExtensions,
+            OutfitPreviewDetails, OutfitWindowDetails, PodiumOutfitDetails, PodiumTarget,
+            UpdateOutfit, UpdateOutfitDetails,
         },
         use_item::UseItem,
         use_item_with_creature::UseItemWithCreature,
@@ -359,9 +360,9 @@ pub enum PacketKind {
     UpdateMonsterTracker = 42,
     /// Updates the party analyzer.
     PartyAnalyzerAction = 43,
-    /// Manages the leader-finder window state.
+    /// Manages the leader-finder state.
     LeaderFinderAction = 44,
-    /// Manages the member-finder window state.
+    /// Manages the member-finder state.
     MemberFinderAction = 45,
     /// Sends an extended opcode payload.
     ExtendedOpcode = 50,
@@ -414,22 +415,22 @@ pub enum PacketKind {
     /// Keeps the connection alive.
     KeepAlive = 30,
 
-    /// Equips an item directly from the client interface.
+    /// Equips an item directly from the current client context.
     EquipItem = 119,
     /// Throws or moves an item from one tile to another.
     ThrowItem = 120,
-    /// Looks at an item shown in the NPC shop window.
+    /// Looks at an item listed by the NPC shop flow.
     LookInNpcShop = 121,
     /// Purchases an item from an NPC shop.
     PurchaseNpcShop = 122,
     /// Sells an item to an NPC shop.
     SellNpcShop = 123,
-    /// Leaves the NPC shop window.
+    /// Leaves the NPC shop flow.
     LeaveNpcShop = 124,
 
     /// Offers an item for trade to another player.
     OfferTrade = 125,
-    /// Inspects one of the items shown in the trade window.
+    /// Inspects one item entry from the trade payload.
     InspectTrade = 126,
     /// Accepts the current trade.
     AcceptTrade = 127,
@@ -524,7 +525,7 @@ pub enum PacketKind {
     WheelGemAction = 231,
     /// Performs a prey action.
     PreyAction = 235,
-    /// Opens the prey window contents.
+    /// Requests the prey dialog contents.
     OpenPreyDialog = 237,
     /// Transfers transferable coins to another character.
     TransferCoins = 239,
@@ -586,7 +587,7 @@ pub enum PacketKind {
     OpenBlessDialog = 207,
     /// Opens the tracked quest log.
     OpenTrackedQuestLog = 208,
-    /// Opens the outfit selection window.
+    /// Requests the outfit selection data.
     OpenOutfitDialog = 210,
     /// Changes outfit or podium appearance.
     UpdateOutfit = 211,

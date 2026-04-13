@@ -52,6 +52,7 @@ impl TryFrom<u8> for MarketOfferKind {
 /// assert_eq!(packet.amount, 5);
 /// assert_eq!(packet.price, 123_456_789);
 /// assert!(packet.is_anonymous);
+/// assert!(payload.is_empty());
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CreateMarketOffer {

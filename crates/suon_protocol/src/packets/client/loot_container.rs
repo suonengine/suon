@@ -129,5 +129,38 @@ mod tests {
                 stack_position: 7,
             }
         );
+        assert!(payload.is_empty());
+    }
+
+    #[test]
+    fn should_decode_set_main_fallback() {
+        let mut payload: &[u8] = &[3, 1];
+
+        let packet = LootContainer::decode(PacketKind::LootContainer, &mut payload)
+            .expect("LootContainer packets should decode fallback toggle actions");
+
+        assert_eq!(
+            packet.action,
+            LootContainerAction::SetMainFallback {
+                use_main_as_fallback: true,
+            }
+        );
+        assert!(payload.is_empty());
+    }
+
+    #[test]
+    fn should_reject_unknown_loot_container_action() {
+        let mut payload: &[u8] = &[9];
+
+        let error = LootContainer::decode(PacketKind::LootContainer, &mut payload)
+            .expect_err("LootContainer packets should reject unsupported actions");
+
+        assert!(matches!(
+            error,
+            DecodableError::InvalidFieldValue {
+                field: "action",
+                value: 9,
+            }
+        ));
     }
 }

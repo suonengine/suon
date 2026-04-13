@@ -4,12 +4,21 @@ use super::prelude::*;
 use crate::packets::decoder::Decoder;
 use suon_position::{floor::Floor, position::Position};
 
+/// Packet sent by the client to apply an item directly to a creature target.
+///
+/// The item source is encoded exactly like a regular use action, followed by
+/// the target creature id that should receive the effect.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UseItemWithCreature {
+    /// Map coordinates of the tile or container slot providing the item.
     pub position: Position,
+    /// Floor component of the source coordinates.
     pub floor: Floor,
+    /// Advertised item type currently present at the addressed slot.
     pub item_id: u16,
+    /// Stack slot of the item inside the addressed tile or container.
     pub stack_position: u8,
+    /// Creature identifier that should receive the item effect.
     pub creature_id: u32,
 }
 

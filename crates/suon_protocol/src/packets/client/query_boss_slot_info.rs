@@ -2,7 +2,10 @@
 
 use super::prelude::*;
 
-/// Sent by the client to query boss slot information from the bosstiary.
+/// Packet sent by the client to request details about a bosstiary boss slot.
+///
+/// The command has no extra payload in the current layout. Its semantic meaning
+/// comes entirely from the opcode chosen by the client.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct QueryBossSlotInfo;
 

@@ -3,9 +3,15 @@
 use super::prelude::*;
 use crate::packets::decoder::Decoder;
 
+/// Packet sent by the client to submit text back to a generic text window.
+///
+/// The payload carries the server-provided text window id together with the new
+/// string content entered or confirmed by the player.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SubmitTextWindow {
+    /// Server-provided text-window id being submitted back to the server.
     pub window_text_id: u32,
+    /// Final text content entered or confirmed in the window.
     pub text: String,
 }
 

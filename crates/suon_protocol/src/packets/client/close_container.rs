@@ -3,8 +3,10 @@
 use super::prelude::*;
 use crate::packets::decoder::Decoder;
 
+/// Packet sent by the client to close an open container by its identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CloseContainer {
+    /// Numeric identifier of the container view that should be closed.
     pub container_id: u8,
 }
 

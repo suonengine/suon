@@ -137,4 +137,38 @@ mod tests {
         );
         assert!(payload.is_empty());
     }
+
+    #[test]
+    fn should_decode_store_offer_browse() {
+        let mut payload: &[u8] = &[4, 0x78, 0x56, 0x34, 0x12, 3, 1];
+
+        let packet = BrowseStoreOffers::decode(PacketKind::BrowseStoreOffers, &mut payload)
+            .expect("BrowseStoreOffers packets should decode direct offer requests");
+
+        assert_eq!(
+            packet.action,
+            StoreBrowseAction::Offer {
+                offer_id: 0x12345678,
+                sort_order: 3,
+                service_type: 1,
+            }
+        );
+        assert!(payload.is_empty());
+    }
+
+    #[test]
+    fn should_reject_unknown_store_browse_action() {
+        let mut payload: &[u8] = &[9];
+
+        let error = BrowseStoreOffers::decode(PacketKind::BrowseStoreOffers, &mut payload)
+            .expect_err("BrowseStoreOffers packets should reject unsupported actions");
+
+        assert!(matches!(
+            error,
+            DecodableError::InvalidFieldValue {
+                field: "action",
+                value: 9,
+            }
+        ));
+    }
 }

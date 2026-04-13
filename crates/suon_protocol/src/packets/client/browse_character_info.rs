@@ -123,4 +123,33 @@ mod tests {
         assert_eq!(packet.page, Some(2));
         assert!(payload.is_empty());
     }
+
+    #[test]
+    fn should_decode_non_paginated_character_info_browse() {
+        let mut payload: &[u8] = &[0x78, 0x56, 0x34, 0x12, 9];
+
+        let packet = BrowseCharacterInfo::decode(PacketKind::BrowseCharacterInfo, &mut payload)
+            .expect("BrowseCharacterInfo packets should decode non-paginated sections");
+
+        assert_eq!(packet.info_kind, CharacterInfoKind::Inspection);
+        assert_eq!(packet.entries_per_page, None);
+        assert_eq!(packet.page, None);
+        assert!(payload.is_empty());
+    }
+
+    #[test]
+    fn should_reject_unknown_character_info_kind() {
+        let mut payload: &[u8] = &[0x78, 0x56, 0x34, 0x12, 99];
+
+        let error = BrowseCharacterInfo::decode(PacketKind::BrowseCharacterInfo, &mut payload)
+            .expect_err("BrowseCharacterInfo packets should reject unknown section kinds");
+
+        assert!(matches!(
+            error,
+            DecodableError::InvalidFieldValue {
+                field: "character_info_type",
+                value: 99,
+            }
+        ));
+    }
 }

@@ -2,7 +2,10 @@
 
 use super::prelude::*;
 
-/// Sent by the client to open the quest log window.
+/// Packet sent by the client to request the quest log listing.
+///
+/// This opcode is bodyless on the wire and acts as a command for the server to
+/// respond with the current quest summary for the player.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct OpenQuestLog;
 

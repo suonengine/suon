@@ -2,7 +2,10 @@
 
 use super::prelude::*;
 
-/// Sent by the client to open the daily reward wall.
+/// Packet sent by the client to request the current daily reward wall state.
+///
+/// On the wire this is only an opcode with no trailing payload. It is used to
+/// trigger the reward-wall response sequence from the server.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct OpenRewardWall;
 

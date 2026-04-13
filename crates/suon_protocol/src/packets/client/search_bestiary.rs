@@ -86,5 +86,36 @@ mod tests {
                 name: "deer".to_string(),
             }
         );
+        assert!(payload.is_empty());
+    }
+
+    #[test]
+    fn should_reject_unknown_bestiary_search_mode() {
+        let mut payload: &[u8] = &[9];
+
+        let error = SearchBestiary::decode(PacketKind::SearchBestiary, &mut payload)
+            .expect_err("SearchBestiary packets should reject unsupported search modes");
+
+        assert!(matches!(
+            error,
+            DecodableError::InvalidFieldValue {
+                field: "search_mode",
+                value: 9,
+            }
+        ));
+    }
+
+    #[test]
+    fn should_fail_when_bestiary_race_list_is_incomplete() {
+        let mut payload: &[u8] = &[1, 2, 0, 0x34, 0x12];
+
+        let error = SearchBestiary::decode(PacketKind::SearchBestiary, &mut payload).expect_err(
+            "SearchBestiary packets should fail when a declared race list is truncated",
+        );
+
+        assert!(matches!(
+            error,
+            DecodableError::Decoder(crate::packets::decoder::DecoderError::Incomplete { .. })
+        ));
     }
 }

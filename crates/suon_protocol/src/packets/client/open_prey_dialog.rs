@@ -2,7 +2,10 @@
 
 use super::prelude::*;
 
-/// Sent by the client to open the prey window.
+/// Packet sent by the client to request the prey feature state.
+///
+/// The packet has no payload bytes; the opcode alone asks the server to send
+/// the prey slot information relevant to the current character.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct OpenPreyDialog;
 

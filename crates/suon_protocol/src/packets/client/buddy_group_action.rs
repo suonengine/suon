@@ -86,5 +86,39 @@ mod tests {
             .expect("BuddyGroupAction packets should decode group removal");
 
         assert_eq!(packet.action, BuddyGroupActionKind::Remove { group_id: 8 });
+        assert!(payload.is_empty());
+    }
+
+    #[test]
+    fn should_decode_rename_buddy_group() {
+        let mut payload: &[u8] = &[2, 8, 3, 0, b'R', b'a', b'i'];
+
+        let packet = BuddyGroupAction::decode(PacketKind::BuddyGroupAction, &mut payload)
+            .expect("BuddyGroupAction packets should decode group rename requests");
+
+        assert_eq!(
+            packet.action,
+            BuddyGroupActionKind::Rename {
+                group_id: 8,
+                name: "Rai".to_string(),
+            }
+        );
+        assert!(payload.is_empty());
+    }
+
+    #[test]
+    fn should_reject_unknown_buddy_group_action() {
+        let mut payload: &[u8] = &[9];
+
+        let error = BuddyGroupAction::decode(PacketKind::BuddyGroupAction, &mut payload)
+            .expect_err("BuddyGroupAction packets should reject unsupported actions");
+
+        assert!(matches!(
+            error,
+            DecodableError::InvalidFieldValue {
+                field: "action",
+                value: 9,
+            }
+        ));
     }
 }

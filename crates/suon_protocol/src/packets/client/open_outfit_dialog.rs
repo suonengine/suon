@@ -2,7 +2,10 @@
 
 use super::prelude::*;
 
-/// Sent by the client to open the outfit selection window.
+/// Packet sent by the client to request the outfit selection data set.
+///
+/// This packet does not carry parameters. The server uses the opcode to return
+/// the outfit list, mounts, and any contextual customization data.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct OpenOutfitDialog;
 

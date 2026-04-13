@@ -21,7 +21,7 @@ impl TryFrom<u8> for HighscoreQueryKind {
             0 => Ok(Self::GetEntries),
             1 => Ok(Self::OurRank),
             _ => Err(DecodableError::InvalidFieldValue {
-                field: "request_type",
+                field: "query_kind",
                 value,
             }),
         }
@@ -103,5 +103,19 @@ mod tests {
         assert_eq!(packet.page, Some(3));
         assert_eq!(packet.entries_per_page, 25);
         assert!(payload.is_empty());
+    }
+
+    #[test]
+    fn should_reject_unknown_highscore_query_kind() {
+        let error = HighscoreQueryKind::try_from(9)
+            .expect_err("HighscoreQueryKind should reject unsupported query selectors");
+
+        assert!(matches!(
+            error,
+            DecodableError::InvalidFieldValue {
+                field: "query_kind",
+                value: 9,
+            }
+        ));
     }
 }

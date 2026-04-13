@@ -3,12 +3,18 @@
 use super::prelude::*;
 use crate::packets::decoder::Decoder;
 
+/// Packet sent by the client to buy an item from an NPC shop.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PurchaseNpcShop {
+    /// NPC-shop item type being purchased.
     pub item_id: u16,
+    /// Count or subtype byte attached to each purchased item entry.
     pub count: u8,
+    /// Number of trade iterations requested for the selected offer.
     pub amount: u16,
+    /// Whether capacity restrictions should be ignored when the server supports it.
     pub ignore_capacity: bool,
+    /// Whether bought items should be delivered inside backpacks when available.
     pub in_backpacks: bool,
 }
 

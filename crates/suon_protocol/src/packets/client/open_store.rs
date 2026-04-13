@@ -8,6 +8,18 @@ use super::prelude::*;
 ///
 /// Some protocol variants send no payload, while newer clients also include a
 /// service type and a category string.
+///
+/// # Examples
+/// ```rust
+/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::OpenStore};
+///
+/// let mut payload: &[u8] = &[2, 4, 0, b'H', b'o', b'm', b'e'];
+/// let packet = OpenStore::decode(PacketKind::OpenStore, &mut payload).unwrap();
+///
+/// assert_eq!(packet.service_type, Some(2));
+/// assert_eq!(packet.category.as_deref(), Some("Home"));
+/// assert!(payload.is_empty());
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OpenStore {
     /// Optional service-type selector included by newer clients.

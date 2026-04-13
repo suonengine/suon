@@ -4,8 +4,10 @@ use crate::packets::decoder::Decoder;
 
 use super::prelude::*;
 
+/// Packet sent by the client to open a chat channel by its numeric identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct JoinChannel {
+    /// Numeric channel identifier that the client wants to join.
     pub channel_id: u16,
 }
 

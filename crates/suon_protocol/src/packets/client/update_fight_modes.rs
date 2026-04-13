@@ -4,10 +4,14 @@ use crate::packets::decoder::Decoder;
 
 use super::prelude::*;
 
+/// Combat-stance byte used by [`UpdateFightModes`] to bias attack and defense.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FightMode {
+    /// Prioritizes offensive pressure (wire value `1`).
     Offensive = 1,
+    /// Keeps the neutral default stance (wire value `2`).
     Balanced = 2,
+    /// Prioritizes defensive resilience (wire value `3`).
     Defensive = 3,
 }
 
@@ -27,9 +31,12 @@ impl TryFrom<u8> for FightMode {
     }
 }
 
+/// Follow behavior byte used by [`UpdateFightModes`] while attacking a creature.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ChaseMode {
+    /// Keeps the character in place instead of following the target (wire value `0`).
     Stand = 0,
+    /// Allows the character to chase the current target (wire value `1`).
     Chase = 1,
 }
 
@@ -48,9 +55,12 @@ impl TryFrom<u8> for ChaseMode {
     }
 }
 
+/// Safety flag byte carried by [`UpdateFightModes`] for protected combat actions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SecureMode {
+    /// Keeps secure mode enabled (wire value `0`).
     Safe = 0,
+    /// Disables secure restrictions for subsequent attacks (wire value `1`).
     Unrestricted = 1,
 }
 
@@ -69,10 +79,32 @@ impl TryFrom<u8> for SecureMode {
     }
 }
 
+/// Packet sent by the client to update its combat stance flags.
+///
+/// The three payload bytes encode the selected fight, chase, and secure modes
+/// that should become active for subsequent combat interactions.
+///
+/// # Examples
+///
+/// ```rust
+/// use suon_protocol::packets::client::prelude::{
+///     ChaseMode, Decodable, FightMode, PacketKind, SecureMode, UpdateFightModes,
+/// };
+///
+/// let mut payload: &[u8] = &[2, 1, 0];
+/// let packet = UpdateFightModes::decode(PacketKind::UpdateFightModes, &mut payload).unwrap();
+///
+/// assert_eq!(packet.fight_mode, FightMode::Balanced);
+/// assert_eq!(packet.chase_mode, ChaseMode::Chase);
+/// assert_eq!(packet.secure_mode, SecureMode::Safe);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UpdateFightModes {
+    /// Selected combat stance byte for offensive versus defensive bias.
     pub fight_mode: FightMode,
+    /// Selected follow behavior while attacking a target.
     pub chase_mode: ChaseMode,
+    /// Selected safety restriction mode for subsequent attacks.
     pub secure_mode: SecureMode,
 }
 
