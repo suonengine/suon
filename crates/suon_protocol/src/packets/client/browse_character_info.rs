@@ -72,7 +72,7 @@ impl TryFrom<u8> for CharacterInfoKind {
 
 /// Packet sent by the client to browse cyclopedia character information.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BrowseCharacterInfoPacket {
+pub struct BrowseCharacterInfo {
     /// Character id selected by the client.
     pub character_id: u32,
 
@@ -86,10 +86,8 @@ pub struct BrowseCharacterInfoPacket {
     pub page: Option<u16>,
 }
 
-impl Decodable for BrowseCharacterInfoPacket {
-    const KIND: PacketKind = PacketKind::BrowseCharacterInfo;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for BrowseCharacterInfo {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let character_id = bytes.get_u32()?;
         let info_kind = CharacterInfoKind::try_from(bytes.get_u8()?)?;
         let (entries_per_page, page) = match info_kind {
@@ -116,7 +114,7 @@ mod tests {
     fn should_decode_paginated_character_info_browse() {
         let mut payload: &[u8] = &[0x78, 0x56, 0x34, 0x12, 3, 10, 0, 2, 0];
 
-        let packet = BrowseCharacterInfoPacket::decode(&mut payload)
+        let packet = BrowseCharacterInfo::decode(PacketKind::BrowseCharacterInfo, &mut payload)
             .expect("BrowseCharacterInfo packets should decode paginated sections");
 
         assert_eq!(packet.character_id, 0x12345678);

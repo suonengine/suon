@@ -6,21 +6,19 @@ use super::prelude::*;
 ///
 /// # Examples
 /// ```
-/// use suon_protocol::packets::client::{Decodable, prelude::CancelStepsPacket};
+/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::CancelSteps};
 ///
 /// let mut payload: &[u8] = &[];
-/// let packet = CancelStepsPacket::decode(&mut payload).unwrap();
+/// let packet = CancelSteps::decode(PacketKind::CancelSteps, &mut payload).unwrap();
 ///
-/// assert!(matches!(packet, CancelStepsPacket));
+/// assert!(matches!(packet, CancelSteps));
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CancelStepsPacket;
+pub struct CancelSteps;
 
-impl Decodable for CancelStepsPacket {
-    const KIND: PacketKind = PacketKind::CancelSteps;
-
-    fn decode(_: &mut &[u8]) -> Result<Self, DecodableError> {
-        Ok(CancelStepsPacket)
+impl Decodable for CancelSteps {
+    fn decode(_: PacketKind, _: &mut &[u8]) -> Result<Self, DecodableError> {
+        Ok(CancelSteps)
     }
 }
 
@@ -32,10 +30,10 @@ mod tests {
     fn should_decode_cancel_steps_from_empty_payload() {
         let mut payload: &[u8] = &[];
 
-        let packet = CancelStepsPacket::decode(&mut payload)
+        let packet = CancelSteps::decode(PacketKind::CancelSteps, &mut payload)
             .expect("CancelSteps packets should decode without payload bytes");
 
-        assert!(matches!(packet, CancelStepsPacket));
+        assert!(matches!(packet, CancelSteps));
         assert!(
             payload.is_empty(),
             "CancelSteps decoding should not consume any payload bytes"

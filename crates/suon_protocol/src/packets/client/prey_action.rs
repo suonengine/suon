@@ -32,7 +32,7 @@ pub enum PreyActionKind {
 
 /// Packet sent by the client to perform a prey action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PreyActionPacket {
+pub struct PreyAction {
     /// Prey slot being updated.
     pub slot: u8,
 
@@ -40,10 +40,8 @@ pub struct PreyActionPacket {
     pub action: PreyActionKind,
 }
 
-impl Decodable for PreyActionPacket {
-    const KIND: PacketKind = PacketKind::PreyAction;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for PreyAction {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let slot = bytes.get_u8()?;
         let action = match bytes.get_u8()? {
             0 => PreyActionKind::ListReroll,
@@ -78,7 +76,7 @@ mod tests {
     fn should_decode_prey_monster_selection() {
         let mut payload: &[u8] = &[1, 2, 9];
 
-        let packet = PreyActionPacket::decode(&mut payload)
+        let packet = PreyAction::decode(PacketKind::PreyAction, &mut payload)
             .expect("PreyAction packets should decode monster-selection actions");
 
         assert_eq!(packet.slot, 1);
@@ -90,7 +88,7 @@ mod tests {
     fn should_decode_prey_option_change() {
         let mut payload: &[u8] = &[2, 5, 1];
 
-        let packet = PreyActionPacket::decode(&mut payload)
+        let packet = PreyAction::decode(PacketKind::PreyAction, &mut payload)
             .expect("PreyAction packets should decode option changes");
 
         assert_eq!(packet.action, PreyActionKind::Option { option: 1 });

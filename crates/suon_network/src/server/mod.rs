@@ -24,7 +24,7 @@ impl Plugin for NetworkServerPlugin {
                 FixedFirst,
                 (cleanup_finished_connections, accept_client_connections).chain(),
             )
-            .add_systems(FixedUpdate, process_incoming_client_packets)
+            .add_systems(FixedPreUpdate, process_incoming_client_packets)
             .add_systems(FixedLast, flush_connection_buffers);
     }
 }

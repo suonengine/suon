@@ -4,12 +4,10 @@ use super::prelude::*;
 
 /// Packet sent by the client to create a private channel owned by the player.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CreatePrivateChannelPacket;
+pub struct CreatePrivateChannel;
 
-impl Decodable for CreatePrivateChannelPacket {
-    const KIND: PacketKind = PacketKind::CreatePrivateChannel;
-
-    fn decode(_: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for CreatePrivateChannel {
+    fn decode(_: PacketKind, _: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self)
     }
 }
@@ -22,18 +20,10 @@ mod tests {
     fn should_decode_create_private_channel() {
         let mut payload: &[u8] = &[];
 
-        let packet = CreatePrivateChannelPacket::decode(&mut payload)
+        let packet = CreatePrivateChannel::decode(PacketKind::CreatePrivateChannel, &mut payload)
             .expect("CreatePrivateChannel packets should decode empty payloads");
 
-        assert!(matches!(packet, CreatePrivateChannelPacket));
+        assert!(matches!(packet, CreatePrivateChannel));
         assert!(payload.is_empty());
-    }
-
-    #[test]
-    fn should_expose_create_private_channel_kind_constant() {
-        assert_eq!(
-            CreatePrivateChannelPacket::KIND,
-            PacketKind::CreatePrivateChannel
-        );
     }
 }

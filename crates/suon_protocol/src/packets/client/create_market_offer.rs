@@ -37,14 +37,14 @@ impl TryFrom<u8> for MarketOfferKind {
 /// # Examples
 /// ```
 /// use suon_protocol::packets::client::{
-///     Decodable,
-///     prelude::{CreateMarketOfferPacket, MarketOfferKind},
+///     Decodable, PacketKind,
+///     prelude::{CreateMarketOffer, MarketOfferKind},
 /// };
 ///
 /// let mut payload: &[u8] = &[
 ///     1, 0x2A, 0x00, 10, 5, 0, 0x15, 0xCD, 0x5B, 0x07, 0, 0, 0, 0, 1,
 /// ];
-/// let packet = CreateMarketOfferPacket::decode(&mut payload).unwrap();
+/// let packet = CreateMarketOffer::decode(PacketKind::CreateMarketOffer, &mut payload).unwrap();
 ///
 /// assert_eq!(packet.offer_kind, MarketOfferKind::Sell);
 /// assert_eq!(packet.item_id, 42);
@@ -54,7 +54,7 @@ impl TryFrom<u8> for MarketOfferKind {
 /// assert!(packet.is_anonymous);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CreateMarketOfferPacket {
+pub struct CreateMarketOffer {
     /// Market offer type sent by the client.
     pub offer_kind: MarketOfferKind,
 
@@ -74,10 +74,8 @@ pub struct CreateMarketOfferPacket {
     pub is_anonymous: bool,
 }
 
-impl Decodable for CreateMarketOfferPacket {
-    const KIND: PacketKind = PacketKind::CreateMarketOffer;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for CreateMarketOffer {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let offer_kind = MarketOfferKind::try_from(bytes.get_u8()?)?;
         let item_id = bytes.get_u16()?;
 
@@ -109,7 +107,7 @@ mod tests {
     fn should_decode_create_market_offer_without_item_tier() {
         let mut payload: &[u8] = &[1, 0x2A, 0x00, 5, 0, 0x15, 0xCD, 0x5B, 0x07, 0, 0, 0, 0, 1];
 
-        let packet = CreateMarketOfferPacket::decode(&mut payload)
+        let packet = CreateMarketOffer::decode(PacketKind::CreateMarketOffer, &mut payload)
             .expect("CreateMarketOffer packets should decode payloads without item tiers");
 
         assert_eq!(packet.offer_kind, MarketOfferKind::Sell);
@@ -130,7 +128,7 @@ mod tests {
             1, 0x2A, 0x00, 10, 5, 0, 0x15, 0xCD, 0x5B, 0x07, 0, 0, 0, 0, 0,
         ];
 
-        let packet = CreateMarketOfferPacket::decode(&mut payload)
+        let packet = CreateMarketOffer::decode(PacketKind::CreateMarketOffer, &mut payload)
             .expect("CreateMarketOffer packets should decode payloads with item tiers");
 
         assert_eq!(packet.offer_kind, MarketOfferKind::Sell);
@@ -146,19 +144,10 @@ mod tests {
     }
 
     #[test]
-    fn should_expose_create_market_offer_kind_constant() {
-        assert_eq!(
-            CreateMarketOfferPacket::KIND,
-            PacketKind::CreateMarketOffer,
-            "CreateMarketOffer packets should advertise the correct packet kind"
-        );
-    }
-
-    #[test]
     fn should_reject_unknown_market_offer_kind() {
         let mut payload: &[u8] = &[9, 0x2A, 0x00, 5, 0, 0x15, 0xCD, 0x5B, 0x07, 0, 0, 0, 0, 1];
 
-        let error = CreateMarketOfferPacket::decode(&mut payload)
+        let error = CreateMarketOffer::decode(PacketKind::CreateMarketOffer, &mut payload)
             .expect_err("CreateMarketOffer packets should reject unknown offer kinds");
 
         assert!(

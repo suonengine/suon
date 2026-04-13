@@ -32,15 +32,13 @@ pub enum QuickLootAction {
 
 /// Packet sent by the client to perform a quick-loot action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct QuickLootPacket {
+pub struct QuickLoot {
     /// Quick-loot action requested by the client.
     pub action: QuickLootAction,
 }
 
-impl Decodable for QuickLootPacket {
-    const KIND: PacketKind = PacketKind::QuickLoot;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for QuickLoot {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let action = match bytes.get_u8()? {
             0 => QuickLootAction::LootSingle {
                 position: bytes.get_position()?,
@@ -73,7 +71,7 @@ mod tests {
     fn should_decode_quick_loot_nearby() {
         let mut payload: &[u8] = &[2];
 
-        let packet = QuickLootPacket::decode(&mut payload)
+        let packet = QuickLoot::decode(PacketKind::QuickLoot, &mut payload)
             .expect("QuickLoot packets should decode the nearby-loot variant");
 
         assert_eq!(packet.action, QuickLootAction::LootNearby);
@@ -84,7 +82,7 @@ mod tests {
     fn should_decode_quick_loot_all() {
         let mut payload: &[u8] = &[1, 0x34, 0x12, 0x78, 0x56, 0xBC, 0x9A, 6];
 
-        let packet = QuickLootPacket::decode(&mut payload)
+        let packet = QuickLoot::decode(PacketKind::QuickLoot, &mut payload)
             .expect("QuickLoot packets should decode the loot-all variant");
 
         assert_eq!(

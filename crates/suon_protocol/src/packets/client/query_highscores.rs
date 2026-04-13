@@ -30,7 +30,7 @@ impl TryFrom<u8> for HighscoreQueryKind {
 
 /// Packet sent by the client to query highscores data.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct QueryHighscoresPacket {
+pub struct QueryHighscores {
     /// Highscore query kind.
     pub query_kind: HighscoreQueryKind,
 
@@ -56,10 +56,8 @@ pub struct QueryHighscoresPacket {
     pub entries_per_page: u8,
 }
 
-impl Decodable for QueryHighscoresPacket {
-    const KIND: PacketKind = PacketKind::QueryHighscores;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for QueryHighscores {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let query_kind = HighscoreQueryKind::try_from(bytes.get_u8()?)?;
         let category = bytes.get_u8()?;
         let vocation_id = bytes.get_u32()?;
@@ -95,7 +93,7 @@ mod tests {
             0, 8, 0x78, 0x56, 0x34, 0x12, 4, 0, b'T', b'e', b's', b't', 0, 1, 3, 0, 25,
         ];
 
-        let packet = QueryHighscoresPacket::decode(&mut payload)
+        let packet = QueryHighscores::decode(PacketKind::QueryHighscores, &mut payload)
             .expect("QueryHighscores packets should decode entry queries");
 
         assert_eq!(packet.query_kind, HighscoreQueryKind::GetEntries);

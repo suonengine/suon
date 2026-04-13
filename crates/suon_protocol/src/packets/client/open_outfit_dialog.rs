@@ -4,12 +4,10 @@ use super::prelude::*;
 
 /// Sent by the client to open the outfit selection window.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct OpenOutfitDialogPacket;
+pub struct OpenOutfitDialog;
 
-impl Decodable for OpenOutfitDialogPacket {
-    const KIND: PacketKind = PacketKind::OpenOutfitDialog;
-
-    fn decode(_: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for OpenOutfitDialog {
+    fn decode(_: PacketKind, _: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self)
     }
 }
@@ -22,8 +20,8 @@ mod tests {
     fn should_decode_open_outfit_dialog() {
         let mut payload: &[u8] = &[];
         assert!(matches!(
-            OpenOutfitDialogPacket::decode(&mut payload).unwrap(),
-            OpenOutfitDialogPacket
+            OpenOutfitDialog::decode(PacketKind::OpenOutfitDialog, &mut payload).unwrap(),
+            OpenOutfitDialog
         ));
     }
 }

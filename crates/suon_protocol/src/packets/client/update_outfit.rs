@@ -65,16 +65,14 @@ pub enum UpdateOutfitDetails {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct UpdateOutfitPacket {
+pub struct UpdateOutfit {
     pub outfit_scope: u8,
     pub appearance: OutfitAppearance,
     pub details: UpdateOutfitDetails,
 }
 
-impl Decodable for UpdateOutfitPacket {
-    const KIND: PacketKind = PacketKind::UpdateOutfit;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for UpdateOutfit {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let outfit_scope = bytes.get_u8()?;
         let appearance = OutfitAppearance {
             look_type: bytes.get_u16()?,
@@ -138,7 +136,7 @@ mod tests {
     #[test]
     fn should_decode_update_outfit_window_variant() {
         let mut payload: &[u8] = &[0, 1, 0, 2, 3, 4, 5, 6, 7, 0, 8, 9, 10, 11, 12, 0, 1];
-        let packet = UpdateOutfitPacket::decode(&mut payload).unwrap();
+        let packet = UpdateOutfit::decode(PacketKind::UpdateOutfit, &mut payload).unwrap();
         assert_eq!(packet.appearance.look_type, 1);
         assert!(matches!(
             packet.details,

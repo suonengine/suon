@@ -6,7 +6,7 @@ use super::prelude::*;
 
 /// Packet sent by the client to buy or assign a charm rune.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BuyCharmRunePacket {
+pub struct BuyCharmRune {
     /// Charm-rune action selected by the client.
     pub action: u8,
 
@@ -17,10 +17,8 @@ pub struct BuyCharmRunePacket {
     pub race_id: u16,
 }
 
-impl Decodable for BuyCharmRunePacket {
-    const KIND: PacketKind = PacketKind::BuyCharmRune;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for BuyCharmRune {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             action: bytes.get_u8()?,
             charm_id: bytes.get_u8()?,
@@ -37,7 +35,7 @@ mod tests {
     fn should_decode_buy_charm_rune() {
         let mut payload: &[u8] = &[1, 7, 0x34, 0x12];
 
-        let packet = BuyCharmRunePacket::decode(&mut payload)
+        let packet = BuyCharmRune::decode(PacketKind::BuyCharmRune, &mut payload)
             .expect("BuyCharmRune packets should decode action, charm id, and race id");
 
         assert_eq!(packet.action, 1);

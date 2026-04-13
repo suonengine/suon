@@ -4,7 +4,7 @@ use super::prelude::*;
 use crate::packets::decoder::Decoder;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PurchaseNpcShopPacket {
+pub struct PurchaseNpcShop {
     pub item_id: u16,
     pub count: u8,
     pub amount: u16,
@@ -12,10 +12,8 @@ pub struct PurchaseNpcShopPacket {
     pub in_backpacks: bool,
 }
 
-impl Decodable for PurchaseNpcShopPacket {
-    const KIND: PacketKind = PacketKind::PurchaseNpcShop;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for PurchaseNpcShop {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             item_id: bytes.get_u16()?,
             count: bytes.get_u8()?,
@@ -33,7 +31,7 @@ mod tests {
     #[test]
     fn should_decode_purchase_npc_shop() {
         let mut payload: &[u8] = &[0x34, 0x12, 7, 0x02, 0x00, 1, 0];
-        let packet = PurchaseNpcShopPacket::decode(&mut payload).unwrap();
+        let packet = PurchaseNpcShop::decode(PacketKind::PurchaseNpcShop, &mut payload).unwrap();
         assert!(packet.ignore_capacity);
         assert!(!packet.in_backpacks);
     }

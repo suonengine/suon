@@ -11,12 +11,12 @@ use super::prelude::*;
 /// # Examples
 /// ```
 /// use suon_position::{floor::Floor, position::Position};
-/// use suon_protocol::packets::client::{Decodable, prelude::OfferTradePacket};
+/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::OfferTrade};
 ///
 /// let mut payload: &[u8] = &[
 ///     0x34, 0x12, 0x78, 0x56, 0x07, 0xCD, 0xAB, 0x03, 0x78, 0x56, 0x34, 0x12,
 /// ];
-/// let packet = OfferTradePacket::decode(&mut payload).unwrap();
+/// let packet = OfferTrade::decode(PacketKind::OfferTrade, &mut payload).unwrap();
 ///
 /// assert_eq!(packet.position, Position { x: 0x1234, y: 0x5678 });
 /// assert_eq!(packet.floor, Floor { z: 7 });
@@ -25,7 +25,7 @@ use super::prelude::*;
 /// assert_eq!(packet.partner_id, 0x12345678);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct OfferTradePacket {
+pub struct OfferTrade {
     /// Tile position of the traded item.
     pub position: Position,
 
@@ -42,10 +42,8 @@ pub struct OfferTradePacket {
     pub partner_id: u32,
 }
 
-impl Decodable for OfferTradePacket {
-    const KIND: PacketKind = PacketKind::OfferTrade;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for OfferTrade {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             position: bytes.get_position()?,
             floor: bytes.get_floor()?,
@@ -66,7 +64,7 @@ mod tests {
             0x34, 0x12, 0x78, 0x56, 0x07, 0xCD, 0xAB, 0x03, 0x78, 0x56, 0x34, 0x12,
         ];
 
-        let packet = OfferTradePacket::decode(&mut payload).expect(
+        let packet = OfferTrade::decode(PacketKind::OfferTrade, &mut payload).expect(
             "OfferTrade packets should decode position, item id, stack position, and partner id",
         );
 
@@ -84,15 +82,6 @@ mod tests {
         assert!(
             payload.is_empty(),
             "OfferTrade decoding should consume the whole payload"
-        );
-    }
-
-    #[test]
-    fn should_expose_offer_trade_kind_constant() {
-        assert_eq!(
-            OfferTradePacket::KIND,
-            PacketKind::OfferTrade,
-            "OfferTrade packets should advertise the correct packet kind"
         );
     }
 }

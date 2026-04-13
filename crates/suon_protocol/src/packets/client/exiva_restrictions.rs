@@ -6,7 +6,7 @@ use super::prelude::*;
 
 /// Packet sent by the client to update exiva restrictions in no-pvp worlds.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ExivaRestrictionsPacket {
+pub struct ExivaRestrictions {
     /// Whether all players should be allowed by default.
     pub allow_all: bool,
 
@@ -38,10 +38,8 @@ pub struct ExivaRestrictionsPacket {
     pub removed_guild_names: Vec<String>,
 }
 
-impl Decodable for ExivaRestrictionsPacket {
-    const KIND: PacketKind = PacketKind::ExivaRestrictions;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for ExivaRestrictions {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             allow_all: bytes.get_bool()?,
             allow_own_guild: bytes.get_bool()?,
@@ -78,7 +76,7 @@ mod tests {
             1, 0, 1, 0, 1, 0, 1, 0, 1, 0, b'A', 0, 0, 1, 0, 1, 0, b'B', 1, 0, 1, 0, b'C',
         ];
 
-        let packet = ExivaRestrictionsPacket::decode(&mut payload)
+        let packet = ExivaRestrictions::decode(PacketKind::ExivaRestrictions, &mut payload)
             .expect("ExivaRestrictions packets should decode restriction flags and lists");
 
         assert!(packet.allow_all);

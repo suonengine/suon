@@ -4,12 +4,10 @@ use super::prelude::*;
 
 /// Packet sent by the client to open the bestiary overview screen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct OpenBestiaryOverviewPacket;
+pub struct OpenBestiaryOverview;
 
-impl Decodable for OpenBestiaryOverviewPacket {
-    const KIND: PacketKind = PacketKind::OpenBestiaryOverview;
-
-    fn decode(_: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for OpenBestiaryOverview {
+    fn decode(_: PacketKind, _: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self)
     }
 }
@@ -22,10 +20,10 @@ mod tests {
     fn should_decode_open_bestiary_overview() {
         let mut payload: &[u8] = &[];
 
-        let packet = OpenBestiaryOverviewPacket::decode(&mut payload)
+        let packet = OpenBestiaryOverview::decode(PacketKind::OpenBestiaryOverview, &mut payload)
             .expect("OpenBestiaryOverview packets should decode empty payloads");
 
-        assert!(matches!(packet, OpenBestiaryOverviewPacket));
+        assert!(matches!(packet, OpenBestiaryOverview));
         assert!(payload.is_empty());
     }
 }

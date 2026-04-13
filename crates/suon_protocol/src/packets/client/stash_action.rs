@@ -7,7 +7,7 @@ use super::prelude::*;
 
 /// Stash action requested by the client.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum StashAction {
+pub enum StashActionKind {
     /// Stows a single item amount.
     StowItem {
         /// Position of the source item.
@@ -50,33 +50,31 @@ pub enum StashAction {
 
 /// Packet sent by the client to interact with the stash.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct StashActionPacket {
+pub struct StashAction {
     /// Stash action requested by the client.
-    pub action: StashAction,
+    pub action: StashActionKind,
 }
 
-impl Decodable for StashActionPacket {
-    const KIND: PacketKind = PacketKind::StashAction;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for StashAction {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let action = match bytes.get_u8()? {
-            0 => StashAction::StowItem {
+            0 => StashActionKind::StowItem {
                 position: bytes.get_position()?,
                 item_id: bytes.get_u16()?,
                 stack_position: bytes.get_u8()?,
                 count: bytes.get_u8()?,
             },
-            1 => StashAction::StowContainer {
+            1 => StashActionKind::StowContainer {
                 position: bytes.get_position()?,
                 item_id: bytes.get_u16()?,
                 stack_position: bytes.get_u8()?,
             },
-            2 => StashAction::StowStack {
+            2 => StashActionKind::StowStack {
                 position: bytes.get_position()?,
                 item_id: bytes.get_u16()?,
                 stack_position: bytes.get_u8()?,
             },
-            3 => StashAction::Withdraw {
+            3 => StashActionKind::Withdraw {
                 item_id: bytes.get_u16()?,
                 count: bytes.get_u32()?,
                 stack_position: bytes.get_u8()?,
@@ -101,12 +99,12 @@ mod tests {
     fn should_decode_stash_withdraw() {
         let mut payload: &[u8] = &[3, 0x34, 0x12, 5, 0, 0, 0, 7];
 
-        let packet = StashActionPacket::decode(&mut payload)
+        let packet = StashAction::decode(PacketKind::StashAction, &mut payload)
             .expect("StashAction packets should decode withdraw requests");
 
         assert_eq!(
             packet.action,
-            StashAction::Withdraw {
+            StashActionKind::Withdraw {
                 item_id: 0x1234,
                 count: 5,
                 stack_position: 7,

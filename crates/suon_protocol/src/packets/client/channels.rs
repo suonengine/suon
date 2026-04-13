@@ -3,12 +3,10 @@
 use super::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ChannelsPacket;
+pub struct Channels;
 
-impl Decodable for ChannelsPacket {
-    const KIND: PacketKind = PacketKind::Channels;
-
-    fn decode(_: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for Channels {
+    fn decode(_: PacketKind, _: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self)
     }
 }
@@ -21,8 +19,8 @@ mod tests {
     fn should_decode_channels() {
         let mut payload: &[u8] = &[];
         assert!(matches!(
-            ChannelsPacket::decode(&mut payload).unwrap(),
-            ChannelsPacket
+            Channels::decode(PacketKind::Channels, &mut payload).unwrap(),
+            Channels
         ));
     }
 }

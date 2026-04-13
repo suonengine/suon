@@ -9,20 +9,20 @@ use super::prelude::*;
 /// # Examples
 /// ```
 /// use suon_position::direction::Direction;
-/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::StepPacket};
+/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::Step};
 ///
 /// let mut payload: &[u8] = &[];
-/// let packet = StepPacket::decode_with_kind(PacketKind::StepNorthEast, &mut payload).unwrap();
+/// let packet = Step::decode(PacketKind::StepNorthEast, &mut payload).unwrap();
 ///
 /// assert_eq!(packet.direction, Direction::NorthEast);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct StepPacket {
+pub struct Step {
     /// Direction requested by the client.
     pub direction: Direction,
 }
 
-impl StepPacket {
+impl Step {
     fn direction_from_kind(kind: PacketKind) -> Option<Direction> {
         match kind {
             PacketKind::StepNorth => Some(Direction::North),
@@ -38,21 +38,8 @@ impl StepPacket {
     }
 }
 
-impl Decodable for StepPacket {
-    const KIND: PacketKind = PacketKind::StepNorth;
-
-    fn accepts_kind(kind: PacketKind) -> bool {
-        Self::direction_from_kind(kind).is_some()
-    }
-
-    fn decode(_: &mut &[u8]) -> Result<Self, DecodableError> {
-        Err(DecodableError::InvalidFieldValue {
-            field: "packet_kind",
-            value: Self::KIND as u8,
-        })
-    }
-
-    fn decode_with_kind(kind: PacketKind, _: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for Step {
+    fn decode(kind: PacketKind, _: &mut &[u8]) -> Result<Self, DecodableError> {
         let Some(direction) = Self::direction_from_kind(kind) else {
             return Err(DecodableError::InvalidFieldValue {
                 field: "packet_kind",
@@ -72,7 +59,7 @@ mod tests {
     fn should_decode_step_packet_from_wire_kind() {
         let mut payload: &[u8] = &[];
 
-        let packet = StepPacket::decode_with_kind(PacketKind::StepNorthEast, &mut payload)
+        let packet = Step::decode(PacketKind::StepNorthEast, &mut payload)
             .expect("Step packets should decode direction from the packet kind");
 
         assert_eq!(packet.direction, Direction::NorthEast);
@@ -80,12 +67,5 @@ mod tests {
             payload.is_empty(),
             "Step packet decoding should not consume any payload bytes"
         );
-    }
-
-    #[test]
-    fn should_accept_all_step_packet_kinds() {
-        assert!(StepPacket::accepts_kind(PacketKind::StepNorth));
-        assert!(StepPacket::accepts_kind(PacketKind::StepNorthWest));
-        assert!(!StepPacket::accepts_kind(PacketKind::FaceNorth));
     }
 }

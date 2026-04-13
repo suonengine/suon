@@ -6,7 +6,7 @@ use super::prelude::*;
 
 /// Packet sent by the client to inspect additional item details.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct InspectItemDetailsPacket {
+pub struct InspectItemDetails {
     /// Item id being inspected.
     pub item_id: u16,
 
@@ -14,10 +14,8 @@ pub struct InspectItemDetailsPacket {
     pub tier: Option<u8>,
 }
 
-impl Decodable for InspectItemDetailsPacket {
-    const KIND: PacketKind = PacketKind::InspectItemDetails;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for InspectItemDetails {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let item_id = bytes.get_u16()?;
         let tier = if bytes.is_empty() {
             None
@@ -37,7 +35,7 @@ mod tests {
     fn should_decode_inspect_item_details_without_tier() {
         let mut payload: &[u8] = &[0x34, 0x12];
 
-        let packet = InspectItemDetailsPacket::decode(&mut payload)
+        let packet = InspectItemDetails::decode(PacketKind::InspectItemDetails, &mut payload)
             .expect("InspectItemDetails packets should decode base item ids");
 
         assert_eq!(packet.item_id, 0x1234);
@@ -48,7 +46,7 @@ mod tests {
     fn should_decode_inspect_item_details_with_tier() {
         let mut payload: &[u8] = &[0x34, 0x12, 5];
 
-        let packet = InspectItemDetailsPacket::decode(&mut payload)
+        let packet = InspectItemDetails::decode(PacketKind::InspectItemDetails, &mut payload)
             .expect("InspectItemDetails packets should decode optional tier values");
 
         assert_eq!(packet.item_id, 0x1234);

@@ -16,15 +16,13 @@ pub struct AimAtTargetSpell {
 
 /// Packet sent by the client to configure target-aim spell states.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AimAtTargetPacket {
+pub struct AimAtTarget {
     /// Spell entries included in the payload.
     pub spells: Vec<AimAtTargetSpell>,
 }
 
-impl Decodable for AimAtTargetPacket {
-    const KIND: PacketKind = PacketKind::AimAtTarget;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for AimAtTarget {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let count = bytes.get_u8()? as usize;
         let mut spells = Vec::with_capacity(count);
 
@@ -47,7 +45,7 @@ mod tests {
     fn should_decode_aim_at_target_packet() {
         let mut payload: &[u8] = &[2, 0x34, 0x12, 1, 0x78, 0x56, 0];
 
-        let packet = AimAtTargetPacket::decode(&mut payload)
+        let packet = AimAtTarget::decode(PacketKind::AimAtTarget, &mut payload)
             .expect("AimAtTarget packets should decode all spell-state entries");
 
         assert_eq!(

@@ -5,17 +5,15 @@ use crate::packets::decoder::Decoder;
 use suon_position::{floor::Floor, position::Position};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ChangePodiumPacket {
+pub struct ChangePodium {
     pub position: Position,
     pub floor: Floor,
     pub item_id: u16,
     pub stack_position: u8,
 }
 
-impl Decodable for ChangePodiumPacket {
-    const KIND: PacketKind = PacketKind::ChangePodium;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for ChangePodium {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             position: bytes.get_position()?,
             floor: bytes.get_floor()?,
@@ -32,7 +30,7 @@ mod tests {
     #[test]
     fn should_decode_change_podium() {
         let mut payload: &[u8] = &[1, 0, 2, 0, 7, 0x34, 0x12, 3];
-        let packet = ChangePodiumPacket::decode(&mut payload).unwrap();
+        let packet = ChangePodium::decode(PacketKind::ChangePodium, &mut payload).unwrap();
         assert_eq!(packet.item_id, 0x1234);
     }
 }

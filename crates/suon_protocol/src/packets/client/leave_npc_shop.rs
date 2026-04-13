@@ -3,12 +3,10 @@
 use super::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct LeaveNpcShopPacket;
+pub struct LeaveNpcShop;
 
-impl Decodable for LeaveNpcShopPacket {
-    const KIND: PacketKind = PacketKind::LeaveNpcShop;
-
-    fn decode(_: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for LeaveNpcShop {
+    fn decode(_: PacketKind, _: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self)
     }
 }
@@ -21,8 +19,8 @@ mod tests {
     fn should_decode_leave_npc_shop() {
         let mut payload: &[u8] = &[];
         assert!(matches!(
-            LeaveNpcShopPacket::decode(&mut payload).unwrap(),
-            LeaveNpcShopPacket
+            LeaveNpcShop::decode(PacketKind::LeaveNpcShop, &mut payload).unwrap(),
+            LeaveNpcShop
         ));
     }
 }

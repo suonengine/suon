@@ -7,19 +7,13 @@ use super::prelude::*;
 
 /// Packet sent by the client to request a teleport to a specific position.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TeleportPacket {
+pub struct Teleport {
     /// Destination position requested by the client.
     pub position: Position,
 }
 
-impl Decodable for TeleportPacket {
-    const KIND: PacketKind = PacketKind::Teleport;
-
-    fn accepts_kind(kind: PacketKind) -> bool {
-        matches!(kind, PacketKind::Teleport | PacketKind::TeleportLegacy)
-    }
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for Teleport {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             position: bytes.get_position()?,
         })
@@ -34,8 +28,8 @@ mod tests {
     fn should_decode_teleport() {
         let mut payload: &[u8] = &[0x34, 0x12, 0x78, 0x56];
 
-        let packet =
-            TeleportPacket::decode(&mut payload).expect("Teleport packets should decode positions");
+        let packet = Teleport::decode(PacketKind::Teleport, &mut payload)
+            .expect("Teleport packets should decode positions");
 
         assert_eq!(
             packet.position,
@@ -45,11 +39,5 @@ mod tests {
             }
         );
         assert!(payload.is_empty());
-    }
-
-    #[test]
-    fn should_accept_legacy_and_current_teleport_kinds() {
-        assert!(TeleportPacket::accepts_kind(PacketKind::TeleportLegacy));
-        assert!(TeleportPacket::accepts_kind(PacketKind::Teleport));
     }
 }

@@ -6,7 +6,7 @@ use super::prelude::*;
 
 /// Group-management action requested for buddy groups.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum BuddyGroupAction {
+pub enum BuddyGroupActionKind {
     /// Creates a new buddy group.
     Create {
         /// Display name of the new group.
@@ -28,24 +28,22 @@ pub enum BuddyGroupAction {
 
 /// Packet sent by the client to manage buddy groups.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BuddyGroupActionPacket {
+pub struct BuddyGroupAction {
     /// Group-management action requested by the client.
-    pub action: BuddyGroupAction,
+    pub action: BuddyGroupActionKind,
 }
 
-impl Decodable for BuddyGroupActionPacket {
-    const KIND: PacketKind = PacketKind::BuddyGroupAction;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for BuddyGroupAction {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let action = match bytes.get_u8()? {
-            1 => BuddyGroupAction::Create {
+            1 => BuddyGroupActionKind::Create {
                 name: bytes.get_string()?,
             },
-            2 => BuddyGroupAction::Rename {
+            2 => BuddyGroupActionKind::Rename {
                 group_id: bytes.get_u8()?,
                 name: bytes.get_string()?,
             },
-            3 => BuddyGroupAction::Remove {
+            3 => BuddyGroupActionKind::Remove {
                 group_id: bytes.get_u8()?,
             },
             value => {
@@ -68,12 +66,12 @@ mod tests {
     fn should_decode_create_buddy_group() {
         let mut payload: &[u8] = &[1, 4, 0, b'T', b'e', b'a', b'm'];
 
-        let packet = BuddyGroupActionPacket::decode(&mut payload)
+        let packet = BuddyGroupAction::decode(PacketKind::BuddyGroupAction, &mut payload)
             .expect("BuddyGroupAction packets should decode group creation");
 
         assert_eq!(
             packet.action,
-            BuddyGroupAction::Create {
+            BuddyGroupActionKind::Create {
                 name: "Team".to_string(),
             }
         );
@@ -84,9 +82,9 @@ mod tests {
     fn should_decode_remove_buddy_group() {
         let mut payload: &[u8] = &[3, 8];
 
-        let packet = BuddyGroupActionPacket::decode(&mut payload)
+        let packet = BuddyGroupAction::decode(PacketKind::BuddyGroupAction, &mut payload)
             .expect("BuddyGroupAction packets should decode group removal");
 
-        assert_eq!(packet.action, BuddyGroupAction::Remove { group_id: 8 });
+        assert_eq!(packet.action, BuddyGroupActionKind::Remove { group_id: 8 });
     }
 }

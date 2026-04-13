@@ -45,7 +45,7 @@ pub struct TeamFinderListing {
 
 /// Action requested by the leader-finder window.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum LeaderFinderAction {
+pub enum LeaderFinderActionKind {
     /// Requests the current leader-finder state.
     Open,
     /// Resets or removes the current listing.
@@ -66,19 +66,17 @@ pub enum LeaderFinderAction {
 
 /// Packet sent by the client to manage the leader-finder window.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LeaderFinderActionPacket {
+pub struct LeaderFinderAction {
     /// Action requested by the team leader.
-    pub action: LeaderFinderAction,
+    pub action: LeaderFinderActionKind,
 }
 
-impl Decodable for LeaderFinderActionPacket {
-    const KIND: PacketKind = PacketKind::LeaderFinderAction;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for LeaderFinderAction {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let action = match bytes.get_u8()? {
-            0 => LeaderFinderAction::Open,
-            1 => LeaderFinderAction::Reset,
-            2 => LeaderFinderAction::UpdateMemberStatus {
+            0 => LeaderFinderActionKind::Open,
+            1 => LeaderFinderActionKind::Reset,
+            2 => LeaderFinderActionKind::UpdateMemberStatus {
                 member_guid: bytes.get_u32()?,
                 member_status: bytes.get_u8()?,
             },
@@ -105,7 +103,7 @@ impl Decodable for LeaderFinderActionPacket {
                     other => TeamFinderActivity::Other { team_type: other },
                 };
 
-                LeaderFinderAction::CreateListing {
+                LeaderFinderActionKind::CreateListing {
                     listing: TeamFinderListing {
                         minimum_level,
                         maximum_level,
@@ -138,12 +136,12 @@ mod tests {
     fn should_decode_leader_finder_member_status_update() {
         let mut payload: &[u8] = &[2, 0x78, 0x56, 0x34, 0x12, 3];
 
-        let packet = LeaderFinderActionPacket::decode(&mut payload)
+        let packet = LeaderFinderAction::decode(PacketKind::LeaderFinderAction, &mut payload)
             .expect("LeaderFinderAction packets should decode status updates");
 
         assert_eq!(
             packet.action,
-            LeaderFinderAction::UpdateMemberStatus {
+            LeaderFinderActionKind::UpdateMemberStatus {
                 member_guid: 0x12345678,
                 member_status: 3,
             }
@@ -157,12 +155,12 @@ mod tests {
             3, 10, 0, 40, 0, 7, 5, 0, 2, 0, 1, 0x78, 0x56, 0x34, 0x12, 2, 9, 0, 4, 0,
         ];
 
-        let packet = LeaderFinderActionPacket::decode(&mut payload)
+        let packet = LeaderFinderAction::decode(PacketKind::LeaderFinderAction, &mut payload)
             .expect("LeaderFinderAction packets should decode listing creation");
 
         assert_eq!(
             packet.action,
-            LeaderFinderAction::CreateListing {
+            LeaderFinderActionKind::CreateListing {
                 listing: TeamFinderListing {
                     minimum_level: 10,
                     maximum_level: 40,

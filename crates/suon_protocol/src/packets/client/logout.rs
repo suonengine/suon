@@ -6,21 +6,19 @@ use super::prelude::*;
 ///
 /// # Examples
 /// ```
-/// use suon_protocol::packets::client::{Decodable, prelude::LogoutPacket};
+/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::Logout};
 ///
 /// let mut payload: &[u8] = &[];
-/// let packet = LogoutPacket::decode(&mut payload).unwrap();
+/// let packet = Logout::decode(PacketKind::Logout, &mut payload).unwrap();
 ///
-/// assert!(matches!(packet, LogoutPacket));
+/// assert!(matches!(packet, Logout));
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct LogoutPacket;
+pub struct Logout;
 
-impl Decodable for LogoutPacket {
-    const KIND: PacketKind = PacketKind::Logout;
-
-    fn decode(_: &mut &[u8]) -> Result<Self, DecodableError> {
-        Ok(LogoutPacket)
+impl Decodable for Logout {
+    fn decode(_: PacketKind, _: &mut &[u8]) -> Result<Self, DecodableError> {
+        Ok(Logout)
     }
 }
 
@@ -32,22 +30,13 @@ mod tests {
     fn should_decode_logout_from_empty_payload() {
         let mut payload: &[u8] = &[];
 
-        let packet = LogoutPacket::decode(&mut payload)
+        let packet = Logout::decode(PacketKind::Logout, &mut payload)
             .expect("Logout packets should decode without payload bytes");
 
-        assert!(matches!(packet, LogoutPacket));
+        assert!(matches!(packet, Logout));
         assert!(
             payload.is_empty(),
             "Logout decoding should not consume any payload bytes"
-        );
-    }
-
-    #[test]
-    fn should_expose_logout_kind_constant() {
-        assert_eq!(
-            LogoutPacket::KIND,
-            PacketKind::Logout,
-            "Logout packets should advertise the correct packet kind"
         );
     }
 }

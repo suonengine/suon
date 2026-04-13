@@ -4,12 +4,10 @@ use super::prelude::*;
 
 /// Sent by the client to close the imbuing window.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CloseImbuingWindowPacket;
+pub struct CloseImbuingWindow;
 
-impl Decodable for CloseImbuingWindowPacket {
-    const KIND: PacketKind = PacketKind::CloseImbuingWindow;
-
-    fn decode(_: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for CloseImbuingWindow {
+    fn decode(_: PacketKind, _: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self)
     }
 }
@@ -22,8 +20,8 @@ mod tests {
     fn should_decode_close_imbuing_window() {
         let mut payload: &[u8] = &[];
         assert!(matches!(
-            CloseImbuingWindowPacket::decode(&mut payload).unwrap(),
-            CloseImbuingWindowPacket
+            CloseImbuingWindow::decode(PacketKind::CloseImbuingWindow, &mut payload).unwrap(),
+            CloseImbuingWindow
         ));
     }
 }

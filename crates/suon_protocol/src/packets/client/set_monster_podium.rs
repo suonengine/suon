@@ -7,7 +7,7 @@ use super::prelude::*;
 
 /// Packet sent by the client to configure a monster podium entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SetMonsterPodiumPacket {
+pub struct SetMonsterPodium {
     /// Monster race id to place on the podium.
     pub monster_race_id: u32,
 
@@ -30,10 +30,8 @@ pub struct SetMonsterPodiumPacket {
     pub monster_visible: u8,
 }
 
-impl Decodable for SetMonsterPodiumPacket {
-    const KIND: PacketKind = PacketKind::SetMonsterPodium;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for SetMonsterPodium {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             monster_race_id: bytes.get_u32()?,
             position: bytes.get_position()?,
@@ -56,7 +54,7 @@ mod tests {
             0x78, 0x56, 0x34, 0x12, 0x34, 0x12, 0x78, 0x56, 0xBC, 0x9A, 4, 2, 1, 0,
         ];
 
-        let packet = SetMonsterPodiumPacket::decode(&mut payload)
+        let packet = SetMonsterPodium::decode(PacketKind::SetMonsterPodium, &mut payload)
             .expect("SetMonsterPodium packets should decode podium configuration");
 
         assert_eq!(packet.monster_race_id, 0x12345678);

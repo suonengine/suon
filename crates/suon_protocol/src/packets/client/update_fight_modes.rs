@@ -70,16 +70,14 @@ impl TryFrom<u8> for SecureMode {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct UpdateFightModesPacket {
+pub struct UpdateFightModes {
     pub fight_mode: FightMode,
     pub chase_mode: ChaseMode,
     pub secure_mode: SecureMode,
 }
 
-impl Decodable for UpdateFightModesPacket {
-    const KIND: PacketKind = PacketKind::UpdateFightModes;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for UpdateFightModes {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             fight_mode: bytes.get_u8()?.try_into()?,
             chase_mode: bytes.get_u8()?.try_into()?,
@@ -94,7 +92,7 @@ mod tests {
     #[test]
     fn should_decode_update_fight_modes() {
         let mut payload: &[u8] = &[2, 1, 0];
-        let packet = UpdateFightModesPacket::decode(&mut payload).unwrap();
+        let packet = UpdateFightModes::decode(PacketKind::UpdateFightModes, &mut payload).unwrap();
         assert_eq!(packet.fight_mode, FightMode::Balanced);
         assert_eq!(packet.chase_mode, ChaseMode::Chase);
         assert_eq!(packet.secure_mode, SecureMode::Safe);
@@ -105,7 +103,7 @@ mod tests {
         let mut payload: &[u8] = &[4, 1, 0];
 
         assert!(matches!(
-            UpdateFightModesPacket::decode(&mut payload),
+            UpdateFightModes::decode(PacketKind::UpdateFightModes, &mut payload),
             Err(DecodableError::InvalidFieldValue {
                 field: "fight_mode",
                 value: 4,
@@ -118,7 +116,7 @@ mod tests {
         let mut payload: &[u8] = &[2, 2, 0];
 
         assert!(matches!(
-            UpdateFightModesPacket::decode(&mut payload),
+            UpdateFightModes::decode(PacketKind::UpdateFightModes, &mut payload),
             Err(DecodableError::InvalidFieldValue {
                 field: "chase_mode",
                 value: 2,
@@ -131,7 +129,7 @@ mod tests {
         let mut payload: &[u8] = &[2, 1, 2];
 
         assert!(matches!(
-            UpdateFightModesPacket::decode(&mut payload),
+            UpdateFightModes::decode(PacketKind::UpdateFightModes, &mut payload),
             Err(DecodableError::InvalidFieldValue {
                 field: "secure_mode",
                 value: 2,

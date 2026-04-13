@@ -5,7 +5,7 @@ use crate::packets::decoder::Decoder;
 use suon_position::{floor::Floor, position::Position};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct UseItemPacket {
+pub struct UseItem {
     pub position: Position,
     pub floor: Floor,
     pub item_id: u16,
@@ -13,10 +13,8 @@ pub struct UseItemPacket {
     pub use_index: u8,
 }
 
-impl Decodable for UseItemPacket {
-    const KIND: PacketKind = PacketKind::UseItem;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for UseItem {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             position: bytes.get_position()?,
             floor: bytes.get_floor()?,
@@ -34,7 +32,7 @@ mod tests {
     #[test]
     fn should_decode_use_item() {
         let mut payload: &[u8] = &[1, 0, 2, 0, 7, 0x34, 0x12, 3, 4];
-        let packet = UseItemPacket::decode(&mut payload).unwrap();
+        let packet = UseItem::decode(PacketKind::UseItem, &mut payload).unwrap();
         assert_eq!(packet.use_index, 4);
     }
 }

@@ -21,15 +21,13 @@ pub enum BestiarySearchKind {
 
 /// Packet sent by the client to search the bestiary.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SearchBestiaryPacket {
+pub struct SearchBestiary {
     /// Search mode and payload requested by the client.
     pub search: BestiarySearchKind,
 }
 
-impl Decodable for SearchBestiaryPacket {
-    const KIND: PacketKind = PacketKind::SearchBestiary;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for SearchBestiary {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let search = match bytes.get_u8()? {
             1 => {
                 let amount = bytes.get_u16()?;
@@ -63,7 +61,7 @@ mod tests {
     fn should_decode_bestiary_search_by_race_ids() {
         let mut payload: &[u8] = &[1, 2, 0, 0x34, 0x12, 0x78, 0x56];
 
-        let packet = SearchBestiaryPacket::decode(&mut payload)
+        let packet = SearchBestiary::decode(PacketKind::SearchBestiary, &mut payload)
             .expect("SearchBestiary packets should decode race-id searches");
 
         assert_eq!(
@@ -79,7 +77,7 @@ mod tests {
     fn should_decode_bestiary_search_by_name() {
         let mut payload: &[u8] = &[0, 4, 0, b'd', b'e', b'e', b'r'];
 
-        let packet = SearchBestiaryPacket::decode(&mut payload)
+        let packet = SearchBestiary::decode(PacketKind::SearchBestiary, &mut payload)
             .expect("SearchBestiary packets should decode name searches");
 
         assert_eq!(

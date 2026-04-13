@@ -31,15 +31,13 @@ pub enum InspectObjectKind {
 
 /// Packet sent by the client to inspect an object.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct InspectObjectPacket {
+pub struct InspectObject {
     /// Inspection target requested by the client.
     pub target: InspectObjectKind,
 }
 
-impl Decodable for InspectObjectPacket {
-    const KIND: PacketKind = PacketKind::InspectObject;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for InspectObject {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let target = match bytes.get_u8()? {
             0 => InspectObjectKind::MapObject {
                 position: bytes.get_position()?,
@@ -72,7 +70,7 @@ mod tests {
     fn should_decode_map_object_inspection() {
         let mut payload: &[u8] = &[0, 0x34, 0x12, 0x78, 0x56];
 
-        let packet = InspectObjectPacket::decode(&mut payload)
+        let packet = InspectObject::decode(PacketKind::InspectObject, &mut payload)
             .expect("InspectObject packets should decode map-object inspections");
 
         assert_eq!(
@@ -90,7 +88,7 @@ mod tests {
     fn should_decode_cyclopedia_item_inspection() {
         let mut payload: &[u8] = &[3, 0x78, 0x56, 9];
 
-        let packet = InspectObjectPacket::decode(&mut payload)
+        let packet = InspectObject::decode(PacketKind::InspectObject, &mut payload)
             .expect("InspectObject packets should decode cyclopedia inspections");
 
         assert_eq!(

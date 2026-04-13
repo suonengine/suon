@@ -5,7 +5,7 @@ use crate::packets::decoder::Decoder;
 use super::prelude::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RuleViolationReportPacket {
+pub struct RuleViolationReport {
     pub report_type: u8,
     pub report_reason: u8,
     pub target_name: String,
@@ -14,10 +14,8 @@ pub struct RuleViolationReportPacket {
     pub statement_id: Option<u32>,
 }
 
-impl Decodable for RuleViolationReportPacket {
-    const KIND: PacketKind = PacketKind::RuleViolationReport;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for RuleViolationReport {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let report_type = bytes.get_u8()?;
         let report_reason = bytes.get_u8()?;
         let target_name = bytes.get_string()?;
@@ -52,7 +50,8 @@ mod tests {
         let mut payload: &[u8] = &[
             1, 2, 4, 0, b'N', b'a', b'm', b'e', 7, 0, b'c', b'o', b'm', b'm', b'e', b'n', b't',
         ];
-        let packet = RuleViolationReportPacket::decode(&mut payload).unwrap();
+        let packet =
+            RuleViolationReport::decode(PacketKind::RuleViolationReport, &mut payload).unwrap();
         assert_eq!(packet.report_reason, 2);
         assert_eq!(packet.target_name, "Name");
     }

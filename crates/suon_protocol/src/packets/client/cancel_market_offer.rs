@@ -11,10 +11,10 @@ use super::prelude::*;
 /// # Examples
 /// ```
 /// use std::time::UNIX_EPOCH;
-/// use suon_protocol::packets::client::{Decodable, prelude::CancelMarketOfferPacket};
+/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::CancelMarketOffer};
 ///
 /// let mut payload: &[u8] = &[0x78, 0x56, 0x34, 0x12, 0x34, 0x12];
-/// let packet = CancelMarketOfferPacket::decode(&mut payload).unwrap();
+/// let packet = CancelMarketOffer::decode(PacketKind::CancelMarketOffer, &mut payload).unwrap();
 ///
 /// assert_eq!(
 ///     packet.timestamp.duration_since(UNIX_EPOCH).unwrap().as_secs(),
@@ -23,7 +23,7 @@ use super::prelude::*;
 /// assert_eq!(packet.offer_counter, 0x1234);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CancelMarketOfferPacket {
+pub struct CancelMarketOffer {
     /// Timestamp that identifies the offer.
     pub timestamp: SystemTime,
 
@@ -31,10 +31,8 @@ pub struct CancelMarketOfferPacket {
     pub offer_counter: u16,
 }
 
-impl Decodable for CancelMarketOfferPacket {
-    const KIND: PacketKind = PacketKind::CancelMarketOffer;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for CancelMarketOffer {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             timestamp: UNIX_EPOCH + Duration::from_secs(u64::from(bytes.get_u32()?)),
             offer_counter: bytes.get_u16()?,
@@ -50,7 +48,7 @@ mod tests {
     fn should_decode_cancel_market_offer() {
         let mut payload: &[u8] = &[0x78, 0x56, 0x34, 0x12, 0x34, 0x12];
 
-        let packet = CancelMarketOfferPacket::decode(&mut payload)
+        let packet = CancelMarketOffer::decode(PacketKind::CancelMarketOffer, &mut payload)
             .expect("CancelMarketOffer packets should decode timestamp and counter");
 
         assert_eq!(
@@ -65,15 +63,6 @@ mod tests {
         assert!(
             payload.is_empty(),
             "CancelMarketOffer decoding should consume the whole payload"
-        );
-    }
-
-    #[test]
-    fn should_expose_cancel_market_offer_kind_constant() {
-        assert_eq!(
-            CancelMarketOfferPacket::KIND,
-            PacketKind::CancelMarketOffer,
-            "CancelMarketOffer packets should advertise the correct packet kind"
         );
     }
 }

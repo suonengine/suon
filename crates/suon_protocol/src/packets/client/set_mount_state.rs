@@ -6,15 +6,13 @@ use super::prelude::*;
 
 /// Packet sent by the client to enable or disable mount usage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SetMountStatePacket {
+pub struct SetMountState {
     /// Whether the client wants the character to stay mounted.
     pub mounted: bool,
 }
 
-impl Decodable for SetMountStatePacket {
-    const KIND: PacketKind = PacketKind::SetMountState;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for SetMountState {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             mounted: bytes.get_bool()?,
         })
@@ -29,7 +27,7 @@ mod tests {
     fn should_decode_set_mount_state() {
         let mut payload: &[u8] = &[1];
 
-        let packet = SetMountStatePacket::decode(&mut payload)
+        let packet = SetMountState::decode(PacketKind::SetMountState, &mut payload)
             .expect("SetMountState packets should decode the requested mount flag");
 
         assert!(packet.mounted);

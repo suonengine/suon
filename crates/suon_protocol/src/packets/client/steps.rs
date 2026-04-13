@@ -11,10 +11,10 @@ use super::prelude::*;
 /// # Examples
 /// ```
 /// use suon_position::direction::Direction;
-/// use suon_protocol::packets::client::{Decodable, prelude::StepsPacket};
+/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::Steps};
 ///
 /// let mut payload: &[u8] = &[3, 1, 3, 5];
-/// let packet = StepsPacket::decode(&mut payload).unwrap();
+/// let packet = Steps::decode(PacketKind::Steps, &mut payload).unwrap();
 ///
 /// assert_eq!(
 ///     packet.path,
@@ -22,12 +22,12 @@ use super::prelude::*;
 /// );
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct StepsPacket {
+pub struct Steps {
     /// Ordered path requested by the client.
     pub path: Vec<Direction>,
 }
 
-impl StepsPacket {
+impl Steps {
     fn direction_from_wire(value: u8) -> Option<Direction> {
         match value {
             1 => Some(Direction::East),
@@ -43,10 +43,8 @@ impl StepsPacket {
     }
 }
 
-impl Decodable for StepsPacket {
-    const KIND: PacketKind = PacketKind::Steps;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for Steps {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let path_length = bytes.get_u8()?;
         if path_length == 0 {
             return Err(DecodableError::InvalidFieldValue {
@@ -82,7 +80,7 @@ mod tests {
     fn should_decode_steps_path() {
         let mut payload: &[u8] = &[3, 1, 3, 5];
 
-        let packet = StepsPacket::decode(&mut payload)
+        let packet = Steps::decode(PacketKind::Steps, &mut payload)
             .expect("Steps packets should decode valid direction sequences");
 
         assert_eq!(
@@ -99,7 +97,7 @@ mod tests {
     fn should_ignore_unknown_directions_while_preserving_valid_steps() {
         let mut payload: &[u8] = &[4, 1, 0, 9, 7];
 
-        let packet = StepsPacket::decode(&mut payload)
+        let packet = Steps::decode(PacketKind::Steps, &mut payload)
             .expect("Steps packets should keep valid directions even when some bytes are unknown");
 
         assert_eq!(packet.path, vec![Direction::East, Direction::South]);
@@ -109,7 +107,7 @@ mod tests {
     fn should_reject_empty_steps_paths() {
         let mut payload: &[u8] = &[0];
 
-        let error = StepsPacket::decode(&mut payload)
+        let error = Steps::decode(PacketKind::Steps, &mut payload)
             .expect_err("Steps packets should reject zero-length paths");
 
         assert!(matches!(

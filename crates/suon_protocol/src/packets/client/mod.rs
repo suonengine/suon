@@ -134,146 +134,144 @@ mod wrap_item;
 pub mod prelude {
     pub use super::{
         Decodable, DecodableError, PacketKind,
-        accept_market_offer::AcceptMarketOfferPacket,
-        accept_trade::AcceptTradePacket,
-        aim_at_target::{AimAtTargetPacket, AimAtTargetSpell},
-        apply_imbuement::ApplyImbuementPacket,
-        browse_character_info::{BrowseCharacterInfoPacket, CharacterInfoKind},
-        browse_field::BrowseFieldPacket,
-        browse_forge_history::BrowseForgeHistoryPacket,
-        browse_market::BrowseMarketPacket,
-        browse_store_offers::{BrowseStoreOffersPacket, StoreBrowseAction},
-        browse_transaction_history::{
-            BrowseTransactionHistoryPacket, TransactionHistoryBrowseFormat,
-        },
-        buddy_group_action::{BuddyGroupAction, BuddyGroupActionPacket},
-        bug_report::BugReportPacket,
-        buy_charm_rune::BuyCharmRunePacket,
-        buy_store_offer::BuyStoreOfferPacket,
-        cancel_market_offer::CancelMarketOfferPacket,
-        cancel_rule_violation::CancelRuleViolationPacket,
-        cancel_steps::CancelStepsPacket,
-        cancel_target_and_trail::CancelTargetAndTrailPacket,
-        change_map_aware_range::ChangeMapAwareRangePacket,
-        change_podium::ChangePodiumPacket,
-        change_shared_party_experience::ChangeSharedPartyExperiencePacket,
-        channels::ChannelsPacket,
-        clear_imbuement::ClearImbuementPacket,
-        close_container::CloseContainerPacket,
-        close_imbuing_window::CloseImbuingWindowPacket,
-        close_rule_violation::CloseRuleViolationPacket,
-        close_trade::CloseTradePacket,
-        collect_reward_chest::CollectRewardChestPacket,
-        configure_boss_slot::ConfigureBossSlotPacket,
-        create_buddy::CreateBuddyPacket,
-        create_market_offer::{CreateMarketOfferPacket, MarketOfferKind},
-        create_private_channel::CreatePrivateChannelPacket,
-        cyclopedia_house_auction::{CyclopediaHouseAuctionAction, CyclopediaHouseAuctionPacket},
-        delete_buddy::DeleteBuddyPacket,
-        disband_party::DisbandPartyPacket,
-        enter_game::EnterGamePacket,
-        equip_item::EquipItemPacket,
-        exiva_restrictions::ExivaRestrictionsPacket,
-        extended_opcode::ExtendedOpcodePacket,
-        face::FacePacket,
-        forge_action::{ForgeActionKind, ForgeActionPacket},
-        friend_system_action::FriendSystemActionPacket,
-        get_reward_daily::{DailyRewardItem, GetRewardDailyPacket},
-        inspect_item_details::InspectItemDetailsPacket,
-        inspect_object::{InspectObjectKind, InspectObjectPacket},
-        inspect_offer::InspectOfferPacket,
-        inspect_trade::InspectTradePacket,
-        invite_private_channel::InvitePrivateChannelPacket,
-        invite_to_party::InviteToPartyPacket,
-        invite_to_private_channel::InviteToPrivateChannelPacket,
-        join_channel::JoinChannelPacket,
-        join_party::JoinPartyPacket,
-        keep_alive::KeepAlivePacket,
+        accept_market_offer::AcceptMarketOffer,
+        accept_trade::AcceptTrade,
+        aim_at_target::{AimAtTarget, AimAtTargetSpell},
+        apply_imbuement::ApplyImbuement,
+        browse_character_info::{BrowseCharacterInfo, CharacterInfoKind},
+        browse_field::BrowseField,
+        browse_forge_history::BrowseForgeHistory,
+        browse_market::BrowseMarket,
+        browse_store_offers::{BrowseStoreOffers, StoreBrowseAction},
+        browse_transaction_history::{BrowseTransactionHistory, TransactionHistoryBrowseFormat},
+        buddy_group_action::{BuddyGroupAction, BuddyGroupActionKind},
+        bug_report::BugReport,
+        buy_charm_rune::BuyCharmRune,
+        buy_store_offer::BuyStoreOffer,
+        cancel_market_offer::CancelMarketOffer,
+        cancel_rule_violation::CancelRuleViolation,
+        cancel_steps::CancelSteps,
+        cancel_target_and_trail::CancelTargetAndTrail,
+        change_map_aware_range::ChangeMapAwareRange,
+        change_podium::ChangePodium,
+        change_shared_party_experience::ChangeSharedPartyExperience,
+        channels::Channels,
+        clear_imbuement::ClearImbuement,
+        close_container::CloseContainer,
+        close_imbuing_window::CloseImbuingWindow,
+        close_rule_violation::CloseRuleViolation,
+        close_trade::CloseTrade,
+        collect_reward_chest::CollectRewardChest,
+        configure_boss_slot::ConfigureBossSlot,
+        create_buddy::CreateBuddy,
+        create_market_offer::{CreateMarketOffer, MarketOfferKind},
+        create_private_channel::CreatePrivateChannel,
+        cyclopedia_house_auction::{CyclopediaHouseAuction, CyclopediaHouseAuctionAction},
+        delete_buddy::DeleteBuddy,
+        disband_party::DisbandParty,
+        enter_game::EnterGame,
+        equip_item::EquipItem,
+        exiva_restrictions::ExivaRestrictions,
+        extended_opcode::ExtendedOpcode,
+        face::Face,
+        forge_action::{ForgeAction, ForgeActionKind},
+        friend_system_action::FriendSystemAction,
+        get_reward_daily::{DailyRewardItem, GetRewardDaily},
+        inspect_item_details::InspectItemDetails,
+        inspect_object::{InspectObject, InspectObjectKind},
+        inspect_offer::InspectOffer,
+        inspect_trade::InspectTrade,
+        invite_private_channel::InvitePrivateChannel,
+        invite_to_party::InviteToParty,
+        invite_to_private_channel::InviteToPrivateChannel,
+        join_channel::JoinChannel,
+        join_party::JoinParty,
+        keep_alive::KeepAlive,
         leader_finder_action::{
-            LeaderFinderAction, LeaderFinderActionPacket, TeamFinderActivity, TeamFinderListing,
+            LeaderFinderAction, LeaderFinderActionKind, TeamFinderActivity, TeamFinderListing,
         },
-        leave_channel::LeaveChannelPacket,
-        leave_market::LeaveMarketPacket,
-        leave_npc_channel::LeaveNpcChannelPacket,
-        leave_npc_shop::LeaveNpcShopPacket,
-        leave_party::LeavePartyPacket,
+        leave_channel::LeaveChannel,
+        leave_market::LeaveMarket,
+        leave_npc_channel::LeaveNpcChannel,
+        leave_npc_shop::LeaveNpcShop,
+        leave_party::LeaveParty,
         login::{
-            LatestLoginCredentials, LatestLoginHeader, LatestLoginPacket, LoginBlockDecoder,
-            LoginPacket, LoginPacketDecodeError,
+            LatestLogin, LatestLoginCredentials, LatestLoginHeader, Login, LoginBlockDecoder,
+            LoginDecodeError,
         },
-        logout::LogoutPacket,
-        look_at::LookAtPacket,
-        look_in_battle_list::LookInBattleListPacket,
-        look_in_npc_shop::LookInNpcShopPacket,
-        loot_container::{LootContainerAction, LootContainerPacket},
-        member_finder_action::{MemberFinderAction, MemberFinderActionPacket},
-        modal_window_answer::ModalWindowAnswerPacket,
-        move_up_container::MoveUpContainerPacket,
-        offer_trade::OfferTradePacket,
-        open_bestiary::OpenBestiaryPacket,
-        open_bestiary_overview::OpenBestiaryOverviewPacket,
-        open_bless_dialog::OpenBlessDialogPacket,
-        open_bosstiary::OpenBosstiaryPacket,
-        open_outfit_dialog::OpenOutfitDialogPacket,
-        open_parent_container::OpenParentContainerPacket,
-        open_prey_dialog::OpenPreyDialogPacket,
-        open_quest_line::OpenQuestLinePacket,
-        open_quest_log::OpenQuestLogPacket,
-        open_reward_history::OpenRewardHistoryPacket,
-        open_reward_wall::OpenRewardWallPacket,
-        open_rule_violation::OpenRuleViolationPacket,
-        open_store::OpenStorePacket,
-        open_tracked_quest_log::OpenTrackedQuestLogPacket,
-        open_transaction_history::OpenTransactionHistoryPacket,
-        open_wheel::OpenWheelPacket,
-        party_analyzer_action::{PartyAnalyzerAction, PartyAnalyzerActionPacket},
-        pass_party_leadership::PassPartyLeadershipPacket,
-        ping_latency::PingLatencyPacket,
-        prey_action::{PreyActionKind, PreyActionPacket},
-        purchase_npc_shop::PurchaseNpcShopPacket,
-        query_boss_slot_info::QueryBossSlotInfoPacket,
-        query_depot_search_item::QueryDepotSearchItemPacket,
-        query_highscores::{HighscoreQueryKind, QueryHighscoresPacket},
-        quick_loot::{QuickLootAction, QuickLootPacket},
-        quick_loot_filter::QuickLootFilterPacket,
-        remove_from_private_channel::RemoveFromPrivateChannelPacket,
-        retrieve_depot_search::RetrieveDepotSearchPacket,
-        revoke_party_invite::RevokePartyInvitePacket,
-        rotate_item::RotateItemPacket,
-        rule_violation_report::RuleViolationReportPacket,
-        save_wheel::SaveWheelPacket,
-        say::{SayPacket, SpeakClass},
-        search_bestiary::{BestiarySearchKind, SearchBestiaryPacket},
-        seek_in_container::SeekInContainerPacket,
-        sell_npc_shop::SellNpcShopPacket,
-        server_name::ServerNamePacket,
-        set_monster_podium::SetMonsterPodiumPacket,
-        set_mount_state::SetMountStatePacket,
-        set_typing_state::SetTypingStatePacket,
-        stash_action::{StashAction, StashActionPacket},
-        step::StepPacket,
-        steps::StepsPacket,
-        submit_house_window::SubmitHouseWindowPacket,
-        submit_text_window::SubmitTextWindowPacket,
-        target::TargetPacket,
-        task_hunting_action::TaskHuntingActionPacket,
-        teleport::TeleportPacket,
-        throw_item::ThrowItemPacket,
-        trail::TrailPacket,
-        transfer_coins::TransferCoinsPacket,
-        update_buddy::UpdateBuddyPacket,
-        update_fight_modes::{ChaseMode, FightMode, SecureMode, UpdateFightModesPacket},
-        update_inventory_imbuements::UpdateInventoryImbuementsPacket,
-        update_monster_tracker::UpdateMonsterTrackerPacket,
+        logout::Logout,
+        look_at::LookAt,
+        look_in_battle_list::LookInBattleList,
+        look_in_npc_shop::LookInNpcShop,
+        loot_container::{LootContainer, LootContainerAction},
+        member_finder_action::{MemberFinderAction, MemberFinderActionKind},
+        modal_window_answer::ModalWindowAnswer,
+        move_up_container::MoveUpContainer,
+        offer_trade::OfferTrade,
+        open_bestiary::OpenBestiary,
+        open_bestiary_overview::OpenBestiaryOverview,
+        open_bless_dialog::OpenBlessDialog,
+        open_bosstiary::OpenBosstiary,
+        open_outfit_dialog::OpenOutfitDialog,
+        open_parent_container::OpenParentContainer,
+        open_prey_dialog::OpenPreyDialog,
+        open_quest_line::OpenQuestLine,
+        open_quest_log::OpenQuestLog,
+        open_reward_history::OpenRewardHistory,
+        open_reward_wall::OpenRewardWall,
+        open_rule_violation::OpenRuleViolation,
+        open_store::OpenStore,
+        open_tracked_quest_log::OpenTrackedQuestLog,
+        open_transaction_history::OpenTransactionHistory,
+        open_wheel::OpenWheel,
+        party_analyzer_action::{PartyAnalyzerAction, PartyAnalyzerActionKind},
+        pass_party_leadership::PassPartyLeadership,
+        ping_latency::PingLatency,
+        prey_action::{PreyAction, PreyActionKind},
+        purchase_npc_shop::PurchaseNpcShop,
+        query_boss_slot_info::QueryBossSlotInfo,
+        query_depot_search_item::QueryDepotSearchItem,
+        query_highscores::{HighscoreQueryKind, QueryHighscores},
+        quick_loot::{QuickLoot, QuickLootAction},
+        quick_loot_filter::QuickLootFilter,
+        remove_from_private_channel::RemoveFromPrivateChannel,
+        retrieve_depot_search::RetrieveDepotSearch,
+        revoke_party_invite::RevokePartyInvite,
+        rotate_item::RotateItem,
+        rule_violation_report::RuleViolationReport,
+        save_wheel::SaveWheel,
+        say::{Say, SpeakClass},
+        search_bestiary::{BestiarySearchKind, SearchBestiary},
+        seek_in_container::SeekInContainer,
+        sell_npc_shop::SellNpcShop,
+        server_name::ServerName,
+        set_monster_podium::SetMonsterPodium,
+        set_mount_state::SetMountState,
+        set_typing_state::SetTypingState,
+        stash_action::{StashAction, StashActionKind},
+        step::Step,
+        steps::Steps,
+        submit_house_window::SubmitHouseWindow,
+        submit_text_window::SubmitTextWindow,
+        target::Target,
+        task_hunting_action::TaskHuntingAction,
+        teleport::Teleport,
+        throw_item::ThrowItem,
+        trail::Trail,
+        transfer_coins::TransferCoins,
+        update_buddy::UpdateBuddy,
+        update_fight_modes::{ChaseMode, FightMode, SecureMode, UpdateFightModes},
+        update_inventory_imbuements::UpdateInventoryImbuements,
+        update_monster_tracker::UpdateMonsterTracker,
         update_outfit::{
             OutfitAppearance, OutfitMountAppearance, OutfitPreviewDetails, OutfitWindowDetails,
-            PodiumOutfitDetails, PodiumTarget, UpdateOutfitDetails, UpdateOutfitPacket,
+            PodiumOutfitDetails, PodiumTarget, UpdateOutfit, UpdateOutfitDetails,
         },
-        use_item::UseItemPacket,
-        use_item_with_creature::UseItemWithCreaturePacket,
-        use_item_with_target::UseItemWithTargetPacket,
-        wheel_gem_action::WheelGemActionPacket,
-        wrap_item::WrapItemPacket,
+        use_item::UseItem,
+        use_item_with_creature::UseItemWithCreature,
+        use_item_with_target::UseItemWithTarget,
+        wheel_gem_action::WheelGemAction,
+        wrap_item::WrapItem,
     };
 }
 
@@ -297,11 +295,8 @@ pub enum DecodableError {
 /// Represents a packet that can be decoded from a binary buffer.
 ///
 /// This trait defines how a packet is reconstructed from raw bytes received
-/// over a network or read from storage. Each packet type has a unique [`PacketKind`]
-/// that identifies it and allows the system to dispatch the correct decoding logic.
-///
-/// # Associated Constant
-/// - [`Self::KIND`]: The unique [`PacketKind`] that identifies this packet type.
+/// over a network or read from storage. The [`PacketKind`] is passed at decode
+/// time to allow the system to dispatch the correct decoding logic.
 ///
 /// # Methods
 /// - [`Self::decode`]: Decodes the packet instance from a raw byte slice.
@@ -310,23 +305,21 @@ pub enum DecodableError {
 /// ```
 /// use suon_protocol::packets::client::{Decodable, DecodableError, PacketKind};
 ///
-/// struct LoginPacket {
+/// struct Login {
 ///     username: String,
 /// }
 ///
-/// impl Decodable for LoginPacket {
-///     const KIND: PacketKind = PacketKind::Login;
-///
-///     fn decode(bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+/// impl Decodable for Login {
+///     fn decode(_: PacketKind, bytes: &mut &[u8]) -> Result<Self, DecodableError> {
 ///         use suon_protocol::packets::decoder::Decoder;
 ///
 ///         let username = (&mut *bytes).get_string()?;
-///         Ok(LoginPacket { username })
+///         Ok(Login { username })
 ///     }
 /// }
 ///
 /// let mut buffer: &[u8] = &[5, 0, b'A', b'l', b'i', b'c', b'e'];
-/// let packet = LoginPacket::decode(&mut buffer).unwrap();
+/// let packet = Login::decode(PacketKind::Login, &mut buffer).unwrap();
 ///
 /// assert_eq!(packet.username, "Alice");
 /// ```
@@ -335,24 +328,11 @@ pub enum DecodableError {
 /// [`crate::packets::server::Encodable`] trait to allow symmetric serialization
 /// and deserialization of packet types.
 pub trait Decodable: Sized {
-    /// Unique kind identifier for this packet type.
-    const KIND: PacketKind;
-
-    /// Returns whether this packet type can be decoded from the provided wire kind.
-    fn accepts_kind(kind: PacketKind) -> bool {
-        kind == Self::KIND
-    }
-
     /// Decodes the packet instance from a raw byte slice.
     ///
     /// Implementers should read the buffer according to the expected packet structure.
     /// Returns an error if the buffer is incomplete or contains invalid data.
-    fn decode(bytes: &mut &[u8]) -> Result<Self, DecodableError>;
-
-    /// Decodes the packet instance while preserving the originating wire kind.
-    fn decode_with_kind(_: PacketKind, bytes: &mut &[u8]) -> Result<Self, DecodableError> {
-        Self::decode(bytes)
-    }
+    fn decode(kind: PacketKind, bytes: &mut &[u8]) -> Result<Self, DecodableError>;
 }
 
 /// Defines the possible kinds or categories of network packets.
@@ -835,9 +815,7 @@ mod tests {
     struct Packet;
 
     impl Decodable for Packet {
-        const KIND: PacketKind = PacketKind::PingLatency;
-
-        fn decode(bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+        fn decode(_: PacketKind, bytes: &mut &[u8]) -> Result<Self, DecodableError> {
             if bytes.is_empty() {
                 Err(DecodableError::Decoder(
                     crate::packets::decoder::DecoderError::Incomplete {
@@ -855,7 +833,7 @@ mod tests {
     fn decode_packet_returns_error_on_empty_buffer() {
         let mut buffer: &[u8] = &[];
 
-        let error = Packet::decode(&mut buffer)
+        let error = Packet::decode(PacketKind::PingLatency, &mut buffer)
             .expect_err("Expected DecoderError::Incomplete for empty buffer");
 
         match error {
@@ -886,7 +864,7 @@ mod tests {
 
         let mut buffer: &[u8] = PAYLOAD;
 
-        let packet_result = Packet::decode(&mut buffer);
+        let packet_result = Packet::decode(PacketKind::PingLatency, &mut buffer);
         assert!(
             packet_result.is_ok(),
             "Decoding should succeed with non-empty buffer"

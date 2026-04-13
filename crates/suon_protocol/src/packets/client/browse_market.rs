@@ -11,16 +11,16 @@ use super::prelude::*;
 ///
 /// # Examples
 /// ```
-/// use suon_protocol::packets::client::{Decodable, prelude::BrowseMarketPacket};
+/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::BrowseMarket};
 ///
 /// let mut payload: &[u8] = &[3, 0x2A, 0x00];
-/// let packet = BrowseMarketPacket::decode(&mut payload).unwrap();
+/// let packet = BrowseMarket::decode(PacketKind::BrowseMarket, &mut payload).unwrap();
 ///
 /// assert_eq!(packet.request_kind, 3);
 /// assert_eq!(packet.sprite_id, Some(42));
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BrowseMarketPacket {
+pub struct BrowseMarket {
     /// Identifies the requested market browse action.
     pub request_kind: u8,
 
@@ -28,10 +28,8 @@ pub struct BrowseMarketPacket {
     pub sprite_id: Option<u16>,
 }
 
-impl Decodable for BrowseMarketPacket {
-    const KIND: PacketKind = PacketKind::BrowseMarket;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for BrowseMarket {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let request_kind = bytes.get_u8()?;
         let sprite_id = if bytes.is_empty() {
             None
@@ -54,7 +52,7 @@ mod tests {
     fn should_decode_browse_market_without_sprite_id() {
         let mut payload: &[u8] = &[0x00];
 
-        let packet = BrowseMarketPacket::decode(&mut payload)
+        let packet = BrowseMarket::decode(PacketKind::BrowseMarket, &mut payload)
             .expect("BrowseMarket packets should decode browse-only payloads");
 
         assert_eq!(packet.request_kind, 0x00);
@@ -69,7 +67,7 @@ mod tests {
     fn should_decode_browse_market_with_sprite_id() {
         let mut payload: &[u8] = &[0x03, 0x2A, 0x00];
 
-        let packet = BrowseMarketPacket::decode(&mut payload)
+        let packet = BrowseMarket::decode(PacketKind::BrowseMarket, &mut payload)
             .expect("BrowseMarket packets should decode item-browse payloads");
 
         assert_eq!(packet.request_kind, 0x03);
@@ -77,15 +75,6 @@ mod tests {
         assert!(
             payload.is_empty(),
             "Item-browse market requests should consume the whole payload"
-        );
-    }
-
-    #[test]
-    fn should_expose_browse_market_kind_constant() {
-        assert_eq!(
-            BrowseMarketPacket::KIND,
-            PacketKind::BrowseMarket,
-            "BrowseMarket packets should advertise the correct packet kind"
         );
     }
 }

@@ -6,7 +6,7 @@ use super::prelude::*;
 
 /// Packet sent by the client to retrieve an item from depot search results.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct RetrieveDepotSearchPacket {
+pub struct RetrieveDepotSearch {
     /// Item id requested by the client.
     pub item_id: u16,
 
@@ -17,10 +17,8 @@ pub struct RetrieveDepotSearchPacket {
     pub retrieval_type: u8,
 }
 
-impl Decodable for RetrieveDepotSearchPacket {
-    const KIND: PacketKind = PacketKind::RetrieveDepotSearch;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for RetrieveDepotSearch {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let item_id = bytes.get_u16()?;
         let remaining = bytes.len();
         let (item_tier, retrieval_type) = if remaining >= 2 {
@@ -45,7 +43,7 @@ mod tests {
     fn should_decode_retrieve_depot_search_without_tier() {
         let mut payload: &[u8] = &[0x34, 0x12, 2];
 
-        let packet = RetrieveDepotSearchPacket::decode(&mut payload)
+        let packet = RetrieveDepotSearch::decode(PacketKind::RetrieveDepotSearch, &mut payload)
             .expect("RetrieveDepotSearch packets should decode item id and retrieval type");
 
         assert_eq!(packet.item_id, 0x1234);
@@ -58,7 +56,7 @@ mod tests {
     fn should_decode_retrieve_depot_search_with_tier() {
         let mut payload: &[u8] = &[0x34, 0x12, 5, 1];
 
-        let packet = RetrieveDepotSearchPacket::decode(&mut payload)
+        let packet = RetrieveDepotSearch::decode(PacketKind::RetrieveDepotSearch, &mut payload)
             .expect("RetrieveDepotSearch packets should decode optional item tier");
 
         assert_eq!(packet.item_tier, Some(5));

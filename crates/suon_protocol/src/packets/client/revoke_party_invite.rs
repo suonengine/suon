@@ -8,23 +8,21 @@ use super::prelude::*;
 ///
 /// # Examples
 /// ```
-/// use suon_protocol::packets::client::{Decodable, prelude::RevokePartyInvitePacket};
+/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::RevokePartyInvite};
 ///
 /// let mut payload: &[u8] = &[0x78, 0x56, 0x34, 0x12];
-/// let packet = RevokePartyInvitePacket::decode(&mut payload).unwrap();
+/// let packet = RevokePartyInvite::decode(PacketKind::RevokePartyInvite, &mut payload).unwrap();
 ///
 /// assert_eq!(packet.target_id, 0x12345678);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct RevokePartyInvitePacket {
+pub struct RevokePartyInvite {
     /// Creature id of the player whose invite should be revoked.
     pub target_id: u32,
 }
 
-impl Decodable for RevokePartyInvitePacket {
-    const KIND: PacketKind = PacketKind::RevokePartyInvite;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for RevokePartyInvite {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             target_id: bytes.get_u32()?,
         })
@@ -39,22 +37,13 @@ mod tests {
     fn should_decode_revoke_party_invite() {
         let mut payload: &[u8] = &[0x78, 0x56, 0x34, 0x12];
 
-        let packet = RevokePartyInvitePacket::decode(&mut payload)
+        let packet = RevokePartyInvite::decode(PacketKind::RevokePartyInvite, &mut payload)
             .expect("RevokePartyInvite packets should decode the target player id");
 
         assert_eq!(packet.target_id, 0x12345678);
         assert!(
             payload.is_empty(),
             "RevokePartyInvite decoding should consume the whole payload"
-        );
-    }
-
-    #[test]
-    fn should_expose_revoke_party_invite_kind_constant() {
-        assert_eq!(
-            RevokePartyInvitePacket::KIND,
-            PacketKind::RevokePartyInvite,
-            "RevokePartyInvite packets should advertise the correct packet kind"
         );
     }
 }

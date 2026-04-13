@@ -12,7 +12,7 @@ use super::prelude::*;
 /// sent after login. This type preserves the original payload and exposes
 /// higher-level decoding helpers for the latest OTClient layout.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LoginPacket {
+pub struct Login {
     /// Raw login payload bytes after the `0x0A` packet kind.
     pub payload: Vec<u8>,
 }
@@ -73,7 +73,7 @@ pub struct LatestLoginCredentials {
 
 /// Fully decoded latest-version login packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LatestLoginPacket {
+pub struct LatestLogin {
     /// Plain, non-encrypted login header.
     pub header: LatestLoginHeader,
 
@@ -81,20 +81,19 @@ pub struct LatestLoginPacket {
     pub credentials: LatestLoginCredentials,
 }
 
-/// Abstraction used by `LoginPacket` to decrypt the RSA-protected login block.
+/// Abstraction used by `Login` to decrypt the RSA-protected login block.
 ///
 /// The latest OTClient login packet does not carry an additional XTEA-encrypted
 /// inner block. Instead, the decrypted RSA payload contains the XTEA key that
 /// becomes active for packets sent after the login handshake completes.
 pub trait LoginBlockDecoder {
     /// Decrypts the encrypted login block and returns the resulting plaintext.
-    fn decode_login_block(&self, encrypted_block: &[u8])
-    -> Result<Vec<u8>, LoginPacketDecodeError>;
+    fn decode_login_block(&self, encrypted_block: &[u8]) -> Result<Vec<u8>, LoginDecodeError>;
 }
 
 /// Errors raised while decoding the higher-level login packet structure.
 #[derive(Debug, Error)]
-pub enum LoginPacketDecodeError {
+pub enum LoginDecodeError {
     /// Wraps lower-level decoder failures.
     #[error("failed to decode login packet: {0}")]
     Decoder(#[from] DecoderError),
@@ -116,18 +115,15 @@ pub enum LoginPacketDecodeError {
     },
 }
 
-impl LoginPacket {
+impl Login {
     /// Decodes the latest OTClient login layout using the provided RSA decoder.
     ///
-    /// This matches the field order emitted by `ProtocolGame::sendLoginPacket`
+    /// This matches the field order emitted by `ProtocolGame::sendLogin`
     /// on the newest OTClient code path:
     ///
     /// 1. plain header fields
     /// 2. RSA-encrypted block containing XTEA key and credentials
-    pub fn decode_latest<D>(
-        &self,
-        block_decoder: &D,
-    ) -> Result<LatestLoginPacket, LoginPacketDecodeError>
+    pub fn decode_latest<D>(&self, block_decoder: &D) -> Result<LatestLogin, LoginDecodeError>
     where
         D: LoginBlockDecoder,
     {
@@ -148,7 +144,7 @@ impl LoginPacket {
 
         let leading_zero = (&mut decrypted).get_u8()?;
         if leading_zero != 0 {
-            return Err(LoginPacketDecodeError::InvalidFieldValue {
+            return Err(LoginDecodeError::InvalidFieldValue {
                 field: "leading_zero",
                 value: leading_zero,
             });
@@ -174,17 +170,15 @@ impl LoginPacket {
             },
         };
 
-        Ok(LatestLoginPacket {
+        Ok(LatestLogin {
             header,
             credentials,
         })
     }
 }
 
-impl Decodable for LoginPacket {
-    const KIND: PacketKind = PacketKind::Login;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for Login {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             payload: bytes.take_remaining().to_vec(),
         })
@@ -198,10 +192,7 @@ mod tests {
     struct PassthroughBlockDecoder;
 
     impl LoginBlockDecoder for PassthroughBlockDecoder {
-        fn decode_login_block(
-            &self,
-            encrypted_block: &[u8],
-        ) -> Result<Vec<u8>, LoginPacketDecodeError> {
+        fn decode_login_block(&self, encrypted_block: &[u8]) -> Result<Vec<u8>, LoginDecodeError> {
             Ok(encrypted_block.to_vec())
         }
     }
@@ -210,8 +201,8 @@ mod tests {
     fn should_decode_login_as_raw_payload() {
         let mut payload: &[u8] = &[1, 2, 3, 4];
 
-        let packet =
-            LoginPacket::decode(&mut payload).expect("Login packets should preserve raw payload");
+        let packet = Login::decode(PacketKind::Login, &mut payload)
+            .expect("Login packets should preserve raw payload");
 
         assert_eq!(packet.payload, vec![1, 2, 3, 4]);
         assert!(payload.is_empty());
@@ -226,7 +217,7 @@ mod tests {
             5, 0, b'e', b'x', b't', b'r', b'a',
         ];
 
-        let packet = LoginPacket::decode(&mut payload)
+        let packet = Login::decode(PacketKind::Login, &mut payload)
             .expect("Login packets should preserve the wire payload before contextual decoding");
 
         let decoded = packet
@@ -249,7 +240,7 @@ mod tests {
 
     #[test]
     fn should_reject_non_zero_leading_rsa_byte() {
-        let packet = LoginPacket {
+        let packet = Login {
             payload: vec![
                 1, 0, 2, 0, 3, 0, 0, 0, 1, 0, b'v', 1, 0, b'h', 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -262,7 +253,7 @@ mod tests {
 
         assert!(matches!(
             error,
-            LoginPacketDecodeError::InvalidFieldValue {
+            LoginDecodeError::InvalidFieldValue {
                 field: "leading_zero",
                 value: 1,
             }

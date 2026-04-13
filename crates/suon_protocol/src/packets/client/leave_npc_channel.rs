@@ -3,12 +3,10 @@
 use super::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct LeaveNpcChannelPacket;
+pub struct LeaveNpcChannel;
 
-impl Decodable for LeaveNpcChannelPacket {
-    const KIND: PacketKind = PacketKind::LeaveNpcChannel;
-
-    fn decode(_: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for LeaveNpcChannel {
+    fn decode(_: PacketKind, _: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self)
     }
 }
@@ -21,8 +19,8 @@ mod tests {
     fn should_decode_leave_npc_channel() {
         let mut payload: &[u8] = &[];
         assert!(matches!(
-            LeaveNpcChannelPacket::decode(&mut payload).unwrap(),
-            LeaveNpcChannelPacket
+            LeaveNpcChannel::decode(PacketKind::LeaveNpcChannel, &mut payload).unwrap(),
+            LeaveNpcChannel
         ));
     }
 }

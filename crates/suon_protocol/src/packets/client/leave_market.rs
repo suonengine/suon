@@ -6,20 +6,18 @@ use super::prelude::*;
 ///
 /// # Examples
 /// ```
-/// use suon_protocol::packets::client::{Decodable, prelude::LeaveMarketPacket};
+/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::LeaveMarket};
 ///
 /// let mut payload: &[u8] = &[];
-/// let packet = LeaveMarketPacket::decode(&mut payload).unwrap();
+/// let packet = LeaveMarket::decode(PacketKind::LeaveMarket, &mut payload).unwrap();
 ///
-/// assert!(matches!(packet, LeaveMarketPacket));
+/// assert!(matches!(packet, LeaveMarket));
 /// ```
-pub struct LeaveMarketPacket;
+pub struct LeaveMarket;
 
-impl Decodable for LeaveMarketPacket {
-    const KIND: PacketKind = PacketKind::LeaveMarket;
-
-    fn decode(_: &mut &[u8]) -> Result<Self, DecodableError> {
-        Ok(LeaveMarketPacket)
+impl Decodable for LeaveMarket {
+    fn decode(_: PacketKind, _: &mut &[u8]) -> Result<Self, DecodableError> {
+        Ok(LeaveMarket)
     }
 }
 
@@ -31,22 +29,13 @@ mod tests {
     fn should_decode_leave_market_from_empty_payload() {
         let mut payload: &[u8] = &[];
 
-        let packet = LeaveMarketPacket::decode(&mut payload)
+        let packet = LeaveMarket::decode(PacketKind::LeaveMarket, &mut payload)
             .expect("LeaveMarket packets should decode without payload bytes");
 
-        assert!(matches!(packet, LeaveMarketPacket));
+        assert!(matches!(packet, LeaveMarket));
         assert!(
             payload.is_empty(),
             "LeaveMarket decoding should not consume any payload bytes"
-        );
-    }
-
-    #[test]
-    fn should_expose_leave_market_kind_constant() {
-        assert_eq!(
-            LeaveMarketPacket::KIND,
-            PacketKind::LeaveMarket,
-            "LeaveMarket packets should advertise the correct packet kind"
         );
     }
 }

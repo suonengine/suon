@@ -6,7 +6,7 @@ use super::prelude::*;
 
 /// Packet sent by the client to forward an extended opcode string payload.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ExtendedOpcodePacket {
+pub struct ExtendedOpcode {
     /// Extended opcode identifier.
     pub opcode: u8,
 
@@ -14,10 +14,8 @@ pub struct ExtendedOpcodePacket {
     pub payload: String,
 }
 
-impl Decodable for ExtendedOpcodePacket {
-    const KIND: PacketKind = PacketKind::ExtendedOpcode;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for ExtendedOpcode {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             opcode: bytes.get_u8()?,
             payload: bytes.get_string()?,
@@ -33,7 +31,7 @@ mod tests {
     fn should_decode_extended_opcode() {
         let mut payload: &[u8] = &[9, 4, 0, b't', b'e', b's', b't'];
 
-        let packet = ExtendedOpcodePacket::decode(&mut payload)
+        let packet = ExtendedOpcode::decode(PacketKind::ExtendedOpcode, &mut payload)
             .expect("ExtendedOpcode packets should decode opcode and string payload");
 
         assert_eq!(packet.opcode, 9);

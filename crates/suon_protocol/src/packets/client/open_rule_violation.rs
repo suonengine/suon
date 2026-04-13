@@ -4,12 +4,10 @@ use super::prelude::*;
 
 /// Packet sent by the client to open a rule-violation conversation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct OpenRuleViolationPacket;
+pub struct OpenRuleViolation;
 
-impl Decodable for OpenRuleViolationPacket {
-    const KIND: PacketKind = PacketKind::OpenRuleViolation;
-
-    fn decode(_: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for OpenRuleViolation {
+    fn decode(_: PacketKind, _: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self)
     }
 }
@@ -22,10 +20,10 @@ mod tests {
     fn should_decode_open_rule_violation() {
         let mut payload: &[u8] = &[];
 
-        let packet = OpenRuleViolationPacket::decode(&mut payload)
+        let packet = OpenRuleViolation::decode(PacketKind::OpenRuleViolation, &mut payload)
             .expect("OpenRuleViolation packets should decode empty payloads");
 
-        assert!(matches!(packet, OpenRuleViolationPacket));
+        assert!(matches!(packet, OpenRuleViolation));
         assert!(payload.is_empty());
     }
 }

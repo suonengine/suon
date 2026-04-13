@@ -4,12 +4,10 @@ use super::prelude::*;
 
 /// Sent by the client to open the daily reward history window.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct OpenRewardHistoryPacket;
+pub struct OpenRewardHistory;
 
-impl Decodable for OpenRewardHistoryPacket {
-    const KIND: PacketKind = PacketKind::OpenRewardHistory;
-
-    fn decode(_: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for OpenRewardHistory {
+    fn decode(_: PacketKind, _: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self)
     }
 }
@@ -22,8 +20,8 @@ mod tests {
     fn should_decode_open_reward_history() {
         let mut payload: &[u8] = &[];
         assert!(matches!(
-            OpenRewardHistoryPacket::decode(&mut payload).unwrap(),
-            OpenRewardHistoryPacket
+            OpenRewardHistory::decode(PacketKind::OpenRewardHistory, &mut payload).unwrap(),
+            OpenRewardHistory
         ));
     }
 }

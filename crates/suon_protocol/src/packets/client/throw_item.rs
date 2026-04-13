@@ -5,7 +5,7 @@ use crate::packets::decoder::Decoder;
 use suon_position::{floor::Floor, position::Position};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ThrowItemPacket {
+pub struct ThrowItem {
     pub from_position: Position,
     pub from_floor: Floor,
     pub item_id: u16,
@@ -15,10 +15,8 @@ pub struct ThrowItemPacket {
     pub count: u8,
 }
 
-impl Decodable for ThrowItemPacket {
-    const KIND: PacketKind = PacketKind::ThrowItem;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for ThrowItem {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             from_position: bytes.get_position()?,
             from_floor: bytes.get_floor()?,
@@ -38,7 +36,7 @@ mod tests {
     #[test]
     fn should_decode_throw_item() {
         let mut payload: &[u8] = &[1, 0, 2, 0, 7, 0x34, 0x12, 3, 4, 0, 5, 0, 8, 9];
-        let packet = ThrowItemPacket::decode(&mut payload).unwrap();
+        let packet = ThrowItem::decode(PacketKind::ThrowItem, &mut payload).unwrap();
         assert_eq!(packet.item_id, 0x1234);
         assert_eq!(packet.count, 9);
     }

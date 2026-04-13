@@ -6,20 +6,18 @@ use super::prelude::*;
 ///
 /// # Examples
 /// ```
-/// use suon_protocol::packets::client::{Decodable, prelude::PingLatencyPacket};
+/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::PingLatency};
 ///
 /// let mut payload: &[u8] = &[];
-/// let packet = PingLatencyPacket::decode(&mut payload).unwrap();
+/// let packet = PingLatency::decode(PacketKind::PingLatency, &mut payload).unwrap();
 ///
-/// assert!(matches!(packet, PingLatencyPacket));
+/// assert!(matches!(packet, PingLatency));
 /// ```
-pub struct PingLatencyPacket;
+pub struct PingLatency;
 
-impl Decodable for PingLatencyPacket {
-    const KIND: PacketKind = PacketKind::PingLatency;
-
-    fn decode(_: &mut &[u8]) -> Result<Self, DecodableError> {
-        Ok(PingLatencyPacket)
+impl Decodable for PingLatency {
+    fn decode(_: PacketKind, _: &mut &[u8]) -> Result<Self, DecodableError> {
+        Ok(PingLatency)
     }
 }
 
@@ -31,23 +29,14 @@ mod tests {
     fn should_decode_ping_latency_from_empty_payload() {
         let mut payload: &[u8] = &[];
 
-        let packet = PingLatencyPacket::decode(&mut payload)
+        let packet = PingLatency::decode(PacketKind::PingLatency, &mut payload)
             .expect("PingLatency packets should decode without payload bytes");
 
-        assert!(matches!(packet, PingLatencyPacket));
+        assert!(matches!(packet, PingLatency));
 
         assert!(
             payload.is_empty(),
             "PingLatency decoding should not consume any payload bytes"
-        );
-    }
-
-    #[test]
-    fn should_expose_ping_latency_kind_constant() {
-        assert_eq!(
-            PingLatencyPacket::KIND,
-            PacketKind::PingLatency,
-            "PingLatency packets should advertise the correct packet kind"
         );
     }
 }

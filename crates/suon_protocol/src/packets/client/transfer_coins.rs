@@ -6,7 +6,7 @@ use super::prelude::*;
 
 /// Packet sent by the client to transfer transferable coins to another character.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TransferCoinsPacket {
+pub struct TransferCoins {
     /// Recipient character name.
     pub recipient: String,
 
@@ -14,10 +14,8 @@ pub struct TransferCoinsPacket {
     pub amount: u32,
 }
 
-impl Decodable for TransferCoinsPacket {
-    const KIND: PacketKind = PacketKind::TransferCoins;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for TransferCoins {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             recipient: bytes.get_string()?,
             amount: bytes.get_u32()?,
@@ -33,7 +31,7 @@ mod tests {
     fn should_decode_coin_transfer() {
         let mut payload: &[u8] = &[4, 0, b'J', b'o', b'h', b'n', 0x78, 0x56, 0x34, 0x12];
 
-        let packet = TransferCoinsPacket::decode(&mut payload)
+        let packet = TransferCoins::decode(PacketKind::TransferCoins, &mut payload)
             .expect("TransferCoins packets should decode recipient and amount");
 
         assert_eq!(packet.recipient, "John");

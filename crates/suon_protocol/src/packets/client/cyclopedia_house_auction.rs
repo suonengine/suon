@@ -61,15 +61,13 @@ pub enum CyclopediaHouseAuctionAction {
 
 /// Packet sent by the client to perform a cyclopedia house-auction action.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CyclopediaHouseAuctionPacket {
+pub struct CyclopediaHouseAuction {
     /// House-auction action requested by the client.
     pub action: CyclopediaHouseAuctionAction,
 }
 
-impl Decodable for CyclopediaHouseAuctionPacket {
-    const KIND: PacketKind = PacketKind::CyclopediaHouseAuction;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for CyclopediaHouseAuction {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let action = match bytes.get_u8()? {
             0 => CyclopediaHouseAuctionAction::BrowseTown {
                 town_name: bytes.get_string()?,
@@ -123,8 +121,9 @@ mod tests {
             0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11,
         ];
 
-        let packet = CyclopediaHouseAuctionPacket::decode(&mut payload)
-            .expect("CyclopediaHouseAuction packets should decode transfer actions");
+        let packet =
+            CyclopediaHouseAuction::decode(PacketKind::CyclopediaHouseAuction, &mut payload)
+                .expect("CyclopediaHouseAuction packets should decode transfer actions");
 
         assert_eq!(
             packet.action,

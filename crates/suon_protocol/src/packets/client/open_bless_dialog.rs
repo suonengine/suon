@@ -4,12 +4,10 @@ use super::prelude::*;
 
 /// Sent by the client to open the bless selection flow at a shrine.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct OpenBlessDialogPacket;
+pub struct OpenBlessDialog;
 
-impl Decodable for OpenBlessDialogPacket {
-    const KIND: PacketKind = PacketKind::OpenBlessDialog;
-
-    fn decode(_: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for OpenBlessDialog {
+    fn decode(_: PacketKind, _: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self)
     }
 }
@@ -22,8 +20,8 @@ mod tests {
     fn should_decode_open_bless_dialog() {
         let mut payload: &[u8] = &[];
         assert!(matches!(
-            OpenBlessDialogPacket::decode(&mut payload).unwrap(),
-            OpenBlessDialogPacket
+            OpenBlessDialog::decode(PacketKind::OpenBlessDialog, &mut payload).unwrap(),
+            OpenBlessDialog
         ));
     }
 }

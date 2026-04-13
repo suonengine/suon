@@ -6,7 +6,7 @@ use super::prelude::*;
 
 /// Party-analyzer action requested by the client.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PartyAnalyzerAction {
+pub enum PartyAnalyzerActionKind {
     /// Resets the analyzer data.
     Reset,
     /// Switches the analyzer price type.
@@ -20,18 +20,16 @@ pub enum PartyAnalyzerAction {
 
 /// Packet sent by the client to manage the party analyzer.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PartyAnalyzerActionPacket {
+pub struct PartyAnalyzerAction {
     /// Analyzer action requested by the client.
-    pub action: PartyAnalyzerAction,
+    pub action: PartyAnalyzerActionKind,
 }
 
-impl Decodable for PartyAnalyzerActionPacket {
-    const KIND: PacketKind = PacketKind::PartyAnalyzerAction;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for PartyAnalyzerAction {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let action = match bytes.get_u8()? {
-            0 => PartyAnalyzerAction::Reset,
-            1 => PartyAnalyzerAction::SwitchPriceType,
+            0 => PartyAnalyzerActionKind::Reset,
+            1 => PartyAnalyzerActionKind::SwitchPriceType,
             2 => {
                 let count = bytes.get_u16()?;
                 let mut entries = Vec::with_capacity(count as usize);
@@ -39,7 +37,7 @@ impl Decodable for PartyAnalyzerActionPacket {
                     entries.push((bytes.get_u16()?, bytes.get_u64()?));
                 }
 
-                PartyAnalyzerAction::UpdatePrices { entries }
+                PartyAnalyzerActionKind::UpdatePrices { entries }
             }
             value => {
                 return Err(DecodableError::InvalidFieldValue {
@@ -63,12 +61,12 @@ mod tests {
             2, 2, 0, 0x34, 0x12, 8, 7, 6, 5, 4, 3, 2, 1, 0x78, 0x56, 1, 0, 0, 0, 0, 0, 0, 0,
         ];
 
-        let packet = PartyAnalyzerActionPacket::decode(&mut payload)
+        let packet = PartyAnalyzerAction::decode(PacketKind::PartyAnalyzerAction, &mut payload)
             .expect("PartyAnalyzerAction packets should decode price updates");
 
         assert_eq!(
             packet.action,
-            PartyAnalyzerAction::UpdatePrices {
+            PartyAnalyzerActionKind::UpdatePrices {
                 entries: vec![(0x1234, 0x0102030405060708), (0x5678, 1)],
             }
         );

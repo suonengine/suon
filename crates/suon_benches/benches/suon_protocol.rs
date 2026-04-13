@@ -5,11 +5,11 @@ use std::{
     time::{Duration, UNIX_EPOCH},
 };
 use suon_protocol::packets::{
-    client::{Decodable, prelude::KeepAlivePacket as ClientKeepAlivePacket},
+    client::{Decodable, PacketKind as ClientPacketKind, prelude::KeepAlive as ClientKeepAlive},
     decoder::Decoder,
     encoder::Encoder,
     server::{
-        Encodable, PacketKind,
+        Encodable, PacketKind as ServerPacketKind,
         prelude::{ChallengePacket, KeepAlivePacket as ServerKeepAlivePacket},
     },
 };
@@ -17,7 +17,7 @@ use suon_protocol::packets::{
 struct BenchPacket;
 
 impl Encodable for BenchPacket {
-    const KIND: PacketKind = PacketKind::PingLatency;
+    const KIND: ServerPacketKind = ServerPacketKind::PingLatency;
 
     fn encode(self) -> Option<Bytes> {
         Some(Encoder::new().put_u16(0xCAFE).put_str("suon").finalize())
@@ -68,7 +68,7 @@ fn benchmark_client_keep_alive_decode(c: &mut Criterion) {
     c.bench_function("protocol/client_keep_alive_decode", |b| {
         b.iter(|| {
             let mut payload: &[u8] = black_box(&[]);
-            ClientKeepAlivePacket::decode(&mut payload)
+            ClientKeepAlive::decode(ClientPacketKind::KeepAlive, &mut payload)
                 .expect("Client keep-alive packets should decode without payload bytes")
         })
     });

@@ -52,15 +52,13 @@ pub enum StoreBrowseAction {
 
 /// Packet sent by the client to browse or search store offers.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BrowseStoreOffersPacket {
+pub struct BrowseStoreOffers {
     /// Store browse action selected by the client.
     pub action: StoreBrowseAction,
 }
 
-impl Decodable for BrowseStoreOffersPacket {
-    const KIND: PacketKind = PacketKind::BrowseStoreOffers;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for BrowseStoreOffers {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let action = match bytes.get_u8()? {
             0 => StoreBrowseAction::Home,
             1 => StoreBrowseAction::PremiumBoost {
@@ -107,7 +105,7 @@ mod tests {
             2, 4, 0, b'H', b'o', b'm', b'e', 7, 0, b'O', b'u', b't', b'f', b'i', b't', b's', 3, 1,
         ];
 
-        let packet = BrowseStoreOffersPacket::decode(&mut payload)
+        let packet = BrowseStoreOffers::decode(PacketKind::BrowseStoreOffers, &mut payload)
             .expect("BrowseStoreOffers packets should decode category requests");
 
         assert_eq!(
@@ -126,7 +124,7 @@ mod tests {
     fn should_decode_store_search_browse() {
         let mut payload: &[u8] = &[5, 4, 0, b'b', b'o', b'o', b't', 2, 0];
 
-        let packet = BrowseStoreOffersPacket::decode(&mut payload)
+        let packet = BrowseStoreOffers::decode(PacketKind::BrowseStoreOffers, &mut payload)
             .expect("BrowseStoreOffers packets should decode search requests");
 
         assert_eq!(

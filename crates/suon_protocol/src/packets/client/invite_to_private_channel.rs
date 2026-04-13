@@ -4,14 +4,12 @@ use super::prelude::*;
 use crate::packets::decoder::Decoder;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct InviteToPrivateChannelPacket {
+pub struct InviteToPrivateChannel {
     pub name: String,
 }
 
-impl Decodable for InviteToPrivateChannelPacket {
-    const KIND: PacketKind = PacketKind::InviteToPrivateChannel;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for InviteToPrivateChannel {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             name: bytes.get_string()?,
         })
@@ -26,7 +24,7 @@ mod tests {
     fn should_decode_invite_to_private_channel() {
         let mut payload: &[u8] = &[4, 0, b'J', b'o', b'h', b'n'];
         assert_eq!(
-            InviteToPrivateChannelPacket::decode(&mut payload)
+            InviteToPrivateChannel::decode(PacketKind::InviteToPrivateChannel, &mut payload)
                 .unwrap()
                 .name,
             "John"

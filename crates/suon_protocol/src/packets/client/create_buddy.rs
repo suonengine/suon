@@ -8,23 +8,21 @@ use super::prelude::*;
 ///
 /// # Examples
 /// ```
-/// use suon_protocol::packets::client::{Decodable, prelude::CreateBuddyPacket};
+/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::CreateBuddy};
 ///
 /// let mut payload: &[u8] = &[4, 0, b'J', b'o', b'h', b'n'];
-/// let packet = CreateBuddyPacket::decode(&mut payload).unwrap();
+/// let packet = CreateBuddy::decode(PacketKind::CreateBuddy, &mut payload).unwrap();
 ///
 /// assert_eq!(packet.name, "John");
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CreateBuddyPacket {
+pub struct CreateBuddy {
     /// Name of the player to add to the buddy list.
     pub name: String,
 }
 
-impl Decodable for CreateBuddyPacket {
-    const KIND: PacketKind = PacketKind::CreateBuddy;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for CreateBuddy {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             name: bytes.get_string()?,
         })
@@ -39,22 +37,13 @@ mod tests {
     fn should_decode_create_buddy() {
         let mut payload: &[u8] = &[4, 0, b'J', b'o', b'h', b'n'];
 
-        let packet = CreateBuddyPacket::decode(&mut payload)
+        let packet = CreateBuddy::decode(PacketKind::CreateBuddy, &mut payload)
             .expect("CreateBuddy packets should decode a player name");
 
         assert_eq!(packet.name, "John");
         assert!(
             payload.is_empty(),
             "CreateBuddy decoding should consume the whole payload"
-        );
-    }
-
-    #[test]
-    fn should_expose_create_buddy_kind_constant() {
-        assert_eq!(
-            CreateBuddyPacket::KIND,
-            PacketKind::CreateBuddy,
-            "CreateBuddy packets should advertise the correct packet kind"
         );
     }
 }

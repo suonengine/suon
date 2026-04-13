@@ -3,12 +3,10 @@
 use super::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CancelTargetAndTrailPacket;
+pub struct CancelTargetAndTrail;
 
-impl Decodable for CancelTargetAndTrailPacket {
-    const KIND: PacketKind = PacketKind::CancelTargetAndTrail;
-
-    fn decode(_: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for CancelTargetAndTrail {
+    fn decode(_: PacketKind, _: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self)
     }
 }
@@ -20,8 +18,8 @@ mod tests {
     fn should_decode_cancel_target_and_trail() {
         let mut payload: &[u8] = &[];
         assert!(matches!(
-            CancelTargetAndTrailPacket::decode(&mut payload).unwrap(),
-            CancelTargetAndTrailPacket
+            CancelTargetAndTrail::decode(PacketKind::CancelTargetAndTrail, &mut payload).unwrap(),
+            CancelTargetAndTrail
         ));
     }
 }

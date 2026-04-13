@@ -15,7 +15,7 @@ pub enum TransactionHistoryBrowseFormat {
 
 /// Packet sent by the client to browse a page from transaction history.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BrowseTransactionHistoryPacket {
+pub struct BrowseTransactionHistory {
     /// Decoded wire layout variant.
     pub format: TransactionHistoryBrowseFormat,
 
@@ -26,10 +26,8 @@ pub struct BrowseTransactionHistoryPacket {
     pub entries_per_page: u32,
 }
 
-impl Decodable for BrowseTransactionHistoryPacket {
-    const KIND: PacketKind = PacketKind::BrowseTransactionHistory;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for BrowseTransactionHistory {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         match bytes.len() {
             5 => Ok(Self {
                 format: TransactionHistoryBrowseFormat::Current,
@@ -59,8 +57,9 @@ mod tests {
     fn should_decode_current_transaction_history_browse() {
         let mut payload: &[u8] = &[0x78, 0x56, 0x34, 0x12, 25];
 
-        let packet = BrowseTransactionHistoryPacket::decode(&mut payload)
-            .expect("BrowseTransactionHistory packets should decode the current format");
+        let packet =
+            BrowseTransactionHistory::decode(PacketKind::BrowseTransactionHistory, &mut payload)
+                .expect("BrowseTransactionHistory packets should decode the current format");
 
         assert_eq!(packet.format, TransactionHistoryBrowseFormat::Current);
         assert_eq!(packet.page, 0x12345678);
@@ -72,8 +71,9 @@ mod tests {
     fn should_decode_legacy_transaction_history_browse() {
         let mut payload: &[u8] = &[0x34, 0x12, 25, 0, 0, 0];
 
-        let packet = BrowseTransactionHistoryPacket::decode(&mut payload)
-            .expect("BrowseTransactionHistory packets should decode the legacy format");
+        let packet =
+            BrowseTransactionHistory::decode(PacketKind::BrowseTransactionHistory, &mut payload)
+                .expect("BrowseTransactionHistory packets should decode the legacy format");
 
         assert_eq!(packet.format, TransactionHistoryBrowseFormat::Legacy);
         assert_eq!(packet.page, 0x1234);

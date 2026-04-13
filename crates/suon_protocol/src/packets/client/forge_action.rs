@@ -43,15 +43,13 @@ pub enum ForgeActionKind {
 
 /// Packet sent by the client to execute a forge action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ForgeActionPacket {
+pub struct ForgeAction {
     /// Forge action requested by the client.
     pub action: ForgeActionKind,
 }
 
-impl Decodable for ForgeActionPacket {
-    const KIND: PacketKind = PacketKind::ForgeAction;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for ForgeAction {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let action = match bytes.get_u8()? {
             0 => {
                 let convergence = bytes.get_bool()?;
@@ -102,7 +100,7 @@ mod tests {
     fn should_decode_forge_fusion_action() {
         let mut payload: &[u8] = &[0, 0, 0x11, 0x11, 3, 0x22, 0x22, 1, 0];
 
-        let packet = ForgeActionPacket::decode(&mut payload)
+        let packet = ForgeAction::decode(PacketKind::ForgeAction, &mut payload)
             .expect("ForgeAction packets should decode fusion requests");
 
         assert_eq!(
@@ -123,7 +121,7 @@ mod tests {
     fn should_decode_forge_transfer_action() {
         let mut payload: &[u8] = &[1, 1, 0x34, 0x12, 4, 0x78, 0x56];
 
-        let packet = ForgeActionPacket::decode(&mut payload)
+        let packet = ForgeAction::decode(PacketKind::ForgeAction, &mut payload)
             .expect("ForgeAction packets should decode transfer requests");
 
         assert_eq!(
@@ -141,7 +139,7 @@ mod tests {
     fn should_reject_unknown_forge_action_types() {
         let mut payload: &[u8] = &[9];
 
-        let error = ForgeActionPacket::decode(&mut payload)
+        let error = ForgeAction::decode(PacketKind::ForgeAction, &mut payload)
             .expect_err("ForgeAction packets should reject unknown action types");
 
         assert!(matches!(

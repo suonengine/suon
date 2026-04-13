@@ -6,7 +6,7 @@ use super::prelude::*;
 
 /// Packet sent by the client to update one task-hunting slot.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TaskHuntingActionPacket {
+pub struct TaskHuntingAction {
     /// Task slot selected by the client.
     pub slot: u8,
 
@@ -20,10 +20,8 @@ pub struct TaskHuntingActionPacket {
     pub race_id: u16,
 }
 
-impl Decodable for TaskHuntingActionPacket {
-    const KIND: PacketKind = PacketKind::TaskHuntingAction;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for TaskHuntingAction {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             slot: bytes.get_u8()?,
             action: bytes.get_u8()?,
@@ -41,12 +39,12 @@ mod tests {
     fn should_decode_task_hunting_action() {
         let mut payload: &[u8] = &[3, 2, 1, 0x34, 0x12];
 
-        let packet = TaskHuntingActionPacket::decode(&mut payload)
+        let packet = TaskHuntingAction::decode(PacketKind::TaskHuntingAction, &mut payload)
             .expect("TaskHuntingAction packets should decode slot, action, upgrade, and race id");
 
         assert_eq!(
             packet,
-            TaskHuntingActionPacket {
+            TaskHuntingAction {
                 slot: 3,
                 action: 2,
                 upgrade: true,

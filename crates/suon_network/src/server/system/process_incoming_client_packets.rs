@@ -1,28 +1,24 @@
 use bevy::prelude::*;
-use suon_protocol::packets::client::{Decodable, prelude::*};
+use suon_protocol::packets::client::prelude::*;
 
 use crate::server::{
     connection::Connection,
-    packet::{DecodeError, Packet},
+    packet::{DecodeError, Packet, incoming::IncomingPacket},
 };
 
 macro_rules! dispatch_packet {
-    ($commands:expr, $client:expr, $incoming_packet:expr; $( $packet_ty:ty ),* $(,)?) => {
+    ($commands:expr, $client:expr, $incoming_packet:expr; $( $( $kind:pat_param )|+ => $packet_ty:ty ),* $(,)?) => {
         {
             let incoming_packet = $incoming_packet;
-            let mut dispatched = false;
-
-            $(
-                if !dispatched && <$packet_ty>::accepts_kind(incoming_packet.kind) {
-                    dispatched = true;
-
-                    (|| {
+            match incoming_packet.kind {
+                $(
+                    $( $kind )|+ => 'dispatch: {
                         let kind = incoming_packet.kind;
                         let timestamp = incoming_packet.timestamp;
                         let checksum = incoming_packet.checksum;
                         let mut bytes = incoming_packet.buffer.as_ref();
 
-                        let packet = match <$packet_ty>::decode_with_kind(kind, &mut bytes) {
+                        let packet = match <$packet_ty>::decode(kind, &mut bytes) {
                             Ok(packet) => packet,
                             Err(err) => {
                                 error!("Failed to decode packet for client {}: {:?}", $client, err);
@@ -31,7 +27,7 @@ macro_rules! dispatch_packet {
                                     "Failed to dispatch typed packet event for client {} and kind {:?}: {}",
                                     $client, kind, error
                                 );
-                                return None;
+                                break 'dispatch;
                             }
                         };
 
@@ -41,28 +37,26 @@ macro_rules! dispatch_packet {
                                 "Failed to dispatch typed packet event for client {} and kind {:?}: {}",
                                 $client, kind, error
                             );
-                            return None;
+                            break 'dispatch;
                         }
 
                         debug!("Successfully decoded packet for client {}", $client);
 
-                        Some(Packet {
+                        $commands.trigger(Packet {
                             entity: $client,
                             timestamp,
                             checksum,
                             packet,
-                        })
-                    })()
-                    .map(|packet| $commands.trigger(packet));
+                        });
+                    }
+                )*
+                _ => {
+                    trace!(
+                        "Skipping typed dispatch for client packet kind {:?} until a typed event \
+                        is registered",
+                        incoming_packet.kind
+                    );
                 }
-            )*
-
-            if !dispatched {
-                trace!(
-                    "Skipping typed dispatch for client packet kind {:?} until a typed event \
-                    is registered",
-                    incoming_packet.kind
-                );
             }
         }
     };
@@ -72,97 +66,161 @@ macro_rules! dispatch_packet {
 pub(crate) fn process_incoming_client_packets(
     query: Query<(Entity, &Connection)>,
     mut commands: Commands,
+    mut incoming_packets: Local<Vec<(Entity, IncomingPacket)>>,
 ) {
-    for (client, connection) in query {
+    for (client, connection) in &query {
         for incoming_packet in connection.read() {
-            trace!(
-                "Dispatching packet from {} (client {:?}): kind={:?}",
-                connection.addr(),
-                client,
-                incoming_packet.kind,
-            );
-
-            dispatch_packet!(
-                commands,
-                client,
-                incoming_packet;
-                AcceptMarketOfferPacket,
-                AcceptTradePacket,
-                AimAtTargetPacket,
-                FriendSystemActionPacket,
-                LoginPacket,
-                LeaderFinderActionPacket,
-                MemberFinderActionPacket,
-                OpenParentContainerPacket,
-                QueryDepotSearchItemPacket,
-                RetrieveDepotSearchPacket,
-                ServerNamePacket,
-                SetMonsterPodiumPacket,
-                SetTypingStatePacket,
-                TaskHuntingActionPacket,
-                TargetPacket,
-                BrowseFieldPacket,
-                BrowseMarketPacket,
-                CancelTargetAndTrailPacket,
-                CancelMarketOfferPacket,
-                CancelStepsPacket,
-                ChangeMapAwareRangePacket,
-                ChangePodiumPacket,
-                ChangeSharedPartyExperiencePacket,
-                ExivaRestrictionsPacket,
-                LeaveChannelPacket,
-                CloseContainerPacket,
-                LeaveNpcChannelPacket,
-                LeaveNpcShopPacket,
-                CloseTradePacket,
-                CreateBuddyPacket,
-                CreateMarketOfferPacket,
-                InvitePrivateChannelPacket,
-                DeleteBuddyPacket,
-                EquipItemPacket,
-                RemoveFromPrivateChannelPacket,
-                FacePacket,
-                TrailPacket,
-                LookInNpcShopPacket,
-                InspectTradePacket,
-                InviteToPrivateChannelPacket,
-                InviteToPartyPacket,
-                KeepAlivePacket,
-                JoinPartyPacket,
-                LeaveMarketPacket,
-                LeavePartyPacket,
-                ChannelsPacket,
-                LogoutPacket,
-                LookAtPacket,
-                LookInBattleListPacket,
-                ModalWindowAnswerPacket,
-                MoveUpContainerPacket,
-                OfferTradePacket,
-                JoinChannelPacket,
-                CreatePrivateChannelPacket,
-                PassPartyLeadershipPacket,
-                PingLatencyPacket,
-                PurchaseNpcShopPacket,
-                RevokePartyInvitePacket,
-                RotateItemPacket,
-                RuleViolationReportPacket,
-                SayPacket,
-                SeekInContainerPacket,
-                SellNpcShopPacket,
-                UpdateFightModesPacket,
-                UpdateOutfitPacket,
-                StepPacket,
-                StepsPacket,
-                SubmitHouseWindowPacket,
-                SubmitTextWindowPacket,
-                ThrowItemPacket,
-                UpdateBuddyPacket,
-                UseItemPacket,
-                UseItemWithCreaturePacket,
-                UseItemWithTargetPacket,
-                WrapItemPacket,
-            );
+            incoming_packets.push((client, incoming_packet));
         }
+    }
+
+    incoming_packets.sort_by_key(|(_, packet)| packet.timestamp);
+
+    for (client, incoming_packet) in incoming_packets.drain(..) {
+        trace!(
+            "Dispatching packet from client {:?}: kind={:?}",
+            client, incoming_packet.kind,
+        );
+
+        dispatch_packet!(
+            commands,
+            client,
+            incoming_packet;
+            PacketKind::AcceptMarketOffer => AcceptMarketOffer,
+            PacketKind::AcceptTrade => AcceptTrade,
+            PacketKind::AimAtTarget => AimAtTarget,
+            PacketKind::ApplyImbuement => ApplyImbuement,
+            PacketKind::BrowseCharacterInfo => BrowseCharacterInfo,
+            PacketKind::BrowseField => BrowseField,
+            PacketKind::BrowseForgeHistory => BrowseForgeHistory,
+            PacketKind::BrowseMarket => BrowseMarket,
+            PacketKind::BrowseStoreOffers => BrowseStoreOffers,
+            PacketKind::BrowseTransactionHistory => BrowseTransactionHistory,
+            PacketKind::BuddyGroupAction => BuddyGroupAction,
+            PacketKind::BugReport => BugReport,
+            PacketKind::BuyCharmRune => BuyCharmRune,
+            PacketKind::BuyStoreOffer => BuyStoreOffer,
+            PacketKind::CancelMarketOffer => CancelMarketOffer,
+            PacketKind::CancelRuleViolation => CancelRuleViolation,
+            PacketKind::CancelSteps => CancelSteps,
+            PacketKind::CancelTargetAndTrail => CancelTargetAndTrail,
+            PacketKind::ChangeMapAwareRange => ChangeMapAwareRange,
+            PacketKind::ChangePodium => ChangePodium,
+            PacketKind::ChangeSharedPartyExperience => ChangeSharedPartyExperience,
+            PacketKind::Channels => Channels,
+            PacketKind::ClearImbuement => ClearImbuement,
+            PacketKind::CloseContainer => CloseContainer,
+            PacketKind::CloseImbuingWindow => CloseImbuingWindow,
+            PacketKind::CloseRuleViolation => CloseRuleViolation,
+            PacketKind::CloseTrade => CloseTrade,
+            PacketKind::CollectRewardChest => CollectRewardChest,
+            PacketKind::ConfigureBossSlot => ConfigureBossSlot,
+            PacketKind::CreateBuddy => CreateBuddy,
+            PacketKind::CreateMarketOffer => CreateMarketOffer,
+            PacketKind::CreatePrivateChannel => CreatePrivateChannel,
+            PacketKind::CyclopediaHouseAuction => CyclopediaHouseAuction,
+            PacketKind::DeleteBuddy => DeleteBuddy,
+            PacketKind::DisbandParty => DisbandParty,
+            PacketKind::EnterGame => EnterGame,
+            PacketKind::EquipItem => EquipItem,
+            PacketKind::ExivaRestrictions => ExivaRestrictions,
+            PacketKind::ExtendedOpcode => ExtendedOpcode,
+            PacketKind::FaceNorth | PacketKind::FaceEast
+            | PacketKind::FaceSouth | PacketKind::FaceWest => Face,
+            PacketKind::ForgeAction => ForgeAction,
+            PacketKind::FriendSystemAction => FriendSystemAction,
+            PacketKind::GetRewardDaily => GetRewardDaily,
+            PacketKind::InspectItemDetails => InspectItemDetails,
+            PacketKind::InspectObject => InspectObject,
+            PacketKind::InspectOffer => InspectOffer,
+            PacketKind::InspectTrade => InspectTrade,
+            PacketKind::InvitePrivateChannel => InvitePrivateChannel,
+            PacketKind::InviteToParty => InviteToParty,
+            PacketKind::InviteToPrivateChannel => InviteToPrivateChannel,
+            PacketKind::JoinChannel => JoinChannel,
+            PacketKind::JoinParty => JoinParty,
+            PacketKind::KeepAlive => KeepAlive,
+            PacketKind::LeaderFinderAction => LeaderFinderAction,
+            PacketKind::LeaveChannel => LeaveChannel,
+            PacketKind::LeaveMarket => LeaveMarket,
+            PacketKind::LeaveNpcChannel => LeaveNpcChannel,
+            PacketKind::LeaveNpcShop => LeaveNpcShop,
+            PacketKind::LeaveParty => LeaveParty,
+            PacketKind::Login => Login,
+            PacketKind::Logout => Logout,
+            PacketKind::LookAt => LookAt,
+            PacketKind::LookInBattleList => LookInBattleList,
+            PacketKind::LookInNpcShop => LookInNpcShop,
+            PacketKind::LootContainer => LootContainer,
+            PacketKind::MemberFinderAction => MemberFinderAction,
+            PacketKind::ModalWindowAnswer => ModalWindowAnswer,
+            PacketKind::MoveUpContainer => MoveUpContainer,
+            PacketKind::OfferTrade => OfferTrade,
+            PacketKind::OpenBestiary => OpenBestiary,
+            PacketKind::OpenBestiaryOverview => OpenBestiaryOverview,
+            PacketKind::OpenBlessDialog => OpenBlessDialog,
+            PacketKind::OpenBosstiary => OpenBosstiary,
+            PacketKind::OpenOutfitDialog => OpenOutfitDialog,
+            PacketKind::OpenParentContainer => OpenParentContainer,
+            PacketKind::OpenPreyDialog => OpenPreyDialog,
+            PacketKind::OpenQuestLine => OpenQuestLine,
+            PacketKind::OpenQuestLog => OpenQuestLog,
+            PacketKind::OpenRewardHistory => OpenRewardHistory,
+            PacketKind::OpenRewardWall => OpenRewardWall,
+            PacketKind::OpenRuleViolation => OpenRuleViolation,
+            PacketKind::OpenStore => OpenStore,
+            PacketKind::OpenTrackedQuestLog => OpenTrackedQuestLog,
+            PacketKind::OpenTransactionHistory => OpenTransactionHistory,
+            PacketKind::OpenWheel => OpenWheel,
+            PacketKind::PartyAnalyzerAction => PartyAnalyzerAction,
+            PacketKind::PassPartyLeadership => PassPartyLeadership,
+            PacketKind::PingLatency => PingLatency,
+            PacketKind::PreyAction => PreyAction,
+            PacketKind::PurchaseNpcShop => PurchaseNpcShop,
+            PacketKind::QueryBossSlotInfo => QueryBossSlotInfo,
+            PacketKind::QueryDepotSearchItem => QueryDepotSearchItem,
+            PacketKind::QueryHighscores => QueryHighscores,
+            PacketKind::QuickLoot => QuickLoot,
+            PacketKind::QuickLootFilter => QuickLootFilter,
+            PacketKind::RemoveFromPrivateChannel => RemoveFromPrivateChannel,
+            PacketKind::RetrieveDepotSearch => RetrieveDepotSearch,
+            PacketKind::RevokePartyInvite => RevokePartyInvite,
+            PacketKind::RotateItem => RotateItem,
+            PacketKind::RuleViolationReport => RuleViolationReport,
+            PacketKind::SaveWheel => SaveWheel,
+            PacketKind::Say => Say,
+            PacketKind::SearchBestiary => SearchBestiary,
+            PacketKind::SeekInContainer => SeekInContainer,
+            PacketKind::SellNpcShop => SellNpcShop,
+            PacketKind::ServerName => ServerName,
+            PacketKind::SetMonsterPodium => SetMonsterPodium,
+            PacketKind::SetMountState => SetMountState,
+            PacketKind::SetTypingState => SetTypingState,
+            PacketKind::StashAction => StashAction,
+            PacketKind::StepNorth | PacketKind::StepEast
+            | PacketKind::StepSouth | PacketKind::StepWest
+            | PacketKind::StepNorthEast | PacketKind::StepSouthEast
+            | PacketKind::StepSouthWest | PacketKind::StepNorthWest => Step,
+            PacketKind::Steps => Steps,
+            PacketKind::SubmitHouseWindow => SubmitHouseWindow,
+            PacketKind::SubmitTextWindow => SubmitTextWindow,
+            PacketKind::Target => Target,
+            PacketKind::TaskHuntingAction => TaskHuntingAction,
+            PacketKind::Teleport => Teleport,
+            PacketKind::ThrowItem => ThrowItem,
+            PacketKind::Trail => Trail,
+            PacketKind::TransferCoins => TransferCoins,
+            PacketKind::UpdateBuddy => UpdateBuddy,
+            PacketKind::UpdateFightModes => UpdateFightModes,
+            PacketKind::UpdateInventoryImbuements => UpdateInventoryImbuements,
+            PacketKind::UpdateMonsterTracker => UpdateMonsterTracker,
+            PacketKind::UpdateOutfit => UpdateOutfit,
+            PacketKind::UseItem => UseItem,
+            PacketKind::UseItemWithCreature => UseItemWithCreature,
+            PacketKind::UseItemWithTarget => UseItemWithTarget,
+            PacketKind::WheelGemAction => WheelGemAction,
+            PacketKind::WrapItem => WrapItem,
+        );
     }
 }
 
@@ -195,9 +253,7 @@ mod tests {
     struct FailingPacket;
 
     impl Decodable for FailingPacket {
-        const KIND: PacketKind = PacketKind::PingLatency;
-
-        fn decode(_: &mut &[u8]) -> Result<Self, DecodableError> {
+        fn decode(_: PacketKind, _: &mut &[u8]) -> Result<Self, DecodableError> {
             Err(DecodableError::Decoder(
                 suon_protocol::packets::decoder::DecoderError::Incomplete {
                     expected: 1,
@@ -207,24 +263,21 @@ mod tests {
         }
     }
 
-    fn observe_keep_alive(
-        event: On<Packet<KeepAlivePacket>>,
-        mut observed: ResMut<ObservedPackets>,
-    ) {
+    fn observe_keep_alive(event: On<Packet<KeepAlive>>, mut observed: ResMut<ObservedPackets>) {
         assert!(
-            matches!(event.packet(), KeepAlivePacket),
+            matches!(event.packet(), KeepAlive),
             "The keep-alive observer should receive the decoded packet payload"
         );
         observed.0.push("keep_alive");
     }
 
     fn observe_ping_latency(
-        event: On<Packet<PingLatencyPacket>>,
+        event: On<Packet<PingLatency>>,
         mut observed: ResMut<ObservedPackets>,
         mut metadata: ResMut<PingLatencyMeta>,
     ) {
         assert!(
-            matches!(event.packet(), PingLatencyPacket),
+            matches!(event.packet(), PingLatency),
             "The ping-latency observer should receive the decoded packet payload"
         );
         observed.0.push("ping_latency");
@@ -232,7 +285,7 @@ mod tests {
     }
 
     fn observe_step_packet(
-        event: On<Packet<StepPacket>>,
+        event: On<Packet<Step>>,
         mut observed: ResMut<ObservedPackets>,
         mut directions: ResMut<MoveDirections>,
     ) {
@@ -240,10 +293,7 @@ mod tests {
         directions.0.push(event.packet().direction);
     }
 
-    fn observe_server_name(
-        event: On<Packet<ServerNamePacket>>,
-        mut observed: ResMut<ObservedPackets>,
-    ) {
+    fn observe_server_name(event: On<Packet<ServerName>>, mut observed: ResMut<ObservedPackets>) {
         observed.0.push("server_name");
         assert_eq!(
             event.packet().server_name,
@@ -252,7 +302,7 @@ mod tests {
         );
     }
 
-    fn observe_login(event: On<Packet<LoginPacket>>, mut observed: ResMut<ObservedPackets>) {
+    fn observe_login(event: On<Packet<Login>>, mut observed: ResMut<ObservedPackets>) {
         observed.0.push("login");
         assert_eq!(
             event.packet().payload,
@@ -261,7 +311,7 @@ mod tests {
         );
     }
 
-    fn observe_steps_packet(event: On<Packet<StepsPacket>>, mut observed: ResMut<ObservedPackets>) {
+    fn observe_steps_packet(event: On<Packet<Steps>>, mut observed: ResMut<ObservedPackets>) {
         observed.0.push("steps");
         assert!(
             !event.packet().path.is_empty(),
@@ -512,7 +562,7 @@ mod tests {
                     kind: PacketKind::PingLatency,
                     buffer: Bytes::new(),
                 };
-                FailingPacket,
+                PacketKind::PingLatency => FailingPacket,
             );
         });
 

@@ -75,9 +75,7 @@ mod tests {
     struct PingLatencyPacket;
 
     impl Decodable for PingLatencyPacket {
-        const KIND: PacketKind = PacketKind::PingLatency;
-
-        fn decode(bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+        fn decode(_: PacketKind, bytes: &mut &[u8]) -> Result<Self, DecodableError> {
             if bytes.is_empty() {
                 return Err(DecodableError::Decoder(
                     suon_protocol::packets::decoder::DecoderError::Incomplete {
@@ -101,7 +99,7 @@ mod tests {
         let entity = Entity::from_bits(7);
         let raw = Bytes::copy_from_slice(buffer);
         let mut bytes = raw.as_ref();
-        let packet = P::decode(&mut bytes).map_err(DecodeError::from)?;
+        let packet = P::decode(PacketKind::PingLatency, &mut bytes).map_err(DecodeError::from)?;
 
         if !bytes.is_empty() {
             return Err(DecodeError::ExtraBytes(bytes.len()));

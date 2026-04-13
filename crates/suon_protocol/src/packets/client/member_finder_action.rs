@@ -6,7 +6,7 @@ use super::prelude::*;
 
 /// Action requested by the member-finder window.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MemberFinderAction {
+pub enum MemberFinderActionKind {
     /// Requests the available team-finder list.
     OpenList,
     /// Requests to join a leader listing.
@@ -23,22 +23,20 @@ pub enum MemberFinderAction {
 
 /// Packet sent by the client to manage the member-finder window.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct MemberFinderActionPacket {
+pub struct MemberFinderAction {
     /// Member-finder action requested by the client.
-    pub action: MemberFinderAction,
+    pub action: MemberFinderActionKind,
 }
 
-impl Decodable for MemberFinderActionPacket {
-    const KIND: PacketKind = PacketKind::MemberFinderAction;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for MemberFinderAction {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let raw_action = bytes.get_u8()?;
         let action = match raw_action {
-            0 => MemberFinderAction::OpenList,
-            1 => MemberFinderAction::JoinRequest {
+            0 => MemberFinderActionKind::OpenList,
+            1 => MemberFinderActionKind::JoinRequest {
                 leader_guid: bytes.get_u32()?,
             },
-            _ => MemberFinderAction::CancelRequest {
+            _ => MemberFinderActionKind::CancelRequest {
                 leader_guid: bytes.get_u32()?,
             },
         };
@@ -55,10 +53,10 @@ mod tests {
     fn should_decode_member_finder_open_list() {
         let mut payload: &[u8] = &[0];
 
-        let packet = MemberFinderActionPacket::decode(&mut payload)
+        let packet = MemberFinderAction::decode(PacketKind::MemberFinderAction, &mut payload)
             .expect("MemberFinderAction packets should decode list requests");
 
-        assert_eq!(packet.action, MemberFinderAction::OpenList);
+        assert_eq!(packet.action, MemberFinderActionKind::OpenList);
         assert!(payload.is_empty());
     }
 
@@ -66,12 +64,12 @@ mod tests {
     fn should_decode_member_finder_cancel_request() {
         let mut payload: &[u8] = &[2, 0x78, 0x56, 0x34, 0x12];
 
-        let packet = MemberFinderActionPacket::decode(&mut payload)
+        let packet = MemberFinderAction::decode(PacketKind::MemberFinderAction, &mut payload)
             .expect("MemberFinderAction packets should decode cancel requests");
 
         assert_eq!(
             packet.action,
-            MemberFinderAction::CancelRequest {
+            MemberFinderActionKind::CancelRequest {
                 leader_guid: 0x12345678,
             }
         );

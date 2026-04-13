@@ -13,11 +13,11 @@ pub const MAX_BUDDY_ICON_ID: u32 = 10;
 ///
 /// # Examples
 /// ```
-/// use suon_protocol::packets::client::{Decodable, prelude::UpdateBuddyPacket};
+/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::UpdateBuddy};
 ///
 /// let mut payload: &[u8] =
 ///     &[0x78, 0x56, 0x34, 0x12, 4, 0, b'n', b'o', b't', b'e', 3, 0, 0, 0, 1, 0];
-/// let packet = UpdateBuddyPacket::decode(&mut payload).unwrap();
+/// let packet = UpdateBuddy::decode(PacketKind::UpdateBuddy, &mut payload).unwrap();
 ///
 /// assert_eq!(packet.guid, 0x12345678);
 /// assert_eq!(packet.description, "note");
@@ -26,7 +26,7 @@ pub const MAX_BUDDY_ICON_ID: u32 = 10;
 /// assert!(packet.group_ids.is_empty());
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct UpdateBuddyPacket {
+pub struct UpdateBuddy {
     /// Guid of the buddy entry to update.
     pub guid: u32,
 
@@ -43,10 +43,8 @@ pub struct UpdateBuddyPacket {
     pub group_ids: Vec<u8>,
 }
 
-impl Decodable for UpdateBuddyPacket {
-    const KIND: PacketKind = PacketKind::UpdateBuddy;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for UpdateBuddy {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let guid = bytes.get_u32()?;
         let description = bytes.get_string()?;
         let icon_id = bytes.get_u32()?.min(MAX_BUDDY_ICON_ID);
@@ -77,7 +75,7 @@ mod tests {
             0x78, 0x56, 0x34, 0x12, 4, 0, b'n', b'o', b't', b'e', 3, 0, 0, 0, 1, 2, 7, 9,
         ];
 
-        let packet = UpdateBuddyPacket::decode(&mut payload)
+        let packet = UpdateBuddy::decode(PacketKind::UpdateBuddy, &mut payload)
             .expect("UpdateBuddy packets should decode guid, description, icon, and notify flag");
 
         assert_eq!(packet.guid, 0x12345678);
@@ -95,21 +93,12 @@ mod tests {
     fn should_clamp_update_buddy_icon_id_to_protocol_maximum() {
         let mut payload: &[u8] = &[0x78, 0x56, 0x34, 0x12, 0, 0, 42, 0, 0, 0, 0, 0];
 
-        let packet = UpdateBuddyPacket::decode(&mut payload)
+        let packet = UpdateBuddy::decode(PacketKind::UpdateBuddy, &mut payload)
             .expect("UpdateBuddy packets should clamp icon ids above the protocol maximum");
 
         assert_eq!(
             packet.icon_id, MAX_BUDDY_ICON_ID,
             "UpdateBuddy packets should clamp icon ids to the protocol maximum"
-        );
-    }
-
-    #[test]
-    fn should_expose_update_buddy_kind_constant() {
-        assert_eq!(
-            UpdateBuddyPacket::KIND,
-            PacketKind::UpdateBuddy,
-            "UpdateBuddy packets should advertise the correct packet kind"
         );
     }
 }

@@ -4,14 +4,12 @@ use super::prelude::*;
 use crate::packets::decoder::Decoder;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct MoveUpContainerPacket {
+pub struct MoveUpContainer {
     pub container_id: u8,
 }
 
-impl Decodable for MoveUpContainerPacket {
-    const KIND: PacketKind = PacketKind::MoveUpContainer;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for MoveUpContainer {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             container_id: bytes.get_u8()?,
         })
@@ -26,7 +24,7 @@ mod tests {
     fn should_decode_move_up_container() {
         let mut payload: &[u8] = &[3];
         assert_eq!(
-            MoveUpContainerPacket::decode(&mut payload)
+            MoveUpContainer::decode(PacketKind::MoveUpContainer, &mut payload)
                 .unwrap()
                 .container_id,
             3

@@ -59,15 +59,13 @@ pub enum LootContainerAction {
 
 /// Packet sent by the client to manage quick-loot containers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct LootContainerPacket {
+pub struct LootContainer {
     /// Action requested by the client.
     pub action: LootContainerAction,
 }
 
-impl Decodable for LootContainerPacket {
-    const KIND: PacketKind = PacketKind::LootContainer;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for LootContainer {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let action = match bytes.get_u8()? {
             0 => LootContainerAction::SetFallbackContainer {
                 category: bytes.get_u8()?,
@@ -116,7 +114,7 @@ mod tests {
     fn should_decode_set_primary_loot_container() {
         let mut payload: &[u8] = &[4, 2, 0x34, 0x12, 0x78, 0x56, 0xBC, 0x9A, 7];
 
-        let packet = LootContainerPacket::decode(&mut payload)
+        let packet = LootContainer::decode(PacketKind::LootContainer, &mut payload)
             .expect("LootContainer packets should decode set-container actions");
 
         assert_eq!(

@@ -10,7 +10,7 @@ const MAP_BUG_CATEGORY: u8 = 0;
 
 /// Packet sent by the client to submit a bug report.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BugReportPacket {
+pub struct BugReport {
     /// Bug category selected by the client.
     pub category: u8,
 
@@ -21,10 +21,8 @@ pub struct BugReportPacket {
     pub position: Option<Position>,
 }
 
-impl Decodable for BugReportPacket {
-    const KIND: PacketKind = PacketKind::BugReport;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for BugReport {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let category = bytes.get_u8()?;
         let message = bytes.get_string()?;
         let position = if category == MAP_BUG_CATEGORY {
@@ -49,7 +47,7 @@ mod tests {
     fn should_decode_map_bug_report() {
         let mut payload: &[u8] = &[0, 4, 0, b'b', b'u', b'g', b'!', 0x34, 0x12, 0x78, 0x56];
 
-        let packet = BugReportPacket::decode(&mut payload)
+        let packet = BugReport::decode(PacketKind::BugReport, &mut payload)
             .expect("BugReport packets should decode map bug reports with a position");
 
         assert_eq!(packet.category, 0);
@@ -68,7 +66,7 @@ mod tests {
     fn should_decode_non_map_bug_report_without_position() {
         let mut payload: &[u8] = &[2, 5, 0, b'c', b'r', b'a', b's', b'h'];
 
-        let packet = BugReportPacket::decode(&mut payload)
+        let packet = BugReport::decode(PacketKind::BugReport, &mut payload)
             .expect("BugReport packets should omit positions for non-map categories");
 
         assert_eq!(packet.position, None);

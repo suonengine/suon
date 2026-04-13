@@ -58,17 +58,15 @@ impl TryFrom<u8> for SpeakClass {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SayPacket {
+pub struct Say {
     pub speech_kind: SpeakClass,
     pub receiver: Option<String>,
     pub channel_id: Option<u16>,
     pub text: String,
 }
 
-impl Decodable for SayPacket {
-    const KIND: PacketKind = PacketKind::Say;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for Say {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let speech_kind = bytes.get_u8()?.try_into()?;
 
         let (receiver, channel_id, text) = match speech_kind {
@@ -96,13 +94,16 @@ mod tests {
     #[test]
     fn should_decode_plain_say() {
         let mut payload: &[u8] = &[1, 5, 0, b'h', b'e', b'l', b'l', b'o'];
-        assert_eq!(SayPacket::decode(&mut payload).unwrap().text, "hello");
+        assert_eq!(
+            Say::decode(PacketKind::Say, &mut payload).unwrap().text,
+            "hello"
+        );
     }
 
     #[test]
     fn should_decode_private_say() {
         let mut payload: &[u8] = &[5, 4, 0, b'J', b'o', b'h', b'n', 2, 0, b'h', b'i'];
-        let packet = SayPacket::decode(&mut payload).unwrap();
+        let packet = Say::decode(PacketKind::Say, &mut payload).unwrap();
         assert_eq!(packet.speech_kind, SpeakClass::PrivateTo);
         assert_eq!(packet.receiver.as_deref(), Some("John"));
         assert_eq!(packet.text, "hi");
@@ -111,7 +112,7 @@ mod tests {
     #[test]
     fn should_decode_channel_say() {
         let mut payload: &[u8] = &[7, 0x34, 0x12, 2, 0, b'h', b'i'];
-        let packet = SayPacket::decode(&mut payload).unwrap();
+        let packet = Say::decode(PacketKind::Say, &mut payload).unwrap();
         assert_eq!(packet.speech_kind, SpeakClass::ChannelYellow);
         assert_eq!(packet.channel_id, Some(0x1234));
         assert_eq!(packet.text, "hi");

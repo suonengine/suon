@@ -6,7 +6,7 @@ use super::prelude::*;
 
 /// Packet sent by the client to buy or redeem a store offer.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BuyStoreOfferPacket {
+pub struct BuyStoreOffer {
     /// Store offer id being used.
     pub offer_id: u32,
 
@@ -23,10 +23,8 @@ pub struct BuyStoreOfferPacket {
     pub location: Option<String>,
 }
 
-impl Decodable for BuyStoreOfferPacket {
-    const KIND: PacketKind = PacketKind::BuyStoreOffer;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for BuyStoreOffer {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let offer_id = bytes.get_u32()?;
         let action = bytes.get_u8()?;
 
@@ -66,7 +64,7 @@ mod tests {
     fn should_decode_simple_store_offer_purchase() {
         let mut payload: &[u8] = &[0x78, 0x56, 0x34, 0x12, 0];
 
-        let packet = BuyStoreOfferPacket::decode(&mut payload)
+        let packet = BuyStoreOffer::decode(PacketKind::BuyStoreOffer, &mut payload)
             .expect("BuyStoreOffer packets should decode bare purchases");
 
         assert_eq!(packet.offer_id, 0x12345678);
@@ -82,7 +80,7 @@ mod tests {
             b'o', b't',
         ];
 
-        let packet = BuyStoreOfferPacket::decode(&mut payload)
+        let packet = BuyStoreOffer::decode(PacketKind::BuyStoreOffer, &mut payload)
             .expect("BuyStoreOffer packets should decode optional transfer data");
 
         assert_eq!(packet.action, 5);

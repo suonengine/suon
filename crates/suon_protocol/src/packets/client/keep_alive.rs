@@ -6,20 +6,18 @@ use super::prelude::*;
 ///
 /// # Examples
 /// ```
-/// use suon_protocol::packets::client::{Decodable, prelude::KeepAlivePacket};
+/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::KeepAlive};
 ///
 /// let mut payload: &[u8] = &[];
-/// let packet = KeepAlivePacket::decode(&mut payload).unwrap();
+/// let packet = KeepAlive::decode(PacketKind::KeepAlive, &mut payload).unwrap();
 ///
-/// assert!(matches!(packet, KeepAlivePacket));
+/// assert!(matches!(packet, KeepAlive));
 /// ```
-pub struct KeepAlivePacket;
+pub struct KeepAlive;
 
-impl Decodable for KeepAlivePacket {
-    const KIND: PacketKind = PacketKind::KeepAlive;
-
-    fn decode(_: &mut &[u8]) -> Result<Self, DecodableError> {
-        Ok(KeepAlivePacket)
+impl Decodable for KeepAlive {
+    fn decode(_: PacketKind, _: &mut &[u8]) -> Result<Self, DecodableError> {
+        Ok(KeepAlive)
     }
 }
 
@@ -31,23 +29,14 @@ mod tests {
     fn should_decode_keep_alive_from_empty_payload() {
         let mut payload: &[u8] = &[];
 
-        let packet = KeepAlivePacket::decode(&mut payload)
+        let packet = KeepAlive::decode(PacketKind::KeepAlive, &mut payload)
             .expect("KeepAlive packets should decode without payload bytes");
 
-        assert!(matches!(packet, KeepAlivePacket));
+        assert!(matches!(packet, KeepAlive));
 
         assert!(
             payload.is_empty(),
             "KeepAlive decoding should not consume any payload bytes"
-        );
-    }
-
-    #[test]
-    fn should_expose_keep_alive_kind_constant() {
-        assert_eq!(
-            KeepAlivePacket::KIND,
-            PacketKind::KeepAlive,
-            "KeepAlive packets should advertise the correct packet kind"
         );
     }
 }

@@ -9,15 +9,13 @@ use super::prelude::*;
 /// The server forwards this payload to the wheel subsystem without decoding it
 /// inside `ProtocolGame`, so this packet preserves the raw bytes.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WheelGemActionPacket {
+pub struct WheelGemAction {
     /// Raw payload forwarded to the wheel-gem handler.
     pub payload: Vec<u8>,
 }
 
-impl Decodable for WheelGemActionPacket {
-    const KIND: PacketKind = PacketKind::WheelGemAction;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for WheelGemAction {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             payload: bytes.take_remaining().to_vec(),
         })
@@ -32,7 +30,7 @@ mod tests {
     fn should_decode_wheel_gem_action_as_raw_payload() {
         let mut payload: &[u8] = &[1, 2, 3, 4];
 
-        let packet = WheelGemActionPacket::decode(&mut payload)
+        let packet = WheelGemAction::decode(PacketKind::WheelGemAction, &mut payload)
             .expect("WheelGemAction packets should preserve their opaque payload");
 
         assert_eq!(packet.payload, vec![1, 2, 3, 4]);

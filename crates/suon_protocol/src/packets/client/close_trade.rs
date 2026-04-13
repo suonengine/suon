@@ -6,21 +6,19 @@ use super::prelude::*;
 ///
 /// # Examples
 /// ```
-/// use suon_protocol::packets::client::{Decodable, prelude::CloseTradePacket};
+/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::CloseTrade};
 ///
 /// let mut payload: &[u8] = &[];
-/// let packet = CloseTradePacket::decode(&mut payload).unwrap();
+/// let packet = CloseTrade::decode(PacketKind::CloseTrade, &mut payload).unwrap();
 ///
-/// assert!(matches!(packet, CloseTradePacket));
+/// assert!(matches!(packet, CloseTrade));
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CloseTradePacket;
+pub struct CloseTrade;
 
-impl Decodable for CloseTradePacket {
-    const KIND: PacketKind = PacketKind::CloseTrade;
-
-    fn decode(_: &mut &[u8]) -> Result<Self, DecodableError> {
-        Ok(CloseTradePacket)
+impl Decodable for CloseTrade {
+    fn decode(_: PacketKind, _: &mut &[u8]) -> Result<Self, DecodableError> {
+        Ok(CloseTrade)
     }
 }
 
@@ -32,22 +30,13 @@ mod tests {
     fn should_decode_close_trade_from_empty_payload() {
         let mut payload: &[u8] = &[];
 
-        let packet = CloseTradePacket::decode(&mut payload)
+        let packet = CloseTrade::decode(PacketKind::CloseTrade, &mut payload)
             .expect("CloseTrade packets should decode without payload bytes");
 
-        assert!(matches!(packet, CloseTradePacket));
+        assert!(matches!(packet, CloseTrade));
         assert!(
             payload.is_empty(),
             "CloseTrade decoding should not consume any payload bytes"
-        );
-    }
-
-    #[test]
-    fn should_expose_close_trade_kind_constant() {
-        assert_eq!(
-            CloseTradePacket::KIND,
-            PacketKind::CloseTrade,
-            "CloseTrade packets should advertise the correct packet kind"
         );
     }
 }

@@ -6,21 +6,19 @@ use super::prelude::*;
 ///
 /// # Examples
 /// ```
-/// use suon_protocol::packets::client::{Decodable, prelude::LeavePartyPacket};
+/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::LeaveParty};
 ///
 /// let mut payload: &[u8] = &[];
-/// let packet = LeavePartyPacket::decode(&mut payload).unwrap();
+/// let packet = LeaveParty::decode(PacketKind::LeaveParty, &mut payload).unwrap();
 ///
-/// assert!(matches!(packet, LeavePartyPacket));
+/// assert!(matches!(packet, LeaveParty));
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct LeavePartyPacket;
+pub struct LeaveParty;
 
-impl Decodable for LeavePartyPacket {
-    const KIND: PacketKind = PacketKind::LeaveParty;
-
-    fn decode(_: &mut &[u8]) -> Result<Self, DecodableError> {
-        Ok(LeavePartyPacket)
+impl Decodable for LeaveParty {
+    fn decode(_: PacketKind, _: &mut &[u8]) -> Result<Self, DecodableError> {
+        Ok(LeaveParty)
     }
 }
 
@@ -32,22 +30,13 @@ mod tests {
     fn should_decode_leave_party_from_empty_payload() {
         let mut payload: &[u8] = &[];
 
-        let packet = LeavePartyPacket::decode(&mut payload)
+        let packet = LeaveParty::decode(PacketKind::LeaveParty, &mut payload)
             .expect("LeaveParty packets should decode without payload bytes");
 
-        assert!(matches!(packet, LeavePartyPacket));
+        assert!(matches!(packet, LeaveParty));
         assert!(
             payload.is_empty(),
             "LeaveParty decoding should not consume any payload bytes"
-        );
-    }
-
-    #[test]
-    fn should_expose_leave_party_kind_constant() {
-        assert_eq!(
-            LeavePartyPacket::KIND,
-            PacketKind::LeaveParty,
-            "LeaveParty packets should advertise the correct packet kind"
         );
     }
 }

@@ -4,12 +4,10 @@ use super::prelude::*;
 
 /// Sent by the client to query boss slot information from the bosstiary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct QueryBossSlotInfoPacket;
+pub struct QueryBossSlotInfo;
 
-impl Decodable for QueryBossSlotInfoPacket {
-    const KIND: PacketKind = PacketKind::QueryBossSlotInfo;
-
-    fn decode(_: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for QueryBossSlotInfo {
+    fn decode(_: PacketKind, _: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self)
     }
 }
@@ -22,8 +20,8 @@ mod tests {
     fn should_decode_query_boss_slot_info() {
         let mut payload: &[u8] = &[];
         assert!(matches!(
-            QueryBossSlotInfoPacket::decode(&mut payload).unwrap(),
-            QueryBossSlotInfoPacket
+            QueryBossSlotInfo::decode(PacketKind::QueryBossSlotInfo, &mut payload).unwrap(),
+            QueryBossSlotInfo
         ));
     }
 }

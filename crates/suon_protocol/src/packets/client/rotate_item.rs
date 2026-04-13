@@ -5,17 +5,15 @@ use crate::packets::decoder::Decoder;
 use suon_position::{floor::Floor, position::Position};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct RotateItemPacket {
+pub struct RotateItem {
     pub position: Position,
     pub floor: Floor,
     pub item_id: u16,
     pub stack_position: u8,
 }
 
-impl Decodable for RotateItemPacket {
-    const KIND: PacketKind = PacketKind::RotateItem;
-
-    fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
+impl Decodable for RotateItem {
+    fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             position: bytes.get_position()?,
             floor: bytes.get_floor()?,
@@ -32,7 +30,7 @@ mod tests {
     #[test]
     fn should_decode_rotate_item() {
         let mut payload: &[u8] = &[1, 0, 2, 0, 7, 0x34, 0x12, 3];
-        let packet = RotateItemPacket::decode(&mut payload).unwrap();
+        let packet = RotateItem::decode(PacketKind::RotateItem, &mut payload).unwrap();
         assert_eq!(packet.stack_position, 3);
     }
 }
