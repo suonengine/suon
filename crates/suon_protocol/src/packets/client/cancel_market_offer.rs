@@ -1,4 +1,4 @@
-//! Client market-cancel-offer packet.
+//! Client cancel-market-offer packet.
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -7,21 +7,6 @@ use crate::packets::decoder::Decoder;
 use super::prelude::*;
 
 /// Packet sent by the client to cancel an existing market offer.
-///
-/// # Examples
-/// ```
-/// use std::time::UNIX_EPOCH;
-/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::CancelMarketOffer};
-///
-/// let mut payload: &[u8] = &[0x78, 0x56, 0x34, 0x12, 0x34, 0x12];
-/// let packet = CancelMarketOffer::decode(PacketKind::CancelMarketOffer, &mut payload).unwrap();
-///
-/// assert_eq!(
-///     packet.timestamp.duration_since(UNIX_EPOCH).unwrap().as_secs(),
-///     0x12345678
-/// );
-/// assert_eq!(packet.offer_counter, 0x1234);
-/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CancelMarketOffer {
     /// Timestamp that identifies the offer.

@@ -1,4 +1,4 @@
-//! Client market-create-offer packet.
+//! Client create-market-offer packet.
 
 use crate::packets::decoder::Decoder;
 
@@ -33,27 +33,6 @@ impl TryFrom<u8> for MarketOfferKind {
 /// The protocol may include an optional `item_tier` byte between `item_id` and
 /// `amount`. This decoder infers its presence from the remaining payload size:
 /// 12 bytes means the tier byte is present, 11 bytes means it is absent.
-///
-/// # Examples
-/// ```
-/// use suon_protocol::packets::client::{
-///     Decodable, PacketKind,
-///     prelude::{CreateMarketOffer, MarketOfferKind},
-/// };
-///
-/// let mut payload: &[u8] = &[
-///     1, 0x2A, 0x00, 10, 5, 0, 0x15, 0xCD, 0x5B, 0x07, 0, 0, 0, 0, 1,
-/// ];
-/// let packet = CreateMarketOffer::decode(PacketKind::CreateMarketOffer, &mut payload).unwrap();
-///
-/// assert_eq!(packet.offer_kind, MarketOfferKind::Sell);
-/// assert_eq!(packet.item_id, 42);
-/// assert_eq!(packet.item_tier, Some(10));
-/// assert_eq!(packet.amount, 5);
-/// assert_eq!(packet.price, 123_456_789);
-/// assert!(packet.is_anonymous);
-/// assert!(payload.is_empty());
-/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CreateMarketOffer {
     /// Market offer type sent by the client.

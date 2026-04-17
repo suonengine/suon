@@ -37,7 +37,7 @@ mod tests {
     fn should_decode_browse_forge_history() {
         let mut payload: &[u8] = &[7];
 
-        let packet = ForgeHistory::decode(PacketKind::BrowseForgeHistory, &mut payload)
+        let packet = ForgeHistory::decode(PacketKind::ForgeHistory, &mut payload)
             .expect("BrowseForgeHistory packets should decode the requested page");
 
         assert_eq!(packet.page, 7);

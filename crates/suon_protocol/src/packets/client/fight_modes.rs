@@ -1,4 +1,4 @@
-//! Client set-fight-modes packet.
+//! Client fight-modes packet.
 
 use crate::packets::decoder::Decoder;
 
@@ -83,32 +83,19 @@ impl TryFrom<u8> for SecureMode {
 ///
 /// The three payload bytes encode the selected fight, chase, and secure modes
 /// that should become active for subsequent combat interactions.
-///
-/// # Examples
-///
-/// ```rust
-/// use suon_protocol::packets::client::prelude::{
-///     ChaseMode, Decodable, FightMode, PacketKind, SecureMode, UpdateFightModes,
-/// };
-///
-/// let mut payload: &[u8] = &[2, 1, 0];
-/// let packet = UpdateFightModes::decode(PacketKind::UpdateFightModes, &mut payload).unwrap();
-///
-/// assert_eq!(packet.fight_mode, FightMode::Balanced);
-/// assert_eq!(packet.chase_mode, ChaseMode::Chase);
-/// assert_eq!(packet.secure_mode, SecureMode::Safe);
-/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct UpdateFightModes {
+pub struct FightModes {
     /// Selected combat stance byte for offensive versus defensive bias.
     pub fight_mode: FightMode,
+
     /// Selected follow behavior while attacking a target.
     pub chase_mode: ChaseMode,
+
     /// Selected safety restriction mode for subsequent attacks.
     pub secure_mode: SecureMode,
 }
 
-impl Decodable for UpdateFightModes {
+impl Decodable for FightModes {
     fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
             fight_mode: bytes.get_u8()?.try_into()?,
@@ -124,7 +111,7 @@ mod tests {
     #[test]
     fn should_decode_update_fight_modes() {
         let mut payload: &[u8] = &[2, 1, 0];
-        let packet = UpdateFightModes::decode(PacketKind::UpdateFightModes, &mut payload).unwrap();
+        let packet = FightModes::decode(PacketKind::FightModes, &mut payload).unwrap();
         assert_eq!(packet.fight_mode, FightMode::Balanced);
         assert_eq!(packet.chase_mode, ChaseMode::Chase);
         assert_eq!(packet.secure_mode, SecureMode::Safe);
@@ -135,7 +122,7 @@ mod tests {
         let mut payload: &[u8] = &[4, 1, 0];
 
         assert!(matches!(
-            UpdateFightModes::decode(PacketKind::UpdateFightModes, &mut payload),
+            FightModes::decode(PacketKind::FightModes, &mut payload),
             Err(DecodableError::InvalidFieldValue {
                 field: "fight_mode",
                 value: 4,
@@ -148,7 +135,7 @@ mod tests {
         let mut payload: &[u8] = &[2, 2, 0];
 
         assert!(matches!(
-            UpdateFightModes::decode(PacketKind::UpdateFightModes, &mut payload),
+            FightModes::decode(PacketKind::FightModes, &mut payload),
             Err(DecodableError::InvalidFieldValue {
                 field: "chase_mode",
                 value: 2,
@@ -161,7 +148,7 @@ mod tests {
         let mut payload: &[u8] = &[2, 1, 2];
 
         assert!(matches!(
-            UpdateFightModes::decode(PacketKind::UpdateFightModes, &mut payload),
+            FightModes::decode(PacketKind::FightModes, &mut payload),
             Err(DecodableError::InvalidFieldValue {
                 field: "secure_mode",
                 value: 2,

@@ -1,4 +1,4 @@
-//! Client market-browse packet.
+//! Client browse-market packet.
 
 use crate::packets::decoder::Decoder;
 
@@ -9,21 +9,8 @@ use super::prelude::*;
 /// The leading `browse_id` selects the market browse action. Own-offers and
 /// own-history requests stop there, while item-browse requests append an
 /// `item_id` and, for upgraded items, an `item_tier`.
-///
-/// # Examples
-/// ```
-/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::BrowseMarket};
-///
-/// let mut payload: &[u8] = &[3, 0x2A, 0x00];
-/// let packet = BrowseMarket::decode(PacketKind::BrowseMarket, &mut payload).unwrap();
-///
-/// assert_eq!(packet.browse_id, 3);
-/// assert_eq!(packet.item_id, Some(42));
-/// assert_eq!(packet.item_tier, None);
-/// assert!(payload.is_empty());
-/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Market {
+pub struct BrowseMarket {
     /// Selector byte that identifies which market browse flow is being used.
     pub id: u8,
 
@@ -34,7 +21,7 @@ pub struct Market {
     pub item_tier: Option<u8>,
 }
 
-impl Decodable for Market {
+impl Decodable for BrowseMarket {
     fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let browse_id = bytes.get_u8()?;
         let item_id = if bytes.is_empty() {
@@ -42,6 +29,7 @@ impl Decodable for Market {
         } else {
             Some(bytes.get_u16()?)
         };
+
         let item_tier = if bytes.is_empty() {
             None
         } else {
@@ -64,7 +52,7 @@ mod tests {
     fn should_decode_browse_market_without_item_data() {
         let mut payload: &[u8] = &[0x00];
 
-        let packet = Market::decode(PacketKind::BrowseMarket, &mut payload)
+        let packet = BrowseMarket::decode(PacketKind::BrowseMarket, &mut payload)
             .expect("BrowseMarket packets should decode browse-only payloads");
 
         assert_eq!(packet.id, 0x00);
@@ -80,7 +68,7 @@ mod tests {
     fn should_decode_browse_market_with_item_id() {
         let mut payload: &[u8] = &[0x03, 0x2A, 0x00];
 
-        let packet = Market::decode(PacketKind::BrowseMarket, &mut payload)
+        let packet = BrowseMarket::decode(PacketKind::BrowseMarket, &mut payload)
             .expect("BrowseMarket packets should decode item-browse payloads");
 
         assert_eq!(packet.id, 0x03);
@@ -96,7 +84,7 @@ mod tests {
     fn should_decode_browse_market_with_item_tier() {
         let mut payload: &[u8] = &[0x03, 0x2A, 0x00, 7];
 
-        let packet = Market::decode(PacketKind::BrowseMarket, &mut payload)
+        let packet = BrowseMarket::decode(PacketKind::BrowseMarket, &mut payload)
             .expect("BrowseMarket packets should decode item tiers when present");
 
         assert_eq!(packet.id, 0x03);

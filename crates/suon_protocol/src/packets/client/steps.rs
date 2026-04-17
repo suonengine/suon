@@ -1,4 +1,4 @@
-//! Client multi-step packet.
+//! Client steps packet.
 
 use suon_position::direction::Direction;
 
@@ -6,7 +6,7 @@ use crate::packets::decoder::Decoder;
 
 use super::prelude::*;
 
-/// Packet sent by the client to request a multi-step path.
+/// Packet sent by the client to request a steps path.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Steps {
     /// Ordered path requested by the client.

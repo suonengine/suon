@@ -3,16 +3,6 @@
 use super::prelude::*;
 
 /// Packet sent by the client to cancel an active step sequence without payload data.
-///
-/// # Examples
-/// ```
-/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::CancelSteps};
-///
-/// let mut payload: &[u8] = &[];
-/// let packet = CancelSteps::decode(PacketKind::CancelSteps, &mut payload).unwrap();
-///
-/// assert!(matches!(packet, CancelSteps));
-/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CancelSteps;
 

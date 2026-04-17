@@ -5,21 +5,6 @@ use crate::packets::decoder::Decoder;
 use suon_position::{floor::Floor, position::Position};
 
 /// Packet sent by the client to request the description of an object or creature at a map position.
-///
-/// # Examples
-/// ```rust
-/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::LookAt};
-///
-/// let mut payload: &[u8] = &[1, 0, 2, 0, 7, 0x34, 0x12, 3];
-/// let packet = LookAt::decode(PacketKind::LookAt, &mut payload).unwrap();
-///
-/// assert_eq!(packet.position.x, 1);
-/// assert_eq!(packet.position.y, 2);
-/// assert_eq!(packet.floor.z, 7);
-/// assert_eq!(packet.item_id, 0x1234);
-/// assert_eq!(packet.stack_position, 3);
-/// assert!(payload.is_empty());
-/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LookAt {
     /// Map coordinates of the tile being inspected.

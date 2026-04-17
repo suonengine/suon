@@ -3,16 +3,6 @@
 use super::prelude::*;
 
 /// Packet sent by the client to log out without payload data.
-///
-/// # Examples
-/// ```
-/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::Logout};
-///
-/// let mut payload: &[u8] = &[];
-/// let packet = Logout::decode(PacketKind::Logout, &mut payload).unwrap();
-///
-/// assert!(matches!(packet, Logout));
-/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Logout;
 

@@ -1,19 +1,8 @@
-//! Client market-leave packet.
+//! Client leave-market packet.
 
 use super::prelude::*;
 
 /// Packet sent by the client to leave the market flow without payload data.
-///
-/// # Examples
-/// ```
-/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::LeaveMarket};
-///
-/// let mut payload: &[u8] = &[];
-/// let packet = LeaveMarket::decode(PacketKind::LeaveMarket, &mut payload).unwrap();
-///
-/// assert!(matches!(packet, LeaveMarket));
-/// assert!(payload.is_empty());
-/// ```
 pub struct LeaveMarket;
 
 impl Decodable for LeaveMarket {

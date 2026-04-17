@@ -36,7 +36,7 @@ mod tests {
         let mut payload: &[u8] = &[3, 0x78, 0x56, 0x34, 0x12, 1];
 
         let packet = AddImbuement::decode(PacketKind::AddImbuement, &mut payload)
-            .expect("ApplyImbuement packets should decode slot, imbuement id, and protection flag");
+            .expect("AddImbuement packets should decode slot, imbuement id, and protection flag");
 
         assert_eq!(packet.slot, 3);
         assert_eq!(packet.imbuement_id, 0x12345678);

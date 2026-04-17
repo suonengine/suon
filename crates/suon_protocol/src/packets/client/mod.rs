@@ -3,7 +3,8 @@ use thiserror::Error;
 mod accept_market_offer;
 mod accept_trade_offer;
 mod add_imbuement;
-mod aim_at_target_spell;
+mod aim_at_target;
+mod browse_market;
 mod buddy_group_action;
 mod bug_report;
 mod buy_charm_rune;
@@ -12,7 +13,6 @@ mod cancel_market_offer;
 mod cancel_rule_violation;
 mod cancel_steps;
 mod cancel_target_and_trail;
-mod change_map_aware_range;
 mod change_podium;
 mod change_shared_party_experience;
 mod channels;
@@ -35,10 +35,12 @@ mod equip_item;
 mod exiva_restrictions;
 mod extended_opcode;
 mod face;
+mod fight_modes;
 mod forge_action;
 mod forge_history;
 mod friend_system_action;
 mod get_reward_daily;
+mod imbuements;
 mod inspect_item_details;
 mod inspect_object;
 mod inspect_offer;
@@ -61,9 +63,10 @@ mod look_at;
 mod look_in_battle_list;
 mod look_in_npc_shop;
 mod loot_container;
-mod market;
+mod map_aware_range;
 mod member_finder_action;
 mod modal_window_answer;
+mod mount;
 mod move_up_container;
 mod offer_trade;
 mod open_bestiary;
@@ -104,7 +107,6 @@ mod seek_in_container;
 mod sell_npc_shop;
 mod server_name;
 mod set_monster_podium;
-mod set_mount_state;
 mod set_typing_state;
 mod stash_action;
 mod step;
@@ -121,8 +123,6 @@ mod trail;
 mod transaction_history;
 mod transfer_coins;
 mod update_buddy;
-mod update_fight_modes;
-mod update_inventory_imbuements;
 mod update_monster_tracker;
 mod update_outfit;
 mod use_item;
@@ -137,8 +137,9 @@ pub mod prelude {
         accept_market_offer::AcceptMarketOffer,
         accept_trade_offer::AcceptTradeOffer,
         add_imbuement::AddImbuement,
-        aim_at_target_spell::AimAtTarget,
-        buddy_group_action::{BuddyGroupAction, BuddyGroupActionKind},
+        aim_at_target::AimAtTarget,
+        browse_market::BrowseMarket,
+        buddy_group_action::{BuddyGroup, BuddyGroupActionKind},
         bug_report::BugReport,
         buy_charm_rune::BuyCharmRune,
         buy_store_offer::BuyStoreOffer,
@@ -146,18 +147,17 @@ pub mod prelude {
         cancel_rule_violation::CancelRuleViolation,
         cancel_steps::CancelSteps,
         cancel_target_and_trail::CancelTargetAndTrail,
-        change_map_aware_range::ChangeMapAwareRange,
         change_podium::ChangePodium,
         change_shared_party_experience::ChangeSharedPartyExperience,
         channels::Channels,
-        character::{Character, Kind},
-        clear_imbuement::ClearImbuement,
+        character::{CharacterInfo, Kind},
+        clear_imbuement::RemoveImbuement,
         close_container::CloseContainer,
         close_imbuing_window::CloseImbuingWindow,
         close_rule_violation::CloseRuleViolation,
         close_trade::CloseTrade,
         collect_reward_chest::CollectRewardChest,
-        configure_boss_slot::ConfigureBossSlot,
+        configure_boss_slot::Bosstiary,
         create_buddy::CreateBuddy,
         create_market_offer::{CreateMarketOffer, MarketOfferKind},
         create_private_channel::CreatePrivateChannel,
@@ -169,10 +169,12 @@ pub mod prelude {
         exiva_restrictions::ExivaRestrictions,
         extended_opcode::ExtendedOpcode,
         face::Face,
+        fight_modes::{ChaseMode, FightMode, FightModes, SecureMode},
         forge_action::{ForgeAction, ForgeActionKind},
         forge_history::ForgeHistory,
         friend_system_action::FriendSystemAction,
         get_reward_daily::{DailyRewardItem, GetRewardDaily},
+        imbuements::Imbuements,
         inspect_item_details::InspectItemDetails,
         inspect_object::{InspectObject, InspectObjectKind},
         inspect_offer::InspectOffer,
@@ -192,17 +194,17 @@ pub mod prelude {
         leave_npc_shop::LeaveNpcShop,
         leave_party::LeaveParty,
         login::{
-            LatestLogin, LatestLoginCredentials, LatestLoginHeader, Login, LoginBlockDecoder,
-            LoginDecodeError,
+            DecryptedLogin, Login, LoginCredentials, LoginDecodeError, LoginDecoder, LoginHeader,
         },
         logout::Logout,
         look_at::LookAt,
         look_in_battle_list::LookInBattleList,
         look_in_npc_shop::LookInNpcShop,
         loot_container::{LootContainer, LootContainerAction},
-        market::Market,
+        map_aware_range::MapAwareRange,
         member_finder_action::{MemberFinderAction, MemberFinderActionKind},
         modal_window_answer::ModalWindowAnswer,
+        mount::Mount,
         move_up_container::MoveUpContainer,
         offer_trade::OfferTrade,
         open_bestiary::OpenBestiary,
@@ -243,7 +245,6 @@ pub mod prelude {
         sell_npc_shop::SellNpcShop,
         server_name::ServerName,
         set_monster_podium::SetMonsterPodium,
-        set_mount_state::SetMountState,
         set_typing_state::SetTypingState,
         stash_action::{StashAction, StashActionKind},
         step::Step,
@@ -260,8 +261,6 @@ pub mod prelude {
         transaction_history::{Format, TransactionHistory},
         transfer_coins::TransferCoins,
         update_buddy::UpdateBuddy,
-        update_fight_modes::{ChaseMode, FightMode, SecureMode, UpdateFightModes},
-        update_inventory_imbuements::UpdateInventoryImbuements,
         update_monster_tracker::UpdateMonsterTracker,
         update_outfit::{
             OutfitAppearance, OutfitMountAppearance, OutfitPreviewDetails, OutfitWindowDetails,
@@ -366,12 +365,12 @@ pub enum PacketKind {
     /// Sends an extended opcode payload.
     ExtendedOpcode = 50,
     /// Updates the map-aware range dimensions requested by the client.
-    ChangeMapAwareRange = 51,
+    MapAwareRange = 51,
     /// Updates the typing-indicator state.
     SetTypingState = 56,
 
     /// Updates the inventory imbuement tracker state.
-    UpdateInventoryImbuements = 96,
+    Imbuements = 96,
     /// Opens the wheel window for a given owner.
     OpenWheel = 97,
     /// Saves the wheel state payload.
@@ -432,7 +431,7 @@ pub enum PacketKind {
     /// Inspects one item entry from the trade payload.
     InspectTrade = 126,
     /// Accepts the current trade.
-    AcceptTrade = 127,
+    AcceptTradeOffer = 127,
     /// Closes the current trade.
     CloseTrade = 128,
     /// Performs a friend-system action.
@@ -494,7 +493,7 @@ pub enum PacketKind {
     /// Configures a monster podium entry.
     SetMonsterPodium = 159,
     /// Changes fight modes.
-    UpdateFightModes = 160,
+    FightModes = 160,
     /// Targets a creature for attack.
     Target = 161,
     /// Trails a creature.
@@ -507,7 +506,7 @@ pub enum PacketKind {
     /// Updates a buddy entry.
     UpdateBuddy = 222,
     /// Updates buddy groups.
-    BuddyGroupAction = 223,
+    BuddyGroup = 223,
     /// Opens the bestiary main data view.
     OpenBestiary = 225,
     /// Opens the bestiary overview.
@@ -517,7 +516,7 @@ pub enum PacketKind {
     /// Buys or assigns a charm rune.
     BuyCharmRune = 228,
     /// Browses cyclopedia character information.
-    BrowseCharacterInfo = 229,
+    BrowseCharacter = 229,
     /// Reports a bug.
     BugReport = 230,
     /// Sends a wheel gem action payload.
@@ -560,7 +559,7 @@ pub enum PacketKind {
     /// Queries bosstiary slot information.
     QueryBossSlotInfo = 175,
     /// Configures a bosstiary boss slot.
-    ConfigureBossSlot = 176,
+    Bosstiary = 176,
     /// Queries highscores data.
     QueryHighscores = 177,
     /// Performs a task-hunting action.
@@ -571,13 +570,13 @@ pub enum PacketKind {
     /// Performs a forge action.
     ForgeAction = 191,
     /// Browses forge history.
-    BrowseForgeHistory = 192,
+    ForgeHistory = 192,
     /// Updates target-aim spell bindings.
     AimAtTarget = 200,
     /// Updates exiva restrictions in no-pvp worlds.
     ExivaRestrictions = 202,
     /// Browses a field.
-    BrowseField = 203,
+    BrowseTile = 203,
     /// Seeks to an index inside a container.
     SeekInContainer = 204,
     /// Inspects an object from the map, trade, or cyclopedia.
@@ -591,11 +590,11 @@ pub enum PacketKind {
     /// Changes outfit or podium appearance.
     UpdateOutfit = 211,
     /// Enables or disables the current mount state.
-    SetMountState = 212,
+    Mount = 212,
     /// Adds an imbuement to a slot.
     AddImbuement = 213,
     /// Clears an imbuement slot.
-    ClearImbuement = 214,
+    RemoveImbuement = 214,
     /// Closes the imbuing window.
     CloseImbuingWindow = 215,
     /// Opens the reward wall.
@@ -657,12 +656,12 @@ impl TryFrom<u8> for PacketKind {
             44 => Ok(Self::LeaderFinderAction),
             45 => Ok(Self::MemberFinderAction),
             50 => Ok(Self::ExtendedOpcode),
-            51 => Ok(Self::ChangeMapAwareRange),
+            51 => Ok(Self::MapAwareRange),
             56 => Ok(Self::SetTypingState),
 
             29 => Ok(Self::PingLatency),
             30 => Ok(Self::KeepAlive),
-            96 => Ok(Self::UpdateInventoryImbuements),
+            96 => Ok(Self::Imbuements),
             97 => Ok(Self::OpenWheel),
             98 => Ok(Self::SaveWheel),
             119 => Ok(Self::EquipItem),
@@ -691,7 +690,7 @@ impl TryFrom<u8> for PacketKind {
 
             125 => Ok(Self::OfferTrade),
             126 => Ok(Self::InspectTrade),
-            127 => Ok(Self::AcceptTrade),
+            127 => Ok(Self::AcceptTradeOffer),
             128 => Ok(Self::CloseTrade),
             129 => Ok(Self::FriendSystemAction),
             130 => Ok(Self::UseItem),
@@ -721,7 +720,7 @@ impl TryFrom<u8> for PacketKind {
             157 => Ok(Self::CancelRuleViolation),
             158 => Ok(Self::LeaveNpcChannel),
             159 => Ok(Self::SetMonsterPodium),
-            160 => Ok(Self::UpdateFightModes),
+            160 => Ok(Self::FightModes),
             161 => Ok(Self::Target),
             162 => Ok(Self::Trail),
 
@@ -738,24 +737,24 @@ impl TryFrom<u8> for PacketKind {
             173 => Ok(Self::CyclopediaHouseAuction),
             174 => Ok(Self::OpenBosstiary),
             175 => Ok(Self::QueryBossSlotInfo),
-            176 => Ok(Self::ConfigureBossSlot),
+            176 => Ok(Self::Bosstiary),
             177 => Ok(Self::QueryHighscores),
             186 => Ok(Self::TaskHuntingAction),
             190 => Ok(Self::CancelTargetAndTrail),
             191 => Ok(Self::ForgeAction),
-            192 => Ok(Self::BrowseForgeHistory),
+            192 => Ok(Self::ForgeHistory),
             200 => Ok(Self::AimAtTarget),
             202 => Ok(Self::ExivaRestrictions),
-            203 => Ok(Self::BrowseField),
+            203 => Ok(Self::BrowseTile),
             204 => Ok(Self::SeekInContainer),
             205 => Ok(Self::InspectObject),
             207 => Ok(Self::OpenBlessDialog),
             208 => Ok(Self::OpenTrackedQuestLog),
             210 => Ok(Self::OpenOutfitDialog),
             211 => Ok(Self::UpdateOutfit),
-            212 => Ok(Self::SetMountState),
+            212 => Ok(Self::Mount),
             213 => Ok(Self::AddImbuement),
-            214 => Ok(Self::ClearImbuement),
+            214 => Ok(Self::RemoveImbuement),
             215 => Ok(Self::CloseImbuingWindow),
             216 => Ok(Self::OpenRewardWall),
             217 => Ok(Self::OpenRewardHistory),
@@ -765,12 +764,12 @@ impl TryFrom<u8> for PacketKind {
             220 => Ok(Self::CreateBuddy),
             221 => Ok(Self::DeleteBuddy),
             222 => Ok(Self::UpdateBuddy),
-            223 => Ok(Self::BuddyGroupAction),
+            223 => Ok(Self::BuddyGroup),
             225 => Ok(Self::OpenBestiary),
             226 => Ok(Self::OpenBestiaryOverview),
             227 => Ok(Self::SearchBestiary),
             228 => Ok(Self::BuyCharmRune),
-            229 => Ok(Self::BrowseCharacterInfo),
+            229 => Ok(Self::BrowseCharacter),
             230 => Ok(Self::BugReport),
             231 => Ok(Self::WheelGem),
             232 => Ok(Self::InspectOffer),

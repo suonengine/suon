@@ -30,7 +30,7 @@ mod tests {
     #[test]
     fn should_decode_browse_field() {
         let mut payload: &[u8] = &[1, 0, 2, 0, 7];
-        let packet = Tile::decode(PacketKind::BrowseField, &mut payload)
+        let packet = Tile::decode(PacketKind::BrowseTile, &mut payload)
             .expect("BrowseField packets should decode a full tile position");
 
         assert_eq!(packet.position, Position { x: 1, y: 2 });

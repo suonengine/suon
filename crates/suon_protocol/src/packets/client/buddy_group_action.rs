@@ -30,12 +30,12 @@ pub enum BuddyGroupActionKind {
 
 /// Packet sent by the client to manage buddy groups.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BuddyGroupAction {
+pub struct BuddyGroup {
     /// Group-management action requested by the client.
     pub action: BuddyGroupActionKind,
 }
 
-impl Decodable for BuddyGroupAction {
+impl Decodable for BuddyGroup {
     fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let action = match bytes.get_u8()? {
             1 => BuddyGroupActionKind::Create {
@@ -68,7 +68,7 @@ mod tests {
     fn should_decode_create_buddy_group() {
         let mut payload: &[u8] = &[1, 4, 0, b'T', b'e', b'a', b'm'];
 
-        let packet = BuddyGroupAction::decode(PacketKind::BuddyGroupAction, &mut payload)
+        let packet = BuddyGroup::decode(PacketKind::BuddyGroup, &mut payload)
             .expect("BuddyGroupAction packets should decode group creation");
 
         assert_eq!(
@@ -84,7 +84,7 @@ mod tests {
     fn should_decode_remove_buddy_group() {
         let mut payload: &[u8] = &[3, 8];
 
-        let packet = BuddyGroupAction::decode(PacketKind::BuddyGroupAction, &mut payload)
+        let packet = BuddyGroup::decode(PacketKind::BuddyGroup, &mut payload)
             .expect("BuddyGroupAction packets should decode group removal");
 
         assert_eq!(packet.action, BuddyGroupActionKind::Remove { group_id: 8 });
@@ -95,7 +95,7 @@ mod tests {
     fn should_decode_rename_buddy_group() {
         let mut payload: &[u8] = &[2, 8, 3, 0, b'R', b'a', b'i'];
 
-        let packet = BuddyGroupAction::decode(PacketKind::BuddyGroupAction, &mut payload)
+        let packet = BuddyGroup::decode(PacketKind::BuddyGroup, &mut payload)
             .expect("BuddyGroupAction packets should decode group rename requests");
 
         assert_eq!(
@@ -112,7 +112,7 @@ mod tests {
     fn should_reject_unknown_buddy_group_action() {
         let mut payload: &[u8] = &[9];
 
-        let error = BuddyGroupAction::decode(PacketKind::BuddyGroupAction, &mut payload)
+        let error = BuddyGroup::decode(PacketKind::BuddyGroup, &mut payload)
             .expect_err("BuddyGroupAction packets should reject unsupported actions");
 
         assert!(matches!(

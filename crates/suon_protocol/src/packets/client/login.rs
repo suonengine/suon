@@ -19,7 +19,7 @@ pub struct Login {
 
 /// Decoded fixed header used by the login packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LatestLoginHeader {
+pub struct LoginHeader {
     /// Client operating system identifier.
     pub operating_system: u16,
 
@@ -41,7 +41,7 @@ pub struct LatestLoginHeader {
 
 /// Decrypted RSA block used by the login packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LatestLoginCredentials {
+pub struct LoginCredentials {
     /// First RSA byte, expected to be zero.
     pub leading_zero: u8,
 
@@ -67,14 +67,14 @@ pub struct LatestLoginCredentials {
     pub extended_data: Option<String>,
 }
 
-/// Fully decoded latest-version login packet.
+/// Fully decoded version login packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LatestLogin {
+pub struct DecryptedLogin {
     /// Plain, non-encrypted login header.
-    pub header: LatestLoginHeader,
+    pub header: LoginHeader,
 
     /// Decoded RSA-protected credentials block.
-    pub credentials: LatestLoginCredentials,
+    pub credentials: LoginCredentials,
 }
 
 /// Abstraction used by `Login` to decrypt the RSA-protected login block.
@@ -82,7 +82,7 @@ pub struct LatestLogin {
 /// The login packet does not carry an additional XTEA-encrypted
 /// inner block. Instead, the decrypted RSA payload contains the XTEA key that
 /// becomes active for packets sent after the login handshake completes.
-pub trait LoginBlockDecoder {
+pub trait LoginDecoder {
     /// Decrypts the encrypted login block and returns the resulting plaintext.
     fn decode_login_block(&self, encrypted_block: &[u8]) -> Result<Vec<u8>, LoginDecodeError>;
 }
@@ -116,13 +116,13 @@ impl Login {
     ///
     /// 1. plain header fields
     /// 2. RSA-encrypted block containing XTEA key and credentials
-    pub fn decode_latest<D>(&self, block_decoder: &D) -> Result<LatestLogin, LoginDecodeError>
+    pub fn decrypt<D>(&self, decoder: &D) -> Result<DecryptedLogin, LoginDecodeError>
     where
-        D: LoginBlockDecoder,
+        D: LoginDecoder,
     {
         let mut bytes = self.payload.as_slice();
 
-        let header = LatestLoginHeader {
+        let header = LoginHeader {
             operating_system: (&mut bytes).get_u16()?,
             protocol_version: (&mut bytes).get_u16()?,
             client_version: (&mut bytes).get_u32()?,
@@ -132,7 +132,7 @@ impl Login {
         };
 
         let encrypted_block = bytes;
-        let decrypted_block = block_decoder.decode_login_block(encrypted_block)?;
+        let decrypted_block = decoder.decode_login_block(encrypted_block)?;
         let mut decrypted = decrypted_block.as_slice();
 
         let leading_zero = (&mut decrypted).get_u8()?;
@@ -143,7 +143,7 @@ impl Login {
             });
         }
 
-        let credentials = LatestLoginCredentials {
+        let credentials = LoginCredentials {
             leading_zero,
             xtea_key: [
                 (&mut decrypted).get_u32()?,
@@ -163,7 +163,7 @@ impl Login {
             },
         };
 
-        Ok(LatestLogin {
+        Ok(DecryptedLogin {
             header,
             credentials,
         })
@@ -184,7 +184,7 @@ mod tests {
 
     struct PassthroughBlockDecoder;
 
-    impl LoginBlockDecoder for PassthroughBlockDecoder {
+    impl LoginDecoder for PassthroughBlockDecoder {
         fn decode_login_block(&self, encrypted_block: &[u8]) -> Result<Vec<u8>, LoginDecodeError> {
             Ok(encrypted_block.to_vec())
         }
@@ -214,8 +214,8 @@ mod tests {
             .expect("Login packets should preserve the wire payload before contextual decoding");
 
         let decoded = packet
-            .decode_latest(&PassthroughBlockDecoder)
-            .expect("decode_latest should parse the login layout");
+            .decrypt(&PassthroughBlockDecoder)
+            .expect("decrypt should parse the login layout");
 
         assert_eq!(decoded.header.operating_system, 0x1234);
         assert_eq!(decoded.header.protocol_version, 0x5678);
@@ -241,8 +241,8 @@ mod tests {
         };
 
         let error = packet
-            .decode_latest(&PassthroughBlockDecoder)
-            .expect_err("decode_latest should reject unexpected leading RSA markers");
+            .decrypt(&PassthroughBlockDecoder)
+            .expect_err("decrypt should reject unexpected leading RSA markers");
 
         assert!(matches!(
             error,

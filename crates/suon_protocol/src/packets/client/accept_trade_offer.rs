@@ -20,13 +20,13 @@ mod tests {
     fn should_decode_accept_trade_from_empty_payload() {
         let mut payload: &[u8] = &[];
 
-        let packet = AcceptTradeOffer::decode(PacketKind::AcceptTrade, &mut payload)
-            .expect("AcceptTrade packets should decode without payload bytes");
+        let packet = AcceptTradeOffer::decode(PacketKind::AcceptTradeOffer, &mut payload)
+            .expect("AcceptTradeOffer packets should decode without payload bytes");
 
         assert!(matches!(packet, AcceptTradeOffer));
         assert!(
             payload.is_empty(),
-            "AcceptTrade decoding should not consume any payload bytes"
+            "AcceptTradeOffer decoding should not consume any payload bytes"
         );
     }
 }

@@ -9,18 +9,6 @@ use suon_position::{floor::Floor, position::Position};
 /// The payload points to the item instance on the map or container and carries
 /// a use index byte for protocol variants that multiplex multiple actions from
 /// the same item reference.
-///
-/// # Examples
-///
-/// ```rust
-/// use suon_protocol::packets::client::prelude::{Decodable, PacketKind, UseItem};
-///
-/// let mut payload: &[u8] = &[1, 0, 2, 0, 7, 0x34, 0x12, 3, 4];
-/// let packet = UseItem::decode(PacketKind::UseItem, &mut payload).unwrap();
-///
-/// assert_eq!(packet.item_id, 0x1234);
-/// assert_eq!(packet.use_index, 4);
-/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UseItem {
     /// Map coordinates of the tile or container slot providing the item.

@@ -72,7 +72,7 @@ impl TryFrom<u8> for Kind {
 
 /// Packet sent by the client to browse cyclopedia character information.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Character {
+pub struct CharacterInfo {
     /// Character id selected by the client.
     pub character_id: u32,
 
@@ -86,7 +86,7 @@ pub struct Character {
     pub page: Option<u16>,
 }
 
-impl Decodable for Character {
+impl Decodable for CharacterInfo {
     fn decode(_: PacketKind, mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let character_id = bytes.get_u32()?;
         let info_kind = Kind::try_from(bytes.get_u8()?)?;
@@ -114,7 +114,7 @@ mod tests {
     fn should_decode_paginated_character_info_browse() {
         let mut payload: &[u8] = &[0x78, 0x56, 0x34, 0x12, 3, 10, 0, 2, 0];
 
-        let packet = Character::decode(PacketKind::BrowseCharacterInfo, &mut payload)
+        let packet = CharacterInfo::decode(PacketKind::BrowseCharacter, &mut payload)
             .expect("BrowseCharacterInfo packets should decode paginated sections");
 
         assert_eq!(packet.character_id, 0x12345678);
@@ -128,7 +128,7 @@ mod tests {
     fn should_decode_non_paginated_character_info_browse() {
         let mut payload: &[u8] = &[0x78, 0x56, 0x34, 0x12, 9];
 
-        let packet = Character::decode(PacketKind::BrowseCharacterInfo, &mut payload)
+        let packet = CharacterInfo::decode(PacketKind::BrowseCharacter, &mut payload)
             .expect("BrowseCharacterInfo packets should decode non-paginated sections");
 
         assert_eq!(packet.kind, Kind::Inspection);
@@ -141,7 +141,7 @@ mod tests {
     fn should_reject_unknown_character_info_kind() {
         let mut payload: &[u8] = &[0x78, 0x56, 0x34, 0x12, 99];
 
-        let error = Character::decode(PacketKind::BrowseCharacterInfo, &mut payload)
+        let error = CharacterInfo::decode(PacketKind::BrowseCharacter, &mut payload)
             .expect_err("BrowseCharacterInfo packets should reject unknown section kinds");
 
         assert!(matches!(

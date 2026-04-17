@@ -1,4 +1,4 @@
-//! Client market-accept-offer packet.
+//! Client accept-market-offer packet.
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
