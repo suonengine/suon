@@ -63,6 +63,13 @@
       "problemMatcher": "$rustc"
     },
     {
+      "label": "Check documentation (rustdoc)",
+      "type": "shell",
+      "command": "cargo doc --workspace --no-deps -D warnings",
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": "$rustc"
+    },
+    {
       "label": "Run all CI checks",
       "dependsOn": [
         "Check formatting (rustfmt)",
@@ -71,6 +78,7 @@
         "Check lints (clippy)",
         "Build workspace",
         "Run tests (nextest)",
+        "Check documentation (rustdoc)",
         "Check unused dependencies (udeps)",
         "Check undefined behavior (miri)"
       ],
