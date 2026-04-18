@@ -148,13 +148,6 @@ pub struct TriggerAccessor {
     pub fire: fn(Entity, &mut World, Json),
 }
 
-impl LuaScope<'_, '_> {
-    #[cfg(test)]
-    pub(crate) fn eval<T: mlua::FromLua>(&self, expression: &str) -> mlua::Result<T> {
-        self.lua.load(expression).eval::<T>()
-    }
-}
-
 /// Bevy resource that maps Lua-visible names to component and trigger accessors.
 ///
 /// Components are registered automatically the first time a [`crate::LuaComponent`] is
@@ -207,8 +200,9 @@ mod tests {
         scope
             .execute("result = 1 + 2")
             .expect("lua exec should succeed");
-        let result: i64 = scope.eval("result").expect("eval should return integer");
-        assert_eq!(result, 3);
+        scope
+            .execute("assert(result == 3)")
+            .expect("lua assertion should succeed");
     }
 
     #[test]
@@ -247,12 +241,9 @@ mod tests {
         scope
             .call_hook(entity, "function Entity:onTick() ran = true end", "onTick")
             .expect("hook should execute without error");
-
-        assert!(
-            scope
-                .eval::<bool>("ran == true")
-                .expect("eval should return bool")
-        );
+        scope
+            .execute("assert(ran == true)")
+            .expect("lua assertion should succeed");
     }
 
     #[test]
@@ -265,12 +256,9 @@ mod tests {
         scope
             .call_hook(entity, "function onTick(entity) ran = true end", "onTick")
             .expect("hook should execute without error");
-
-        assert!(
-            scope
-                .eval::<bool>("ran == true")
-                .expect("eval should return bool")
-        );
+        scope
+            .execute("assert(ran == true)")
+            .expect("lua assertion should succeed");
     }
 
     #[test]
@@ -299,13 +287,9 @@ mod tests {
         scope
             .call_hook(entity, source, "onTick")
             .expect("hook should execute without error");
-
-        assert_eq!(
-            scope
-                .eval::<String>("style")
-                .expect("eval should return string"),
-            "method"
-        );
+        scope
+            .execute("assert(style == 'method')")
+            .expect("lua assertion should succeed");
     }
 
     #[test]
@@ -323,10 +307,9 @@ mod tests {
             )
             .expect("hook should execute without error");
 
-        let received_id: i64 = scope
-            .eval("received_id")
-            .expect("eval should return integer");
-        assert_eq!(received_id, entity.to_bits() as i64);
+        scope
+            .execute(&format!("assert(received_id == {})", entity.to_bits()))
+            .expect("lua assertion should succeed");
     }
 
     #[test]
@@ -345,12 +328,9 @@ mod tests {
             .execute("counter = counter + 1")
             .expect("lua exec should succeed");
 
-        assert_eq!(
-            scope
-                .eval::<i64>("counter")
-                .expect("eval should return integer"),
-            2
-        );
+        scope
+            .execute("assert(counter == 2)")
+            .expect("lua assertion should succeed");
     }
 
     #[test]
@@ -387,8 +367,10 @@ mod tests {
         let mut world = setup_world();
 
         runtime.scope(&mut world).execute("x = 42").unwrap();
-        let val: i64 = runtime.scope(&mut world).eval("x").unwrap();
-        assert_eq!(val, 42);
+        runtime
+            .scope(&mut world)
+            .execute("assert(x == 42)")
+            .expect("lua assertion should succeed");
     }
 
     #[test]

@@ -96,14 +96,6 @@ mod tests {
         world
     }
 
-    fn read_lua_global<T: mlua::FromLua>(world: &mut World, expression: &str) -> T {
-        LuaRuntime::take_scope(world, |runtime, world| {
-            runtime.scope(world).eval::<T>(expression)
-        })
-        .expect("LuaRuntime missing")
-        .expect("eval failed")
-    }
-
     #[test]
     fn run_lua_hook_executes_hook_on_entity_with_script() {
         let mut world = setup_world();
@@ -117,7 +109,11 @@ mod tests {
         }
         .apply(&mut world);
 
-        assert!(read_lua_global::<bool>(&mut world, "ran == true"));
+        LuaRuntime::take_scope(&mut world, |runtime, world| {
+            runtime.scope(world).execute("assert(ran == true)")
+        })
+        .expect("LuaRuntime missing")
+        .expect("lua assertion failed");
     }
 
     #[test]
@@ -167,7 +163,11 @@ mod tests {
         }
         .apply(&mut world);
 
-        assert_eq!(read_lua_global::<i64>(&mut world, "counter"), 42);
+        LuaRuntime::take_scope(&mut world, |runtime, world| {
+            runtime.scope(world).execute("assert(counter == 42)")
+        })
+        .expect("LuaRuntime missing")
+        .expect("lua assertion failed");
     }
 
     #[test]
@@ -203,10 +203,13 @@ mod tests {
         }
         .apply(&mut world);
 
-        assert_eq!(
-            read_lua_global::<String>(&mut world, "order"),
-            "first_second"
-        );
+        LuaRuntime::take_scope(&mut world, |runtime, world| {
+            runtime
+                .scope(world)
+                .execute("assert(order == 'first_second')")
+        })
+        .expect("LuaRuntime missing")
+        .expect("lua assertion failed");
     }
 
     #[test]
@@ -222,7 +225,11 @@ mod tests {
         }
         .apply(&mut world);
 
-        assert!(read_lua_global::<bool>(&mut world, "after_error == true"));
+        LuaRuntime::take_scope(&mut world, |runtime, world| {
+            runtime.scope(world).execute("assert(after_error == true)")
+        })
+        .expect("LuaRuntime missing")
+        .expect("lua assertion failed");
     }
 
     #[test]
@@ -242,9 +249,12 @@ mod tests {
         }
         .apply(&mut world);
 
-        assert!(read_lua_global::<bool>(
-            &mut world,
-            "after_hook_error == true"
-        ));
+        LuaRuntime::take_scope(&mut world, |runtime, world| {
+            runtime
+                .scope(world)
+                .execute("assert(after_hook_error == true)")
+        })
+        .expect("LuaRuntime missing")
+        .expect("lua assertion failed");
     }
 }
