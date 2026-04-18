@@ -1,13 +1,43 @@
 # Package
 [package]
+# Crates.io entry point for the workspace.
 name = "suon"
 version.workspace = true
 edition.workspace = true
+
+# Minimum supported Rust version for this crate.
+rust-version = "1.85"
+authors.workspace = true
+license.workspace = true
 repository.workspace = true
 
+# Project links shown on crates.io and docs.rs.
+homepage = "https://github.com/suonengine/suon"
+documentation = "https://docs.rs/suon"
+
+# Short crates.io summary describing what the package is.
+description = "An MMORPG server framework in Rust"
+readme = "README.md"
+
+# Discovery metadata used by crates.io search and category pages.
+keywords = ["mmorpg", "server", "bevy", "game", "ecs"]
+categories = ["game-development", "network-programming"]
+
 [dependencies]
+# External crates used directly by the root umbrella crate.
+anyhow.workspace = true
 bevy.workspace = true
+serde = { workspace = true, features = ["derive"] }
+toml = { workspace = true, features = ["parse", "display", "serde"] }
+
+# Internal Suon crates re-exported or composed by the root crate.
+suon_chunk.workspace = true
+suon_lua.workspace = true
+suon_movement.workspace = true
 suon_network.workspace = true
+suon_observability.workspace = true
+suon_position.workspace = true
+suon_task.workspace = true
 
 # Workspace
 [workspace]
@@ -15,18 +45,24 @@ resolver = "2"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.1.0-dev"
+# Shared package metadata inherited by workspace crates where applicable.
+version = "0.1.0"
 edition = "2024"
-license = "MIT"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
 authors = ["Ramon Bernardo <ramonbernardo.contato@gmail.com>"]
 repository = "https://github.com/suonengine/suon"
+homepage = "https://github.com/suonengine/suon"
+documentation = "https://docs.rs/suon"
 
 [workspace.lints.rust]
+# Baseline lint policy shared across the workspace.
 unsafe_op_in_unsafe_fn = "deny"
 unused_lifetimes = "warn"
 unused_attributes = "warn"
 
 [workspace.dependencies]
+# Shared third-party dependencies.
 anyhow = { version = "1.0", default-features = false }
 bevy = { version = "0.18", default-features = false, features = [
   "multi_threaded",
@@ -52,48 +88,41 @@ thiserror = { version = "2.0", default-features = false }
 tokio = { version = "1.52", default-features = false }
 toml = { version = "1.1", default-features = false }
 
-suon_checksum = { path = "crates/suon_checksum" }
-suon_database = { path = "crates/suon_database" }
-suon_macros = { path = "crates/suon_macros" }
-suon_movement = { path = "crates/suon_movement" }
-suon_network = { path = "crates/suon_network" }
-suon_protocol = { path = "crates/suon_protocol" }
-suon_serde = { path = "crates/suon_serde" }
-suon_task = { path = "crates/suon_task" }
-suon_chunk = { path = "crates/suon_chunk" }
-suon_position = { path = "crates/suon_position" }
-suon_xtea = { path = "crates/suon_xtea" }
-suon_lua = { path = "crates/suon_lua" }
+# Shared internal crates.
+# Keep `version` alongside `path` so the workspace is closer to crates.io publishing.
+suon_checksum = { version = "0.1.0", path = "crates/suon_checksum" }
+suon_database = { version = "0.1.0", path = "crates/suon_database" }
+suon_macros = { version = "0.1.0", path = "crates/suon_macros" }
+suon_movement = { version = "0.1.0", path = "crates/suon_movement" }
+suon_network = { version = "0.1.0", path = "crates/suon_network" }
+suon_observability = { version = "0.1.0", path = "crates/suon_observability" }
+suon_protocol = { version = "0.1.0", path = "crates/suon_protocol" }
+suon_serde = { version = "0.1.0", path = "crates/suon_serde" }
+suon_task = { version = "0.1.0", path = "crates/suon_task" }
+suon_chunk = { version = "0.1.0", path = "crates/suon_chunk" }
+suon_position = { version = "0.1.0", path = "crates/suon_position" }
+suon_xtea = { version = "0.1.0", path = "crates/suon_xtea" }
+suon_lua = { version = "0.1.0", path = "crates/suon_lua" }
 
 [profile.dev]
-# Use a small amount of optimization to keep compile times fast during development
+# Light optimization keeps debug builds responsive without being fully unoptimized.
 opt-level = 1
 
 [profile.dev.package."*"]
-# Use maximum optimization to improve dependency performance
+# Dependencies stay heavily optimized so the runtime is still usable in development.
 opt-level = 3
 
-# Release profile: increase optimization at the cost of longer compile times
 [profile.release]
-# Use maximum optimization to improve dependency performance
+# Optimize for release binaries and benchmark-style runtime performance.
 opt-level = 3
-
-# Compile the entire crate as a single unit for better optimization
-# This may slow down compilation slightly but can improve performance
+# Favor better whole-program optimization over faster release builds.
 codegen-units = 1
-
-# Enable Thin LTO (Link Time Optimization) for a second optimization pass
-# Improves runtime performance across the crate and dependencies
+# Run link-time optimization across crate boundaries.
 lto = "fat"
-
-# Immediately terminate on panic to reduce binary size and overhead
-# Removes the need for stack unwinding code
+# Abort on panic to reduce binary size and unwind overhead in release artifacts.
 panic = "abort"
-
-# Strip symbols and debug information from the binary
-# Significantly reduces the final file size for distribution
+# Strip symbols from release artifacts to keep distribution size small.
 strip = true
-
+# Disable debug info and incremental compilation in release mode.
 debug = false
-
 incremental = false

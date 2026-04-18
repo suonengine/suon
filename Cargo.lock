@@ -2979,15 +2979,24 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "suon"
-version = "0.1.0-dev"
+version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bevy",
+ "serde",
+ "suon_chunk",
+ "suon_lua",
+ "suon_movement",
  "suon_network",
+ "suon_observability",
+ "suon_position",
+ "suon_task",
+ "toml",
 ]
 
 [[package]]
 name = "suon_benches"
-version = "0.1.0-dev"
+version = "0.1.0"
 dependencies = [
  "bevy",
  "bytes",
@@ -3011,11 +3020,11 @@ dependencies = [
 
 [[package]]
 name = "suon_checksum"
-version = "0.1.0-dev"
+version = "0.1.0"
 
 [[package]]
 name = "suon_chunk"
-version = "0.1.0-dev"
+version = "0.1.0"
 dependencies = [
  "bevy",
  "enumflags2",
@@ -3024,14 +3033,14 @@ dependencies = [
 
 [[package]]
 name = "suon_database"
-version = "0.1.0-dev"
+version = "0.1.0"
 dependencies = [
  "bevy",
 ]
 
 [[package]]
 name = "suon_lua"
-version = "0.1.0-dev"
+version = "0.1.0"
 dependencies = [
  "bevy",
  "mlua",
@@ -3041,7 +3050,7 @@ dependencies = [
 
 [[package]]
 name = "suon_macros"
-version = "0.1.0-dev"
+version = "0.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3050,7 +3059,7 @@ dependencies = [
 
 [[package]]
 name = "suon_movement"
-version = "0.1.0-dev"
+version = "0.1.0"
 dependencies = [
  "bevy",
  "suon_chunk",
@@ -3059,7 +3068,7 @@ dependencies = [
 
 [[package]]
 name = "suon_network"
-version = "0.1.0-dev"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "bevy",
@@ -3081,15 +3090,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "suon_observability"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bevy",
+ "serde",
+ "toml",
+]
+
+[[package]]
 name = "suon_position"
-version = "0.1.0-dev"
+version = "0.1.0"
 dependencies = [
  "bevy",
 ]
 
 [[package]]
 name = "suon_protocol"
-version = "0.1.0-dev"
+version = "0.1.0"
 dependencies = [
  "bytes",
  "suon_position",
@@ -3098,7 +3117,7 @@ dependencies = [
 
 [[package]]
 name = "suon_serde"
-version = "0.1.0-dev"
+version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3106,14 +3125,14 @@ dependencies = [
 
 [[package]]
 name = "suon_task"
-version = "0.1.0-dev"
+version = "0.1.0"
 dependencies = [
  "bevy",
 ]
 
 [[package]]
 name = "suon_xtea"
-version = "0.1.0-dev"
+version = "0.1.0"
 dependencies = [
  "bytes",
  "thiserror 2.0.18",

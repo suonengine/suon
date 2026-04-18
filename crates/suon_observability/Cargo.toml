@@ -1,0 +1,13 @@
+[package]
+name = "suon_observability"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+bevy.workspace = true
+serde = { workspace = true, features = ["derive"] }
+toml = { workspace = true, features = ["parse", "display", "serde"] }
