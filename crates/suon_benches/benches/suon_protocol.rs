@@ -24,14 +24,12 @@ impl Encodable for BenchPacket {
     }
 }
 
-fn benchmark_encode_with_kind(c: &mut Criterion) {
-    c.bench_function("protocol/encode_with_kind", |b| {
+fn benchmark_protocol(c: &mut Criterion) {
+    let mut group = c.benchmark_group("protocol");
+
+    group.bench_function("encode_with_kind", |b| {
         b.iter(|| BenchPacket.encode_with_kind())
     });
-}
-
-fn benchmark_decode_sequence(c: &mut Criterion) {
-    let mut group = c.benchmark_group("protocol/decode_sequence");
 
     for text in ["bench", "suon-protocol", "decode-benchmark-payload"] {
         let payload = Encoder::new()
@@ -41,7 +39,7 @@ fn benchmark_decode_sequence(c: &mut Criterion) {
             .finalize();
 
         group.bench_with_input(
-            BenchmarkId::new("mixed_fields", text.len()),
+            BenchmarkId::new("decode_sequence", text.len()),
             &payload,
             |b, payload| {
                 b.iter(|| {
@@ -55,48 +53,35 @@ fn benchmark_decode_sequence(c: &mut Criterion) {
         );
     }
 
-    group.finish();
-}
-
-fn benchmark_server_keep_alive_encode(c: &mut Criterion) {
-    c.bench_function("protocol/server_keep_alive_encode", |b| {
+    group.bench_function("server_keep_alive_encode", |b| {
         b.iter(|| ServerKeepAlivePacket.encode_with_kind())
     });
-}
 
-fn benchmark_client_keep_alive_decode(c: &mut Criterion) {
-    c.bench_function("protocol/client_keep_alive_decode", |b| {
+    group.bench_function("client_keep_alive_decode", |b| {
         b.iter(|| {
             let mut payload: &[u8] = black_box(&[]);
             ClientKeepAlivePacket::decode(&mut payload)
                 .expect("Client keep-alive packets should decode without payload bytes")
         })
     });
-}
 
-fn benchmark_challenge_encode(c: &mut Criterion) {
-    let packet = ChallengePacket {
+    let challenge = ChallengePacket {
         timestamp: UNIX_EPOCH + Duration::from_secs(1_234_567),
         random_number: 42,
     };
-
-    c.bench_function("protocol/challenge_encode", |b| {
+    group.bench_function("challenge_encode", |b| {
         b.iter(|| {
             black_box(ChallengePacket {
-                timestamp: packet.timestamp,
-                random_number: packet.random_number,
+                timestamp: challenge.timestamp,
+                random_number: challenge.random_number,
             })
             .encode_with_kind()
         })
     });
-}
-
-fn benchmark_encoder_roundtrip(c: &mut Criterion) {
-    let mut group = c.benchmark_group("protocol/encoder_roundtrip");
 
     for payload_size in [8usize, 64usize, 512usize] {
         group.bench_with_input(
-            BenchmarkId::new("put_bytes_then_take_remaining", payload_size),
+            BenchmarkId::new("encoder_roundtrip", payload_size),
             &payload_size,
             |b, &payload_size| {
                 let payload = vec![0xAB; payload_size];
@@ -119,13 +104,5 @@ fn benchmark_encoder_roundtrip(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(
-    benches,
-    benchmark_encode_with_kind,
-    benchmark_decode_sequence,
-    benchmark_server_keep_alive_encode,
-    benchmark_client_keep_alive_decode,
-    benchmark_challenge_encode,
-    benchmark_encoder_roundtrip
-);
+criterion_group!(benches, benchmark_protocol);
 criterion_main!(benches);

@@ -10,36 +10,27 @@ fn packet_with_payload_len(payload_len: usize) -> Vec<u8> {
     packet
 }
 
-fn benchmark_expand_key(c: &mut Criterion) {
-    c.bench_function("xtea/expand_key", |b| {
+fn benchmark_xtea(c: &mut Criterion) {
+    let mut group = c.benchmark_group("xtea");
+
+    group.bench_function("expand_key", |b| {
         b.iter(|| expand_key(black_box(&KEY)))
     });
-}
-
-fn benchmark_encrypt(c: &mut Criterion) {
-    let mut group = c.benchmark_group("xtea/encrypt");
 
     for payload_len in [0usize, 5, 14, 64, 256] {
         let packet = packet_with_payload_len(payload_len);
         group.bench_with_input(
-            BenchmarkId::from_parameter(payload_len),
+            BenchmarkId::new("encrypt", payload_len),
             &packet,
             |b, packet| b.iter(|| encrypt(black_box(packet), black_box(&KEY))),
         );
     }
 
-    group.finish();
-}
-
-fn benchmark_decrypt(c: &mut Criterion) {
-    let mut group = c.benchmark_group("xtea/decrypt");
-
     for payload_len in [0usize, 5, 14, 64, 256] {
         let packet = packet_with_payload_len(payload_len);
         let ciphertext = encrypt(&packet, &KEY);
-
         group.bench_with_input(
-            BenchmarkId::from_parameter(payload_len),
+            BenchmarkId::new("decrypt", payload_len),
             &ciphertext,
             |b, ciphertext| b.iter(|| decrypt(black_box(ciphertext), black_box(&KEY))),
         );
@@ -48,10 +39,5 @@ fn benchmark_decrypt(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(
-    benches,
-    benchmark_expand_key,
-    benchmark_encrypt,
-    benchmark_decrypt
-);
+criterion_group!(benches, benchmark_xtea);
 criterion_main!(benches);

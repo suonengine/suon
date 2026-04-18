@@ -10,8 +10,10 @@ impl BackgroundTask for BenchTask {
     async fn run(self) -> Self::Output {}
 }
 
-fn benchmark_add_background_task_systems(c: &mut Criterion) {
-    c.bench_function("task/add_background_systems", |b| {
+fn benchmark_task(c: &mut Criterion) {
+    let mut group = c.benchmark_group("task");
+
+    group.bench_function("add_background_systems/update", |b| {
         b.iter(|| {
             let mut app = App::new();
             app.add_plugins(MinimalPlugins);
@@ -19,14 +21,10 @@ fn benchmark_add_background_task_systems(c: &mut Criterion) {
             app
         })
     });
-}
-
-fn benchmark_add_background_task_systems_multiple_schedules(c: &mut Criterion) {
-    let mut group = c.benchmark_group("task/add_background_systems");
 
     for schedule_name in ["update", "post_update"] {
         group.bench_with_input(
-            BenchmarkId::new("schedule", schedule_name),
+            BenchmarkId::new("add_background_systems/schedule", schedule_name),
             &schedule_name,
             |b, schedule_name| {
                 b.iter(|| {
@@ -52,9 +50,5 @@ fn benchmark_add_background_task_systems_multiple_schedules(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(
-    benches,
-    benchmark_add_background_task_systems,
-    benchmark_add_background_task_systems_multiple_schedules
-);
+criterion_group!(benches, benchmark_task);
 criterion_main!(benches);
