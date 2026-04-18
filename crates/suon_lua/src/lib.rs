@@ -164,7 +164,7 @@ mod tests {
         run_lua(
             &mut app,
             "
-            for id, mana in world:query('Mana'):iter() do
+            for id, mana in Query('Mana'):iter() do
                 assert(mana.points == 50, 'expected 50, got ' .. tostring(mana.points))
             end
         ",
@@ -181,7 +181,7 @@ mod tests {
             &mut app,
             &format!(
                 "
-            local entity = world:entity({bits})
+            local entity = Entity({bits})
             entity:set('Mana', {{ points = 99 }})
         ",
                 bits = entity.to_bits()
@@ -205,7 +205,7 @@ mod tests {
 
         app.world_mut().commands().lua_execute(format!(
             "
-            local entity = world:entity({bits})
+            local entity = Entity({bits})
             entity:set('Mana', {{ points = 7 }})
         ",
             bits = entity.to_bits()
@@ -275,7 +275,7 @@ mod tests {
         let mut app = app_with_lua();
         let entity = app
             .world_mut()
-            .spawn(LuaScript::new("function onTick(entity) ran = true end"))
+            .spawn(LuaScript::new("function Entity:onTick() ran = true end"))
             .id();
 
         app.world_mut().commands().lua_hook(entity, "onTick");
@@ -297,11 +297,11 @@ mod tests {
         let entity = app.world_mut().spawn(Mana { points: 0 }).id();
 
         app.world_mut().commands().lua_execute(format!(
-            "world:entity({bits}):set('Mana', {{ points = 1 }})",
+            "Entity({bits}):set('Mana', {{ points = 1 }})",
             bits = entity.to_bits()
         ));
         app.world_mut().commands().lua_execute(format!(
-            "local e = world:entity({bits})
+            "local e = Entity({bits})
              local m = e:get('Mana')
              e:set('Mana', {{ points = m.points + 10 }})",
             bits = entity.to_bits()
@@ -318,11 +318,11 @@ mod tests {
     }
 
     #[test]
-    fn lua_plugin_world_global_is_accessible_in_exec() {
+    fn lua_plugin_entity_global_is_accessible_in_exec() {
         let mut app = app_with_lua();
         app.world_mut()
             .commands()
-            .lua_execute("assert(world ~= nil)");
+            .lua_execute("assert(Entity ~= nil)");
         app.world_mut().flush();
     }
 
@@ -401,7 +401,7 @@ mod tests {
 
         LuaRuntime::take_scope(&mut world, |runtime, w| {
             runtime.scope(w).execute(&format!(
-                "world:entity({}):set('Coins', {{ count = 5 }})",
+                "Entity({}):set('Coins', {{ count = 5 }})",
                 entity.to_bits()
             ))
         })
@@ -509,7 +509,7 @@ mod tests {
             &mut app,
             "
             local count = 0
-            for id, mana, stamina in world:query('Mana', 'Stamina'):iter() do
+            for id, mana, stamina in Query('Mana', 'Stamina'):iter() do
                 count = count + 1
                 assert(mana.points == 3)
                 assert(stamina.value == 4)

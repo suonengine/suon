@@ -1,4 +1,4 @@
-//! [`EntityProxy`] — the Lua userdata object returned by `world:entity(id)`.
+//! [`EntityProxy`] — the Lua userdata object returned by `Entity(id)`.
 //!
 //! Exposes `get`, `set`, `trigger`, and `id` methods to Lua scripts.
 //! All ECS access goes through [`world_cell::with`] so the proxy never holds a
@@ -16,7 +16,7 @@ use crate::{
 /// Lua UserData proxy for a Bevy entity.
 ///
 /// ```lua
-/// local entity = world:entity(id)
+/// local entity = Entity(id)
 /// local hp = entity:get("Health")
 /// entity:set("Health", { value = hp.value - 5 })
 /// entity:trigger("TeleportIntent", { to = { x = 0, y = 0 } })
@@ -159,7 +159,27 @@ mod tests {
             &mut world,
             &format!(
                 "
-            local entity = world:entity({})
+            local entity = Entity({})
+            local health = entity:get('TestHealth')
+            assert(health ~= nil)
+            assert(health.value == 42, 'expected 42, got ' .. tostring(health.value))
+        ",
+                entity.to_bits()
+            ),
+        );
+    }
+
+    #[test]
+    fn entity_constructor_gets_component_as_table() {
+        let (runtime, mut world) = setup();
+        let entity = world.spawn(TestHealth { value: 42 }).id();
+
+        run(
+            &runtime,
+            &mut world,
+            &format!(
+                "
+            local entity = Entity({})
             local health = entity:get('TestHealth')
             assert(health ~= nil)
             assert(health.value == 42, 'expected 42, got ' .. tostring(health.value))
@@ -179,7 +199,7 @@ mod tests {
             &mut world,
             &format!(
                 "
-            local entity = world:entity({})
+            local entity = Entity({})
             assert(entity:get('Nonexistent') == nil)
         ",
                 entity.to_bits()
@@ -197,7 +217,7 @@ mod tests {
             &mut world,
             &format!(
                 "
-            local entity = world:entity({})
+            local entity = Entity({})
             assert(entity:get('TestHealth') == nil)
         ",
                 entity.to_bits()
@@ -215,7 +235,7 @@ mod tests {
             &mut world,
             &format!(
                 "
-            local entity = world:entity({})
+            local entity = Entity({})
             entity:set('TestHealth', {{ value = 99 }})
         ",
                 entity.to_bits()
@@ -241,7 +261,7 @@ mod tests {
             &mut world,
             &format!(
                 "
-            local entity = world:entity({})
+            local entity = Entity({})
             entity:set('Nonexistent', {{ value = 1 }})
         ",
                 entity.to_bits()
@@ -260,7 +280,7 @@ mod tests {
             &mut world,
             &format!(
                 "
-            local entity = world:entity({})
+            local entity = Entity({})
             entity:trigger('Heal', {{}})
         ",
                 entity.to_bits()
@@ -280,7 +300,7 @@ mod tests {
             &mut world,
             &format!(
                 "
-            local entity = world:entity({})
+            local entity = Entity({})
             entity:trigger('Nonexistent', {{}})
         ",
                 entity.to_bits()
@@ -298,7 +318,7 @@ mod tests {
             .scope(&mut world)
             .execute(&format!(
                 "
-            local entity = world:entity({})
+            local entity = Entity({})
             entity:trigger('Heal', 123)
         ",
                 entity.to_bits()
@@ -322,7 +342,7 @@ mod tests {
             &mut world,
             &format!(
                 "
-            local entity = world:entity({expected})
+            local entity = Entity({expected})
             assert(entity:id() == {expected})
         "
             ),
@@ -339,7 +359,7 @@ mod tests {
             &mut world,
             &format!(
                 "
-            local entity = world:entity({})
+            local entity = Entity({})
             local health = entity:get('TestHealth')
             entity:set('TestHealth', {{ value = health.value + 5 }})
         ",
@@ -382,7 +402,7 @@ mod tests {
             .scope(&mut world)
             .execute(&format!(
                 "
-            local entity = world:entity({})
+            local entity = Entity({})
             entity:trigger('Heal', {{ amount = 25 }})
         ",
                 entity.to_bits()
@@ -402,7 +422,7 @@ mod tests {
             &mut world,
             &format!(
                 "
-            local entity = world:entity({})
+            local entity = Entity({})
             entity:set('TestHealth', {{ wrong_field = 'oops' }})
         ",
                 entity.to_bits()
@@ -428,7 +448,7 @@ mod tests {
             &mut world,
             &format!(
                 "
-            local entity = world:entity({})
+            local entity = Entity({})
             assert(entity:get('testhealth') == nil, 'wrong-case name should return nil')
             assert(entity:get('TESTHEALTH') == nil, 'uppercase name should return nil')
             assert(entity:get('TestHealth') ~= nil, 'exact-case name should return the component')
@@ -450,7 +470,7 @@ mod tests {
             &mut world,
             &format!(
                 "
-            local entity = world:entity({bits})
+            local entity = Entity({bits})
             assert(entity:get('TestHealth') == nil, 'dead entity should return nil')
         "
             ),
@@ -476,7 +496,7 @@ mod tests {
         runtime
             .scope(&mut world)
             .execute(&format!(
-                "world:entity({}):trigger('RemoveHealth', {{}})",
+                "Entity({}):trigger('RemoveHealth', {{}})",
                 entity.to_bits()
             ))
             .expect("lua exec should succeed");
@@ -529,7 +549,7 @@ mod tests {
         runtime
             .scope(&mut world)
             .execute(&format!(
-                "world:entity({}):trigger('Outer', {{}})",
+                "Entity({}):trigger('Outer', {{}})",
                 entity.to_bits()
             ))
             .expect("lua exec should succeed");
@@ -552,9 +572,9 @@ mod tests {
             &mut world,
             &format!(
                 "
-            assert(world:entity({a}):id() == {a})
-            assert(world:entity({b}):id() == {b})
-            assert(world:entity({a}):id() ~= world:entity({b}):id())
+            assert(Entity({a}):id() == {a})
+            assert(Entity({b}):id() == {b})
+            assert(Entity({a}):id() ~= Entity({b}):id())
         ",
                 a = a.to_bits() as i64,
                 b = b.to_bits() as i64

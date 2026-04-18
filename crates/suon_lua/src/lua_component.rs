@@ -211,7 +211,7 @@ mod tests {
             &runtime,
             &mut world,
             "
-            for id, gold in world:query('Gold'):iter() do
+            for id, gold in Query('Gold'):iter() do
                 assert(gold.amount == 10, 'expected 10, got ' .. tostring(gold.amount))
             end
         ",
@@ -228,7 +228,7 @@ mod tests {
             &mut world,
             &format!(
                 "
-            local entity = world:entity({})
+            local entity = Entity({})
             entity:set('Gold', {{ amount = 77 }})
         ",
                 entity.to_bits()
@@ -364,7 +364,7 @@ mod tests {
             .scope(app.world_mut())
             .execute(&format!(
                 "
-            local entity = world:entity({})
+            local entity = Entity({})
             local gold = entity:get('Gold')
             assert(gold ~= nil)
             assert(gold.amount == 5)

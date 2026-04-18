@@ -36,7 +36,7 @@ pub struct LuaRuntime {
 impl LuaRuntime {
     pub(crate) fn new() -> Self {
         let lua = mlua::Lua::new();
-        crate::api::world::register_world_api(&lua).expect("failed to register Lua world API");
+        crate::api::world::register_world_api(&lua).expect("failed to register Lua globals");
         Self {
             lua,
             script_cache: RefCell::new(HashMap::new()),
@@ -161,7 +161,7 @@ impl LuaScope<'_, '_> {
         self.compiled_chunk(source)?.call::<()>(())
     }
 
-    /// Loads `source`, then calls `hook` passing an `EntityProxy` userdata as `self`.
+    /// Loads `source`, then calls `hook` as a method on the global `Entity` table.
     ///
     /// Resolution order (OOP-first so scripts can write `function Entity:onTick()`):
     /// 1. `Entity.<hook>` — called as a method: `Entity:onTick(proxy)`
@@ -196,17 +196,11 @@ impl LuaScope<'_, '_> {
         let globals = self.lua.globals();
         let entity_proxy = self.lua.create_userdata(EntityProxy { id: entity })?;
 
-        // Method style takes priority so scripts can write `function Entity:onTick()`
-        // using Lua's OOP convention; falling back to a plain global keeps simple
-        // one-off hooks working without boilerplate.
+        // Hooks are method-only so scripts have a single, predictable convention:
+        // `function Entity:onTick() ... end`.
         if let Ok(class) = globals.get::<mlua::Table>("Entity")
             && let Ok(func) = class.get::<Function>(hook)
         {
-            func.call::<()>(entity_proxy)?;
-            return Ok(());
-        }
-
-        if let Ok(func) = globals.get::<Function>(hook) {
             func.call::<()>(entity_proxy)?;
         }
 
@@ -324,12 +318,12 @@ mod tests {
     }
 
     #[test]
-    fn new_registers_world_global_in_lua() {
+    fn new_registers_entity_global_in_lua() {
         let runtime = LuaRuntime::new();
         let mut world = setup_world();
         runtime
             .scope(&mut world)
-            .execute("assert(world ~= nil)")
+            .execute("assert(Entity ~= nil)")
             .expect("lua exec should succeed");
     }
 
@@ -388,7 +382,7 @@ mod tests {
     }
 
     #[test]
-    fn call_hook_plain_function_style() {
+    fn call_hook_ignores_plain_global_function() {
         let runtime = LuaRuntime::new();
         let mut world = setup_world();
         let entity = world.spawn_empty().id();
@@ -398,7 +392,7 @@ mod tests {
             .call_hook(entity, "function onTick(entity) ran = true end", "onTick")
             .expect("hook should execute without error");
         scope
-            .execute("assert(ran == true)")
+            .execute("assert(ran == nil)")
             .expect("lua assertion should succeed");
     }
 
@@ -415,7 +409,7 @@ mod tests {
     }
 
     #[test]
-    fn call_hook_entity_method_takes_priority_over_plain_function() {
+    fn call_hook_uses_only_entity_method_style() {
         let runtime = LuaRuntime::new();
         let mut world = setup_world();
         let entity = world.spawn_empty().id();

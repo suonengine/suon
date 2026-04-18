@@ -1,4 +1,4 @@
-//! [`QueryProxy`] — the Lua userdata returned by `world:query("A", "B", ...)`.
+//! [`QueryProxy`] — the Lua userdata returned by `Query("A", "B", ...)`.
 //!
 //! Iterating via `:iter()` yields entity id and one proxy table per component.
 //! Writes to those proxy tables are batched and flushed to the ECS at the start
@@ -34,14 +34,14 @@ type PendingEntry = (
     fn(Entity, &mut World, serde_json::Value),
 );
 
-/// Lua UserData returned by `world:query(...)`.
+/// Lua UserData returned by `Query(...)`.
 ///
 /// ```lua
-/// for id, hp in world:query("Health"):iter() do
+/// for id, hp in Query("Health"):iter() do
 ///     hp.value = hp.value + 10   -- batched: written to ECS once per entity at end of each step
 /// end
 ///
-/// for id, hp, pos in world:query("Health", "Position"):iter() do
+/// for id, hp, pos in Query("Health", "Position"):iter() do
 ///     hp.value = 0   -- both fields written in a single deserialize_component call at end of step
 ///     pos.x = 0
 /// end
@@ -170,7 +170,7 @@ fn collect_query(
 
                 // A dynamic query should only proceed when every requested component name
                 // resolved successfully. Silently dropping unknown names would turn
-                // `world:query("A", "Missing", "B")` into `world:query("A", "B")`,
+                // `Query("A", "Missing", "B")` into `Query("A", "B")`,
                 // which is surprising and hides script mistakes.
                 let query_plan = if entries.len() != component_names.len() {
                     None
@@ -319,7 +319,27 @@ mod tests {
             &mut world,
             "
             local count = 0
-            for id, health in world:query('TestHealth'):iter() do
+            for id, health in Query('TestHealth'):iter() do
+                count = count + 1
+            end
+            assert(count == 2, 'expected 2, got ' .. count)
+        ",
+        );
+    }
+
+    #[test]
+    fn query_constructor_yields_all_entities_with_the_queried_component() {
+        let (runtime, mut world) = setup();
+        world.spawn(TestHealth { value: 10 });
+        world.spawn(TestHealth { value: 20 });
+        world.spawn_empty();
+
+        run(
+            &runtime,
+            &mut world,
+            "
+            local count = 0
+            for id, health in Query('TestHealth'):iter() do
                 count = count + 1
             end
             assert(count == 2, 'expected 2, got ' .. count)
@@ -336,7 +356,7 @@ mod tests {
             &runtime,
             &mut world,
             "
-            for id, health in world:query('TestHealth'):iter() do
+            for id, health in Query('TestHealth'):iter() do
                 assert(health.value == 77, 'expected 77, got ' .. tostring(health.value))
             end
         ",
@@ -353,7 +373,7 @@ mod tests {
             &mut world,
             "
             local count = 0
-            for id, health in world:query('TestHealth'):iter() do
+            for id, health in Query('TestHealth'):iter() do
                 count = count + 1
             end
             assert(count == 0)
@@ -373,7 +393,7 @@ mod tests {
             &mut world,
             "
             local count = 0
-            for id, health, pos in world:query('TestHealth', 'TestPosition'):iter() do
+            for id, health, pos in Query('TestHealth', 'TestPosition'):iter() do
                 count = count + 1
             end
             assert(count == 1, 'expected 1, got ' .. count)
@@ -392,7 +412,7 @@ mod tests {
             &format!(
                 "
             local expected_id = {expected}
-            for id, health in world:query('TestHealth'):iter() do
+            for id, health in Query('TestHealth'):iter() do
                 assert(id == expected_id, 'expected ' .. expected_id .. ', got ' .. id)
             end
         ",
@@ -411,7 +431,7 @@ mod tests {
             &mut world,
             "
             local count = 0
-            for id in world:query('Nonexistent'):iter() do
+            for id in Query('Nonexistent'):iter() do
                 count = count + 1
             end
             assert(count == 0)
@@ -429,7 +449,7 @@ mod tests {
             &mut world,
             "
             local count = 0
-            for id in world:query('TestHealth', 'Missing', 'TestPosition'):iter() do
+            for id in Query('TestHealth', 'Missing', 'TestPosition'):iter() do
                 count = count + 1
             end
             assert(count == 0, 'expected 0, got ' .. count)
@@ -447,7 +467,7 @@ mod tests {
             &mut world,
             "
             local count = 0
-            for id, health_a, health_b in world:query('TestHealth', 'TestHealth'):iter() do
+            for id, health_a, health_b in Query('TestHealth', 'TestHealth'):iter() do
                 count = count + 1
                 assert(health_a.value == 33)
                 assert(health_b.value == 33)
@@ -466,7 +486,7 @@ mod tests {
             &runtime,
             &mut world,
             "
-            for id, health, pos in world:query('TestHealth', 'TestPosition'):iter() do
+            for id, health, pos in Query('TestHealth', 'TestPosition'):iter() do
                 assert(health.value == 7,  'health.value expected 7, got '  .. \
              tostring(health.value))
                 assert(pos.x      == 3,   'pos.x expected 3, got '          .. tostring(pos.x))
@@ -492,10 +512,36 @@ mod tests {
             &runtime,
             &mut world,
             "
-            for id, health in world:query('TestHealth'):iter() do
-                world:entity(id):set('TestHealth', { value = health.value + 10 })
+            for id, health in Query('TestHealth'):iter() do
+                Entity(id):set('TestHealth', { value = health.value + 10 })
             end
-            for id, health in world:query('TestHealth'):iter() do
+            for id, health in Query('TestHealth'):iter() do
+                assert(health.value == 11, 'expected 11, got ' .. tostring(health.value))
+            end
+        ",
+        );
+    }
+
+    #[test]
+    fn query_constructor_works_with_entity_constructor_for_updates() {
+        let (runtime, mut world) = setup();
+        world
+            .resource_mut::<ScriptRegistry>()
+            .components
+            .get_mut("TestHealth")
+            .expect("TestHealth accessor should be registered")
+            .set = writable_health_accessor().set;
+
+        world.spawn(TestHealth { value: 1 });
+
+        run(
+            &runtime,
+            &mut world,
+            "
+            for id, health in Query('TestHealth'):iter() do
+                Entity(id):set('TestHealth', { value = health.value + 10 })
+            end
+            for id, health in Query('TestHealth'):iter() do
                 assert(health.value == 11, 'expected 11, got ' .. tostring(health.value))
             end
         ",
@@ -516,7 +562,7 @@ mod tests {
             &runtime,
             &mut world,
             "
-            for id, health in world:query('TestHealth'):iter() do
+            for id, health in Query('TestHealth'):iter() do
                 health.value = health.value + 10
             end
         ",
@@ -566,7 +612,7 @@ mod tests {
             &runtime,
             &mut world,
             "
-            for id, pos in world:query('TestPosition'):iter() do
+            for id, pos in Query('TestPosition'):iter() do
                 pos.x = 10
                 pos.y = 20
             end
@@ -599,10 +645,10 @@ mod tests {
             &runtime,
             &mut world,
             "
-            for id, health in world:query('TestHealth'):iter() do
+            for id, health in Query('TestHealth'):iter() do
                 health.value = health.value + 100
             end
-            for id, health in world:query('TestHealth'):iter() do
+            for id, health in Query('TestHealth'):iter() do
                 assert(health.value == 101, 'expected 101, got ' .. tostring(health.value))
             end
         ",
@@ -633,7 +679,7 @@ mod tests {
             &runtime,
             &mut world,
             "
-            for id, health in world:query('TestHealth'):iter() do
+            for id, health in Query('TestHealth'):iter() do
                 local _ = health.value  -- read only, no assignment
             end
         ",

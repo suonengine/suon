@@ -1,44 +1,46 @@
-//! [`WorldProxy`] and [`register_world_api`] — wires the `world` and `Entity` Lua globals.
+//! Registers the Lua-facing ECS globals.
 //!
-//! Called once from [`LuaRuntime::new`]. Scripts access the ECS exclusively through
-//! `world:entity(id)` and `world:query(...)`.
+//! Called once from [`LuaRuntime::new`]. The runtime exposes `Entity(id)` for
+//! entity access and `Query(...)` for ECS iteration.
 
-use mlua::{Lua, UserData, UserDataMethods};
+use mlua::Lua;
 
 use crate::api::{entity::EntityProxy, query::QueryProxy};
 
-/// Lua UserData for the `world` global, injected at the start of every hook.
-///
-/// ```lua
-/// local entity = world:entity(id)
-/// for id, hp in world:query("Health"):iter() do ... end
-/// ```
-struct WorldProxy;
+fn entity_proxy_from_id(id: i64) -> EntityProxy {
+    let entity = bevy::prelude::Entity::from_bits(id as u64);
+    EntityProxy { id: entity }
+}
 
-impl UserData for WorldProxy {
-    fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
-        methods.add_method("entity", |_lua, _, id: i64| {
-            let entity = bevy::prelude::Entity::from_bits(id as u64);
-            Ok(EntityProxy { id: entity })
-        });
-
-        methods.add_method("query", |_, _, components: mlua::Variadic<String>| {
-            Ok(QueryProxy {
-                components: components.into_iter().collect(),
-            })
-        });
+fn query_proxy_from_components(components: mlua::Variadic<String>) -> QueryProxy {
+    QueryProxy {
+        components: components.into_iter().collect(),
     }
 }
 
 /// Registers Lua globals. Called once in [`LuaRuntime::new`].
 ///
 /// Globals registered:
-/// - `world` — [`WorldProxy`] for ECS access
-/// - `Entity` — empty table; scripts add hook methods to it: `function Entity:onTeleport()`
+/// - `Entity` as a callable table for both hooks and `Entity(id)` construction
+/// - `Query` as a global constructor for `Query(...)`
 pub(crate) fn register_world_api(lua: &Lua) -> mlua::Result<()> {
     let globals = lua.globals();
-    globals.set("world", lua.create_userdata(WorldProxy)?)?;
-    globals.set("Entity", lua.create_table()?)?;
+
+    let entity = lua.create_table()?;
+    let entity_metatable = lua.create_table()?;
+    entity_metatable.set(
+        "__call",
+        lua.create_function(|_lua, (_class, id): (mlua::Table, i64)| Ok(entity_proxy_from_id(id)))?,
+    )?;
+    let _ = entity.set_metatable(Some(entity_metatable));
+
+    globals.set("Entity", entity)?;
+    globals.set(
+        "Query",
+        lua.create_function(|_lua, components: mlua::Variadic<String>| {
+            Ok(query_proxy_from_components(components))
+        })?,
+    )?;
     Ok(())
 }
 
@@ -62,22 +64,9 @@ mod tests {
     }
 
     #[test]
-    fn register_world_api_injects_world_global() {
-        let lua = Lua::new();
-        register_world_api(&lua).expect("world api registration should succeed");
-
-        let world_val: mlua::Value = lua
-            .globals()
-            .get("world")
-            .expect("world global should be set");
-
-        assert!(!matches!(world_val, mlua::Value::Nil));
-    }
-
-    #[test]
     fn register_world_api_injects_entity_table_global() {
         let lua = Lua::new();
-        register_world_api(&lua).expect("world api registration should succeed");
+        register_world_api(&lua).expect("Lua globals registration should succeed");
 
         let entity_val: mlua::Value = lua
             .globals()
@@ -88,7 +77,20 @@ mod tests {
     }
 
     #[test]
-    fn world_entity_returns_proxy_with_correct_id() {
+    fn register_world_api_injects_query_function_global() {
+        let lua = Lua::new();
+        register_world_api(&lua).expect("Lua globals registration should succeed");
+
+        let query_val: mlua::Value = lua
+            .globals()
+            .get("Query")
+            .expect("Query global should be set");
+
+        assert!(matches!(query_val, mlua::Value::Function(_)));
+    }
+
+    #[test]
+    fn entity_constructor_returns_proxy_with_correct_id() {
         let (runtime, mut world) = setup();
         let entity = world.spawn_empty().id();
         let expected = entity.to_bits() as i64;
@@ -98,7 +100,7 @@ mod tests {
             &mut world,
             &format!(
                 "
-            local entity = world:entity({expected})
+            local entity = Entity({expected})
             assert(entity:id() == {expected})
         "
             ),
@@ -106,7 +108,7 @@ mod tests {
     }
 
     #[test]
-    fn world_query_with_no_match_iterates_zero_times() {
+    fn query_constructor_with_no_match_iterates_zero_times() {
         let (runtime, mut world) = setup();
 
         run(
@@ -114,7 +116,7 @@ mod tests {
             &mut world,
             "
             local count = 0
-            for id in world:query('Nonexistent'):iter() do
+            for id in Query('Nonexistent'):iter() do
                 count = count + 1
             end
             assert(count == 0)
@@ -123,14 +125,14 @@ mod tests {
     }
 
     #[test]
-    fn world_query_variadic_accepts_multiple_component_names() {
+    fn query_constructor_variadic_accepts_multiple_component_names() {
         let (runtime, mut world) = setup();
 
         run(
             &runtime,
             &mut world,
             "
-            local q = world:query('A', 'B', 'C')
+            local q = Query('A', 'B', 'C')
             assert(q ~= nil)
         ",
         );

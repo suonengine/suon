@@ -104,7 +104,7 @@ pub trait LuaCommands {
 
     /// Queues a [`RunLuaScript`] command that executes `source` at the next flush.
     ///
-    /// The snippet runs inside the shared Lua VM and has access to the `world` global.
+    /// The snippet runs inside the shared Lua VM and has access to the ECS globals.
     ///
     /// # Examples
     ///
@@ -113,7 +113,7 @@ pub trait LuaCommands {
     /// # use suon_lua::LuaCommands;
     /// fn reset_all(mut commands: Commands) {
     ///     commands.lua_execute(
-    ///         "for id, hp in world:query('Health'):iter() do hp.value = 100 end",
+    ///         "for id, hp in Query('Health'):iter() do hp.value = 100 end",
     ///     );
     /// }
     /// ```
@@ -148,7 +148,7 @@ mod tests {
     fn run_lua_hook_executes_hook_on_entity_with_script() {
         let mut world = setup_world();
         let entity = world
-            .spawn(LuaScript::new("function onTick(entity) ran = true end"))
+            .spawn(LuaScript::new("function Entity:onTick() ran = true end"))
             .id();
 
         RunLuaHook {
@@ -192,7 +192,7 @@ mod tests {
     fn run_lua_hook_logs_error_and_does_not_panic_on_runtime_error() {
         let mut world = setup_world();
         let entity = world
-            .spawn(LuaScript::new("function onTick(entity) error('boom') end"))
+            .spawn(LuaScript::new("function Entity:onTick() error('boom') end"))
             .id();
 
         RunLuaHook {
@@ -284,7 +284,7 @@ mod tests {
     fn error_in_run_lua_hook_does_not_prevent_next_command() {
         let mut world = setup_world();
         let entity = world
-            .spawn(LuaScript::new("function onTick(e) error('boom') end"))
+            .spawn(LuaScript::new("function Entity:onTick() error('boom') end"))
             .id();
 
         RunLuaHook {
