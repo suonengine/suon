@@ -13,7 +13,8 @@ impl StepPath {
     ///
     /// # Examples
     /// ```
-    /// use suon_movement::prelude::{Direction, StepPath};
+    /// use suon_movement::prelude::StepPath;
+    /// use suon_position::direction::Direction;
     ///
     /// let mut path = StepPath::default();
     /// path.push(Direction::North);
@@ -28,7 +29,8 @@ impl StepPath {
     ///
     /// # Examples
     /// ```
-    /// use suon_movement::prelude::{Direction, StepPath};
+    /// use suon_movement::prelude::StepPath;
+    /// use suon_position::direction::Direction;
     ///
     /// let mut path = StepPath::default();
     /// path.push(Direction::East);
