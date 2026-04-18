@@ -37,7 +37,7 @@ pub fn derive_table(input: TokenStream) -> TokenStream {
     resource::derive_table(input)
 }
 
-/// Derives [`suon_lua::LuaComponent`] for a Bevy component that implements
+/// Derives `suon_lua::LuaComponent` for a Bevy component that implements
 /// `serde::Serialize` and `serde::de::DeserializeOwned`.
 ///
 /// The Lua-visible name defaults to the struct name. Override with

@@ -9,7 +9,7 @@ pub const MAX_BUDDY_ICON_ID: u32 = 10;
 
 /// Packet sent by the client to update a buddy entry.
 ///
-/// The icon id is clamped to [`MAX_BUDDY_ICON_ID`] to match the upstream protocol.
+/// The icon id is clamped to `MAX_BUDDY_ICON_ID` to match the upstream protocol.
 ///
 /// # Examples
 /// ```

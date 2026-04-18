@@ -56,7 +56,7 @@ impl LuaScope<'_, '_> {
         self.lua.load(source).exec()
     }
 
-    /// Loads `source`, then calls `hook` passing an [`EntityProxy`] as `self`.
+    /// Loads `source`, then calls `hook` passing an `EntityProxy` userdata as `self`.
     ///
     /// Looks up `Entity:<hook>` first (method style), then a plain global `<hook>`.
     pub fn call_hook(&self, entity: Entity, source: &str, hook: &str) -> mlua::Result<()> {

@@ -8,7 +8,7 @@ use crate::runtime::ComponentAccessor;
 ///
 /// Use `#[derive(LuaComponent)]` from `suon_macros`. The derive also generates
 /// the [`bevy::prelude::Component`] impl — do **not** use `#[derive(Component)]`
-/// alongside it. Registration in [`ScriptRegistry`] happens automatically the
+/// alongside it. Registration in [`crate::runtime::ScriptRegistry`] happens automatically the
 /// first time the component is inserted into any entity.
 ///
 /// ```ignore
@@ -53,7 +53,7 @@ pub fn register_component_id<T: Component>(world: &mut World) -> ComponentId {
 
 /// Extension trait that lets `App` register a [`LuaComponent`] with one call.
 pub trait AppLuaExt {
-    /// Registers `T` in the [`ScriptRegistry`] under its [`LuaComponent::lua_name`].
+    /// Registers `T` in the [`crate::runtime::ScriptRegistry`] under its [`LuaComponent::lua_name`].
     fn register_lua_component<T: LuaComponent>(&mut self) -> &mut Self;
 }
 
