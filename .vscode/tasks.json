@@ -1,0 +1,82 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build workspace",
+      "type": "shell",
+      "command": "cargo build --workspace --verbose",
+      "group": "build",
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": "$rustc"
+    },
+    {
+      "label": "Check formatting (rustfmt)",
+      "type": "shell",
+      "command": "cargo fmt --all -- --check",
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Check lints (clippy)",
+      "type": "shell",
+      "command": "cargo clippy --workspace --no-deps --all-features --all-targets -- -D warnings",
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": "$rustc"
+    },
+    {
+      "label": "Run tests (nextest)",
+      "type": "shell",
+      "command": "cargo nextest run --workspace --failure-output immediate-final",
+      "group": "test",
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": "$rustc"
+    },
+    {
+      "label": "Check TOML formatting (taplo)",
+      "type": "shell",
+      "command": "taplo fmt --check --diff",
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Check spelling (typos)",
+      "type": "shell",
+      "command": "typos",
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Check unused dependencies (udeps)",
+      "type": "shell",
+      "command": "rustup run nightly cargo udeps --workspace --all-features --all-targets",
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": "$rustc"
+    },
+    {
+      "label": "Check undefined behavior (miri)",
+      "type": "shell",
+      "command": "cargo miri setup && cargo miri test --workspace --all-features --doc",
+      "options": {
+        "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+      },
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": "$rustc"
+    },
+    {
+      "label": "Run all CI checks",
+      "dependsOn": [
+        "Check formatting (rustfmt)",
+        "Check TOML formatting (taplo)",
+        "Check spelling (typos)",
+        "Check lints (clippy)",
+        "Build workspace",
+        "Run tests (nextest)",
+        "Check unused dependencies (udeps)",
+        "Check undefined behavior (miri)"
+      ],
+      "dependsOrder": "sequence",
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": []
+    }
+  ]
+}
