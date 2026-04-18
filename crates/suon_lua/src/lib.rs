@@ -241,7 +241,10 @@ mod tests {
         app.world_mut().flush();
 
         assert_eq!(
-            app.world().get::<Mana>(entity).expect("Mana should exist").points,
+            app.world()
+                .get::<Mana>(entity)
+                .expect("Mana should exist")
+                .points,
             11
         );
     }

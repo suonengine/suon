@@ -359,8 +359,7 @@ mod tests {
     fn json_array_with_nested_objects_roundtrips() {
         let lua = lua();
         let original = serde_json::json!([{ "x": 1 }, { "x": 2 }]);
-        let result =
-            json_to_lua(&lua, original).expect("json_to_lua should succeed");
+        let result = json_to_lua(&lua, original).expect("json_to_lua should succeed");
         let mlua::Value::Table(table) = result else {
             panic!("expected Table");
         };

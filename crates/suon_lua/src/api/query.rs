@@ -108,18 +108,23 @@ impl UserData for QueryProxy {
                     let data_ni = data.clone();
                     let dirty_ni = dirty.clone();
                     meta.set(
-                        "__newindex",
-                        lua.create_function(
-                            move |_lua, (_proxy, key, lua_val): (mlua::Table, String, mlua::Value)| {
-                                let mut d = data_ni.borrow_mut();
-                                if let serde_json::Value::Object(ref mut map) = *d {
-                                    map.insert(key, lua_to_json(lua_val)?);
-                                }
-                                dirty_ni.set(true);
-                                Ok(())
-                            },
-                        )?,
-                    )?;
+                            "__newindex",
+                            lua.create_function(
+                                move |_lua,
+                                      (_proxy, key, lua_val): (
+                                    mlua::Table,
+                                    String,
+                                    mlua::Value,
+                                )| {
+                                    let mut d = data_ni.borrow_mut();
+                                    if let serde_json::Value::Object(ref mut map) = *d {
+                                        map.insert(key, lua_to_json(lua_val)?);
+                                    }
+                                    dirty_ni.set(true);
+                                    Ok(())
+                                },
+                            )?,
+                        )?;
 
                     let _ = proxy.set_metatable(Some(meta));
                     multi.push_back(mlua::Value::Table(proxy));
