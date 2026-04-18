@@ -52,7 +52,7 @@ mod tests {
     fn run(runtime: &LuaRuntime, world: &mut World, lua: &str) {
         runtime
             .scope(world)
-            .exec(lua)
+            .execute(lua)
             .expect("lua exec should succeed");
     }
 

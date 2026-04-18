@@ -39,7 +39,7 @@ pub struct RunLuaScript {
 impl Command for RunLuaScript {
     fn apply(self, world: &mut World) {
         let result = LuaRuntime::take_scope(world, |runtime, world| {
-            runtime.scope(world).exec(&self.source)
+            runtime.scope(world).execute(&self.source)
         });
 
         if let Some(Err(error)) = result {
@@ -53,7 +53,7 @@ pub trait LuaCommands {
     /// Queues a named hook call on an entity's [`LuaScript`].
     fn lua_hook(&mut self, entity: Entity, hook: &'static str);
     /// Queues execution of an arbitrary Lua snippet at the next command flush.
-    fn lua_exec(&mut self, source: impl Into<String>);
+    fn lua_execute(&mut self, source: impl Into<String>);
 }
 
 impl LuaCommands for Commands<'_, '_> {
@@ -61,7 +61,7 @@ impl LuaCommands for Commands<'_, '_> {
         self.queue(RunLuaHook { entity, hook });
     }
 
-    fn lua_exec(&mut self, source: impl Into<String>) {
+    fn lua_execute(&mut self, source: impl Into<String>) {
         self.queue(RunLuaScript {
             source: source.into(),
         });

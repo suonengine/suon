@@ -25,8 +25,8 @@ pub(crate) fn json_to_lua(lua: &mlua::Lua, value: serde_json::Value) -> mlua::Re
         }
         Json::Object(object) => {
             let table = lua.create_table()?;
-            for (key, val) in object {
-                table.raw_set(key, json_to_lua(lua, val)?)?;
+            for (key, value) in object {
+                table.raw_set(key, json_to_lua(lua, value)?)?;
             }
             Ok(mlua::Value::Table(table))
         }
@@ -48,13 +48,13 @@ pub(crate) fn lua_to_json(value: mlua::Value) -> mlua::Result<serde_json::Value>
         mlua::Value::Table(table) => {
             let mut object = serde_json::Map::new();
             for pair in table.pairs::<mlua::Value, mlua::Value>() {
-                let (key, val) = pair?;
+                let (key, value) = pair?;
                 let key_string = match key {
                     mlua::Value::String(string) => string.to_str()?.to_owned(),
                     mlua::Value::Integer(integer) => integer.to_string(),
                     _ => continue,
                 };
-                object.insert(key_string, lua_to_json(val)?);
+                object.insert(key_string, lua_to_json(value)?);
             }
             Ok(Json::Object(object))
         }

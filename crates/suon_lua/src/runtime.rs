@@ -28,15 +28,15 @@ impl LuaRuntime {
         }
     }
 
-    /// Removes [`LuaRuntime`] from `world`, passes it alongside `world` to `f`, then re-inserts it.
+    /// Removes [`LuaRuntime`] from `world`, passes it alongside `world` to `callback`, then re-inserts it.
     ///
     /// Returns `None` if the runtime resource is missing.
     pub fn take_scope<R>(
         world: &mut World,
-        f: impl FnOnce(&LuaRuntime, &mut World) -> R,
+        callback: impl FnOnce(&LuaRuntime, &mut World) -> R,
     ) -> Option<R> {
         let runtime = world.remove_non_send_resource::<LuaRuntime>()?;
-        let result = f(&runtime, world);
+        let result = callback(&runtime, world);
         world.insert_non_send_resource(runtime);
         Some(result)
     }
@@ -52,7 +52,7 @@ pub struct LuaScope<'runtime, 'world> {
 
 impl LuaScope<'_, '_> {
     /// Executes a Lua source snippet.
-    pub fn exec(&self, source: &str) -> mlua::Result<()> {
+    pub fn execute(&self, source: &str) -> mlua::Result<()> {
         self.lua.load(source).exec()
     }
 
@@ -136,7 +136,7 @@ mod tests {
         let mut world = setup_world();
         runtime
             .scope(&mut world)
-            .exec("assert(world ~= nil)")
+            .execute("assert(world ~= nil)")
             .expect("lua exec should succeed");
     }
 
@@ -146,7 +146,7 @@ mod tests {
         let mut world = setup_world();
         let scope = runtime.scope(&mut world);
         scope
-            .exec("result = 1 + 2")
+            .execute("result = 1 + 2")
             .expect("lua exec should succeed");
         let result: i64 = scope.eval("result").expect("eval should return integer");
         assert_eq!(result, 3);
@@ -158,7 +158,7 @@ mod tests {
         let mut world = setup_world();
         let error = runtime
             .scope(&mut world)
-            .exec("this is !! not lua")
+            .execute("this is !! not lua")
             .unwrap_err();
         assert!(
             error.to_string().to_lowercase().contains("syntax")
@@ -173,7 +173,7 @@ mod tests {
         let mut world = setup_world();
         let error = runtime
             .scope(&mut world)
-            .exec("error('intentional')")
+            .execute("error('intentional')")
             .unwrap_err();
         assert!(error.to_string().contains("intentional"));
     }
@@ -276,12 +276,14 @@ mod tests {
         let mut world = setup_world();
         let scope = runtime.scope(&mut world);
 
-        scope.exec("counter = 0").expect("lua exec should succeed");
         scope
-            .exec("counter = counter + 1")
+            .execute("counter = 0")
             .expect("lua exec should succeed");
         scope
-            .exec("counter = counter + 1")
+            .execute("counter = counter + 1")
+            .expect("lua exec should succeed");
+        scope
+            .execute("counter = counter + 1")
             .expect("lua exec should succeed");
 
         assert_eq!(
@@ -316,7 +318,7 @@ mod tests {
         let mut world = setup_world();
         runtime
             .scope(&mut world)
-            .exec("")
+            .execute("")
             .expect("empty source should succeed");
     }
 
@@ -325,7 +327,7 @@ mod tests {
         let runtime = LuaRuntime::new();
         let mut world = setup_world();
 
-        runtime.scope(&mut world).exec("x = 42").unwrap();
+        runtime.scope(&mut world).execute("x = 42").unwrap();
         let val: i64 = runtime.scope(&mut world).eval("x").unwrap();
         assert_eq!(val, 42);
     }

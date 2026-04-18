@@ -7,7 +7,7 @@ pub(crate) mod world_cell;
 
 pub use commands::{LuaCommands, RunLuaHook, RunLuaScript};
 pub use lua_component::{
-    AppLuaExt, LuaComponent, component_get, component_register_id, component_set,
+    AppLuaExt, LuaComponent, deserialize_component, register_component_id, serialize_component,
 };
 pub use runtime::{ComponentAccessor, LuaRuntime, LuaScope, ScriptRegistry, TriggerAccessor};
 pub use script::LuaScript;
@@ -29,8 +29,9 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        component_get, component_register_id, component_set,
+        deserialize_component, register_component_id,
         runtime::{ComponentAccessor, LuaRuntime},
+        serialize_component,
     };
 
     #[derive(Serialize, Deserialize, Clone)]
@@ -65,9 +66,9 @@ mod tests {
 
         fn make_accessor() -> ComponentAccessor {
             ComponentAccessor {
-                get: component_get::<Mana>,
-                set: component_set::<Mana>,
-                component_id: component_register_id::<Mana>,
+                get: serialize_component::<Mana>,
+                set: deserialize_component::<Mana>,
+                component_id: register_component_id::<Mana>,
             }
         }
     }
@@ -80,7 +81,7 @@ mod tests {
 
     fn run_lua(app: &mut App, source: &str) {
         LuaRuntime::take_scope(app.world_mut(), |runtime, world| {
-            runtime.scope(world).exec(source)
+            runtime.scope(world).execute(source)
         })
         .expect("LuaRuntime missing")
         .expect("lua exec should succeed");
@@ -146,7 +147,7 @@ mod tests {
 
         let entity = app.world_mut().spawn(Mana { points: 10 }).id();
 
-        app.world_mut().commands().lua_exec(format!(
+        app.world_mut().commands().lua_execute(format!(
             "
             local entity = world:entity({bits})
             entity:set('Mana', {{ points = 7 }})
@@ -224,11 +225,11 @@ mod tests {
         let mut app = app_with_lua();
         let entity = app.world_mut().spawn(Mana { points: 0 }).id();
 
-        app.world_mut().commands().lua_exec(format!(
+        app.world_mut().commands().lua_execute(format!(
             "world:entity({bits}):set('Mana', {{ points = 1 }})",
             bits = entity.to_bits()
         ));
-        app.world_mut().commands().lua_exec(format!(
+        app.world_mut().commands().lua_execute(format!(
             "local e = world:entity({bits})
              local m = e:get('Mana')
              e:set('Mana', {{ points = m.points + 10 }})",
@@ -248,7 +249,9 @@ mod tests {
     #[test]
     fn lua_plugin_world_global_is_accessible_in_exec() {
         let mut app = app_with_lua();
-        app.world_mut().commands().lua_exec("assert(world ~= nil)");
+        app.world_mut()
+            .commands()
+            .lua_execute("assert(world ~= nil)");
         app.world_mut().flush();
     }
 
@@ -286,9 +289,9 @@ mod tests {
 
             fn make_accessor() -> ComponentAccessor {
                 ComponentAccessor {
-                    get: component_get::<Stamina>,
-                    set: component_set::<Stamina>,
-                    component_id: component_register_id::<Stamina>,
+                    get: serialize_component::<Stamina>,
+                    set: deserialize_component::<Stamina>,
+                    component_id: register_component_id::<Stamina>,
                 }
             }
         }

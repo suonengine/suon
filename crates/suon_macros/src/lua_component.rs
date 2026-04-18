@@ -4,12 +4,12 @@ use quote::quote;
 use syn::{DeriveInput, LitStr, parse_macro_input};
 
 pub fn derive_lua_component(input: TokenStream) -> TokenStream {
-    let ast = parse_macro_input!(input as DeriveInput);
-    TokenStream::from(expand_derive_lua_component(ast))
+    let derive_input = parse_macro_input!(input as DeriveInput);
+    TokenStream::from(expand_derive_lua_component(derive_input))
 }
 
-fn lua_name_from_attr(ast: &DeriveInput) -> Option<String> {
-    for attr in &ast.attrs {
+fn lua_name_from_attr(derive_input: &DeriveInput) -> Option<String> {
+    for attr in &derive_input.attrs {
         if !attr.path().is_ident("lua") {
             continue;
         }
@@ -26,10 +26,10 @@ fn lua_name_from_attr(ast: &DeriveInput) -> Option<String> {
     None
 }
 
-fn expand_derive_lua_component(ast: DeriveInput) -> TokenStream2 {
-    let struct_name = &ast.ident;
-    let (impl_generics, type_generics, where_clause) = ast.generics.split_for_impl();
-    let lua_name = lua_name_from_attr(&ast).unwrap_or_else(|| struct_name.to_string());
+fn expand_derive_lua_component(derive_input: DeriveInput) -> TokenStream2 {
+    let struct_name = &derive_input.ident;
+    let (impl_generics, type_generics, where_clause) = derive_input.generics.split_for_impl();
+    let lua_name = lua_name_from_attr(&derive_input).unwrap_or_else(|| struct_name.to_string());
 
     quote! {
         impl #impl_generics bevy::ecs::component::Component
@@ -40,7 +40,7 @@ fn expand_derive_lua_component(ast: DeriveInput) -> TokenStream2 {
             type Mutability = bevy::ecs::component::Mutable;
 
             fn on_add() -> Option<bevy::ecs::lifecycle::ComponentHook> {
-                Some(|mut world, _ctx| {
+                Some(|mut world, _context| {
                     if !world
                         .resource::<suon_lua::ScriptRegistry>()
                         .components
@@ -62,9 +62,9 @@ fn expand_derive_lua_component(ast: DeriveInput) -> TokenStream2 {
 
             fn make_accessor() -> suon_lua::ComponentAccessor {
                 suon_lua::ComponentAccessor {
-                    get: suon_lua::component_get::<Self>,
-                    set: suon_lua::component_set::<Self>,
-                    component_id: suon_lua::component_register_id::<Self>,
+                    get: suon_lua::serialize_component::<Self>,
+                    set: suon_lua::deserialize_component::<Self>,
+                    component_id: suon_lua::register_component_id::<Self>,
                 }
             }
         }
@@ -145,18 +145,18 @@ mod tests {
         let output = expand_derive_lua_component(input).to_string();
 
         assert!(
-            output.contains("suon_lua :: component_get :: < Self >"),
-            "make_accessor get field should use component_get"
+            output.contains("suon_lua :: serialize_component :: < Self >"),
+            "make_accessor get field should use serialize_component"
         );
 
         assert!(
-            output.contains("suon_lua :: component_set :: < Self >"),
-            "make_accessor set field should use component_set"
+            output.contains("suon_lua :: deserialize_component :: < Self >"),
+            "make_accessor set field should use deserialize_component"
         );
 
         assert!(
-            output.contains("suon_lua :: component_register_id :: < Self >"),
-            "make_accessor component_id field should use component_register_id"
+            output.contains("suon_lua :: register_component_id :: < Self >"),
+            "make_accessor component_id field should use register_component_id"
         );
     }
 

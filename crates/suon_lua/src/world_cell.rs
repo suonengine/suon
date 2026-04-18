@@ -31,8 +31,8 @@ impl Drop for WorldContext<'_> {
     }
 }
 
-/// Runs `f` with exclusive world access. Only valid inside a [`WorldContext`].
-pub(crate) fn with<R>(f: impl FnOnce(&mut World) -> R) -> R {
+/// Runs `callback` with exclusive world access. Only valid inside a [`WorldContext`].
+pub(crate) fn with<R>(callback: impl FnOnce(&mut World) -> R) -> R {
     WORLD.with(|world_cell| {
         let world_ptr = world_cell.get();
         assert!(
@@ -41,7 +41,7 @@ pub(crate) fn with<R>(f: impl FnOnce(&mut World) -> R) -> R {
         );
         // SAFETY: pointer is valid for 'world (tied to WorldContext lifetime).
         // Lua is !Send so no concurrent access is possible.
-        unsafe { f(&mut *world_ptr) }
+        unsafe { callback(&mut *world_ptr) }
     })
 }
 

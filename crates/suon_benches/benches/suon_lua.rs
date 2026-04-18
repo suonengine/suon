@@ -3,9 +3,10 @@ use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use serde::{Deserialize, Serialize};
 use std::hint::black_box;
 use suon_lua::{
-    AppLuaExt, LuaCommands, LuaComponent, LuaPlugin, LuaScript, ScriptRegistry, component_get,
-    component_register_id, component_set,
+    AppLuaExt, LuaCommands, LuaComponent, LuaPlugin, LuaScript, ScriptRegistry,
+    deserialize_component, register_component_id,
     runtime::{ComponentAccessor, LuaRuntime},
+    serialize_component,
 };
 
 #[derive(Component, Serialize, Deserialize, Clone)]
@@ -20,9 +21,9 @@ impl LuaComponent for Health {
 
     fn make_accessor() -> ComponentAccessor {
         ComponentAccessor {
-            get: component_get::<Health>,
-            set: component_set::<Health>,
-            component_id: component_register_id::<Health>,
+            get: serialize_component::<Health>,
+            set: deserialize_component::<Health>,
+            component_id: register_component_id::<Health>,
         }
     }
 }
@@ -53,7 +54,7 @@ fn benchmark_lua(c: &mut Criterion) {
             with_runtime(&mut app_exec, |runtime, world| {
                 runtime
                     .scope(world)
-                    .exec(black_box("x = 1 + 2"))
+                    .execute(black_box("x = 1 + 2"))
                     .expect("exec should succeed");
             });
         });
@@ -63,7 +64,7 @@ fn benchmark_lua(c: &mut Criterion) {
     let entity_cget = app_cget.world_mut().spawn(Health { value: 100 }).id();
     group.bench_function("component_get", |b| {
         b.iter(|| {
-            let json = component_get::<Health>(black_box(entity_cget), app_cget.world_mut())
+            let json = serialize_component::<Health>(black_box(entity_cget), app_cget.world_mut())
                 .expect("Health should be present");
             black_box(json);
         });
@@ -74,7 +75,7 @@ fn benchmark_lua(c: &mut Criterion) {
     let json = serde_json::json!({ "value": 50 });
     group.bench_function("component_set", |b| {
         b.iter(|| {
-            component_set::<Health>(
+            deserialize_component::<Health>(
                 black_box(entity_cset),
                 app_cset.world_mut(),
                 black_box(json.clone()),
@@ -114,7 +115,7 @@ fn benchmark_lua(c: &mut Criterion) {
                     with_runtime(&mut app, |runtime, world| {
                         runtime
                             .scope(world)
-                            .exec(black_box(
+                            .execute(black_box(
                                 "local n = 0
                                  for id, hp in world:query('Health'):iter() do
                                      n = n + hp.value
@@ -139,7 +140,7 @@ fn benchmark_lua(c: &mut Criterion) {
             app_exec_cmd
                 .world_mut()
                 .commands()
-                .lua_exec(black_box(exec_snippet.clone()));
+                .lua_execute(black_box(exec_snippet.clone()));
             app_exec_cmd.world_mut().flush();
         });
     });
@@ -173,9 +174,9 @@ fn benchmark_lua(c: &mut Criterion) {
             registry.register_component(
                 black_box("Health"),
                 ComponentAccessor {
-                    get: component_get::<Health>,
-                    set: component_set::<Health>,
-                    component_id: component_register_id::<Health>,
+                    get: serialize_component::<Health>,
+                    set: deserialize_component::<Health>,
+                    component_id: register_component_id::<Health>,
                 },
             );
             black_box(registry);

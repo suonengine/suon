@@ -77,8 +77,8 @@ impl UserData for QueryProxy {
                 let (entity_bits, ref components) = rows[index];
                 let entity = Entity::from_bits(entity_bits);
 
-                let mut multi = mlua::MultiValue::new();
-                multi.push_back(mlua::Value::Integer(entity_bits as i64));
+                let mut return_values = mlua::MultiValue::new();
+                return_values.push_back(mlua::Value::Integer(entity_bits as i64));
 
                 for (component_json, set_fn) in components.iter() {
                     let data = Rc::new(RefCell::new(component_json.clone()));
@@ -90,47 +90,47 @@ impl UserData for QueryProxy {
                         .push((data.clone(), dirty.clone(), entity, set_fn));
 
                     let proxy = lua.create_table()?;
-                    let meta = lua.create_table()?;
+                    let metatable = lua.create_table()?;
 
-                    let data_idx = data.clone();
-                    meta.set(
+                    let data_for_index = data.clone();
+                    metatable.set(
                         "__index",
                         lua.create_function(move |lua, (_proxy, key): (mlua::Table, String)| {
-                            let val = data_idx
+                            let value = data_for_index
                                 .borrow()
                                 .get(&key)
                                 .cloned()
                                 .unwrap_or(serde_json::Value::Null);
-                            json_to_lua(lua, val)
+                            json_to_lua(lua, value)
                         })?,
                     )?;
 
-                    let data_ni = data.clone();
-                    let dirty_ni = dirty.clone();
-                    meta.set(
+                    let data_for_newindex = data.clone();
+                    let dirty_for_newindex = dirty.clone();
+                    metatable.set(
                             "__newindex",
                             lua.create_function(
                                 move |_lua,
-                                      (_proxy, key, lua_val): (
+                                      (_proxy, key, lua_value): (
                                     mlua::Table,
                                     String,
                                     mlua::Value,
                                 )| {
-                                    let mut d = data_ni.borrow_mut();
-                                    if let serde_json::Value::Object(ref mut map) = *d {
-                                        map.insert(key, lua_to_json(lua_val)?);
+                                    let mut data = data_for_newindex.borrow_mut();
+                                    if let serde_json::Value::Object(ref mut map) = *data {
+                                        map.insert(key, lua_to_json(lua_value)?);
                                     }
-                                    dirty_ni.set(true);
+                                    dirty_for_newindex.set(true);
                                     Ok(())
                                 },
                             )?,
                         )?;
 
-                    let _ = proxy.set_metatable(Some(meta));
-                    multi.push_back(mlua::Value::Table(proxy));
+                    let _ = proxy.set_metatable(Some(metatable));
+                    return_values.push_back(mlua::Value::Table(proxy));
                 }
 
-                Ok(multi)
+                Ok(return_values)
             })?;
 
             Ok(iter_fn)
@@ -266,7 +266,7 @@ mod tests {
     fn run(runtime: &LuaRuntime, world: &mut World, lua: &str) {
         runtime
             .scope(world)
-            .exec(lua)
+            .execute(lua)
             .expect("lua exec should succeed");
     }
 
