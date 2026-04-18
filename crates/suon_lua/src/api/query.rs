@@ -16,7 +16,7 @@ use std::{
 
 use crate::{
     api::{json_value_to_lua_value, lua_value_to_json_value},
-    runtime::ScriptRegistry,
+    runtime::{QueryPlan, ScriptRegistry},
     world_cell,
 };
 
@@ -26,10 +26,9 @@ type ComponentEntry = (
     fn(Entity, &mut World, serde_json::Value),
 );
 
-type ComponentData = (serde_json::Value, fn(Entity, &mut World, serde_json::Value));
-
+type RawComponentData = (serde_json::Value, fn(Entity, &mut World, serde_json::Value));
 type PendingEntry = (
-    Rc<RefCell<serde_json::Value>>,
+    Rc<mlua::Table>,
     Rc<Cell<bool>>,
     Entity,
     fn(Entity, &mut World, serde_json::Value),
@@ -55,9 +54,7 @@ impl UserData for QueryProxy {
     fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
         methods.add_method("iter", |lua, this, ()| {
             let component_names = this.components.clone();
-
-            let rows: Vec<(u64, Vec<ComponentData>)> =
-                world_cell::with(|world| collect_query(world, &component_names));
+            let rows = world_cell::with(|world| collect_query(world, &component_names));
 
             let rows = Rc::new(rows);
             let cursor = Rc::new(Cell::new(0usize));
@@ -72,7 +69,9 @@ impl UserData for QueryProxy {
                 for (component_data, is_dirty, entity, set_fn) in pending.borrow().iter() {
                     if is_dirty.get() {
                         is_dirty.set(false);
-                        let snapshot = component_data.borrow().clone();
+                        let snapshot = lua_value_to_json_value(mlua::Value::Table(
+                            (**component_data).clone(),
+                        ))?;
                         world_cell::with(|world| set_fn(*entity, world, snapshot));
                     }
                 }
@@ -91,7 +90,8 @@ impl UserData for QueryProxy {
                 return_values.push_back(mlua::Value::Integer(entity_bits as i64));
 
                 for (component_json, set_fn) in components.iter() {
-                    let component_data = Rc::new(RefCell::new(component_json.clone()));
+                    let component_data =
+                        Rc::new(prepare_component_table(lua, component_json.clone())?);
                     let is_dirty = Rc::new(Cell::new(false));
                     let set_fn = *set_fn;
 
@@ -108,13 +108,8 @@ impl UserData for QueryProxy {
                     let data_for_index = component_data.clone();
                     metatable.set(
                         "__index",
-                        lua.create_function(move |lua, (_proxy, key): (mlua::Table, String)| {
-                            let value = data_for_index
-                                .borrow()
-                                .get(&key)
-                                .cloned()
-                                .unwrap_or(serde_json::Value::Null);
-                            json_value_to_lua_value(lua, value)
+                        lua.create_function(move |_lua, (_proxy, key): (mlua::Table, String)| {
+                            data_for_index.raw_get::<mlua::Value>(key)
                         })?,
                     )?;
 
@@ -129,10 +124,7 @@ impl UserData for QueryProxy {
                                     String,
                                     mlua::Value,
                                 )| {
-                                    let mut data = data_for_newindex.borrow_mut();
-                                    if let serde_json::Value::Object(ref mut map) = *data {
-                                        map.insert(key, lua_value_to_json_value(lua_value)?);
-                                    }
+                                    data_for_newindex.raw_set(key, lua_value)?;
                                     dirty_for_newindex.set(true);
                                     Ok(())
                                 },
@@ -155,45 +147,61 @@ impl UserData for QueryProxy {
 ///
 /// Uses [`resource_scope`] so the registry and world can be borrowed independently,
 /// then builds a dynamic [`QueryState`] via [`QueryBuilder`].
-fn collect_query(world: &mut World, component_names: &[String]) -> Vec<(u64, Vec<ComponentData>)> {
+fn collect_query(
+    world: &mut World,
+    component_names: &[String],
+) -> Vec<(u64, Vec<RawComponentData>)> {
     let mut results = Vec::new();
 
-    world.resource_scope(|world, registry: Mut<ScriptRegistry>| {
-        let entries: Vec<ComponentEntry> = component_names
-            .iter()
-            .filter_map(|name| {
-                registry
-                    .components
-                    .get(name.as_str())
-                    .map(|accessor| (accessor.component_id, accessor.get, accessor.set))
-            })
-            .collect();
+    world.resource_scope(|world, mut registry: Mut<ScriptRegistry>| {
+        let cache_key = component_names.to_vec();
+        let query_plan = match registry.query_cache.get(&cache_key) {
+            Some(cached_plan) => cached_plan.clone(),
+            None => {
+                let entries: Vec<ComponentEntry> = component_names
+                    .iter()
+                    .filter_map(|name| {
+                        registry
+                            .components
+                            .get(name.as_str())
+                            .map(|accessor| (accessor.component_id, accessor.get, accessor.set))
+                    })
+                    .collect();
 
-        // A dynamic query should only proceed when every requested component name
-        // resolved successfully. Silently dropping unknown names would turn
-        // `world:query("A", "Missing", "B")` into `world:query("A", "B")`,
-        // which is surprising and hides script mistakes.
-        if entries.len() != component_names.len() {
+                // A dynamic query should only proceed when every requested component name
+                // resolved successfully. Silently dropping unknown names would turn
+                // `world:query("A", "Missing", "B")` into `world:query("A", "B")`,
+                // which is surprising and hides script mistakes.
+                let query_plan = if entries.len() != component_names.len() {
+                    None
+                } else {
+                    let component_ids: Vec<ComponentId> = entries
+                        .iter()
+                        .map(|(init_id, _, _)| init_id(world))
+                        .collect();
+
+                    if component_ids.is_empty() {
+                        None
+                    } else {
+                        Some(QueryPlan {
+                            component_ids,
+                            get_fns: entries.iter().map(|(_, get, _)| *get).collect(),
+                            set_fns: entries.iter().map(|(_, _, set)| *set).collect(),
+                        })
+                    }
+                };
+
+                registry.query_cache.insert(cache_key, query_plan.clone());
+                query_plan
+            }
+        };
+
+        let Some(query_plan) = query_plan else {
             return;
-        }
-
-        let component_ids: Vec<ComponentId> = entries
-            .iter()
-            .map(|(init_id, _, _)| init_id(world))
-            .collect();
-
-        let get_fns: Vec<fn(Entity, &mut World) -> Option<serde_json::Value>> =
-            entries.iter().map(|(_, get, _)| *get).collect();
-
-        let set_fns: Vec<fn(Entity, &mut World, serde_json::Value)> =
-            entries.iter().map(|(_, _, set)| *set).collect();
-
-        if component_ids.is_empty() {
-            return;
-        }
+        };
 
         let mut builder = QueryBuilder::<Entity>::new(world);
-        for &component_id in &component_ids {
+        for &component_id in &query_plan.component_ids {
             builder.with_id(component_id);
         }
 
@@ -201,9 +209,10 @@ fn collect_query(world: &mut World, component_names: &[String]) -> Vec<(u64, Vec
         let entities: Vec<Entity> = query_state.iter(world).collect();
 
         for entity in entities {
-            let components: Vec<ComponentData> = get_fns
+            let components: Vec<RawComponentData> = query_plan
+                .get_fns
                 .iter()
-                .zip(set_fns.iter())
+                .zip(query_plan.set_fns.iter())
                 .filter_map(|(get, set)| get(entity, world).map(|json| (json, *set)))
                 .collect();
             results.push((entity.to_bits(), components));
@@ -211,6 +220,13 @@ fn collect_query(world: &mut World, component_names: &[String]) -> Vec<(u64, Vec
     });
 
     results
+}
+
+fn prepare_component_table(lua: &mlua::Lua, value: serde_json::Value) -> mlua::Result<mlua::Table> {
+    match json_value_to_lua_value(lua, value)? {
+        mlua::Value::Table(table) => Ok(table),
+        _ => lua.create_table(),
+    }
 }
 
 #[cfg(test)]

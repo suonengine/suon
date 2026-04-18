@@ -283,6 +283,75 @@ mod tests {
     }
 
     #[test]
+    fn deserialize_component_is_atomic_when_field_type_mismatches() {
+        // `amount` expects i32; passing a string causes serde_json::from_value to fail
+        // atomically, so the component must remain unchanged.
+        let mut world = World::new();
+        let entity = world.spawn(Gold { amount: 7 }).id();
+        deserialize_component::<Gold>(
+            entity,
+            &mut world,
+            serde_json::json!({ "amount": "not_a_number" }),
+        );
+        assert_eq!(
+            world
+                .get::<Gold>(entity)
+                .expect("Gold should still be present")
+                .amount,
+            7,
+            "component should be unchanged after a type-mismatch deserialization failure"
+        );
+    }
+
+    #[test]
+    fn serialize_component_serializes_enum_field() {
+        #[derive(Serialize, Deserialize, PartialEq, Debug)]
+        enum Stance {
+            Idle,
+            Combat,
+        }
+
+        #[derive(Component, Serialize, Deserialize)]
+        struct Fighter {
+            stance: Stance,
+        }
+
+        let mut world = World::new();
+        let entity = world
+            .spawn(Fighter {
+                stance: Stance::Combat,
+            })
+            .id();
+        let json =
+            serialize_component::<Fighter>(entity, &mut world).expect("Fighter should serialize");
+        assert_eq!(
+            json["stance"],
+            serde_json::json!("Combat"),
+            "enum variant should be serialized as its name string"
+        );
+    }
+
+    #[test]
+    fn json_with_duplicate_keys_last_value_wins() {
+        // serde_json's default behavior: last occurrence of a duplicate key wins.
+        // Verify that deserialize_component handles this without panicking and produces
+        // a valid component.
+        let json: serde_json::Value =
+            serde_json::from_str(r#"{"amount": 1, "amount": 99}"#).unwrap();
+        let mut world = World::new();
+        let entity = world.spawn(Gold { amount: 0 }).id();
+        deserialize_component::<Gold>(entity, &mut world, json);
+        assert_eq!(
+            world
+                .get::<Gold>(entity)
+                .expect("Gold should be present")
+                .amount,
+            99,
+            "last occurrence of a duplicate key should win"
+        );
+    }
+
+    #[test]
     fn app_register_lua_component_is_callable_from_lua() {
         let mut app = App::new();
         app.init_resource::<ScriptRegistry>();

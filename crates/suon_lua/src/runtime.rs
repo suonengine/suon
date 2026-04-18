@@ -7,7 +7,7 @@
 use bevy::{ecs::component::ComponentId, prelude::*};
 use mlua::Function;
 use serde_json::Value as Json;
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap};
 
 use crate::{api::entity::EntityProxy, world_cell::WorldContext};
 
@@ -30,13 +30,17 @@ use crate::{api::entity::EntityProxy, world_cell::WorldContext};
 /// ```
 pub struct LuaRuntime {
     lua: mlua::Lua,
+    script_cache: RefCell<HashMap<Box<str>, mlua::RegistryKey>>,
 }
 
 impl LuaRuntime {
     pub(crate) fn new() -> Self {
         let lua = mlua::Lua::new();
         crate::api::world::register_world_api(&lua).expect("failed to register Lua world API");
-        Self { lua }
+        Self {
+            lua,
+            script_cache: RefCell::new(HashMap::new()),
+        }
     }
 
     /// Enters a [`LuaScope`] that gives Lua callbacks access to `world` for its lifetime.
@@ -57,6 +61,7 @@ impl LuaRuntime {
     ) -> LuaScope<'runtime, 'world> {
         LuaScope {
             lua: &self.lua,
+            script_cache: &self.script_cache,
             _context: WorldContext::enter(world),
         }
     }
@@ -115,10 +120,24 @@ impl LuaRuntime {
 /// ```
 pub struct LuaScope<'runtime, 'world> {
     lua: &'runtime mlua::Lua,
+    script_cache: &'runtime RefCell<HashMap<Box<str>, mlua::RegistryKey>>,
     _context: WorldContext<'world>,
 }
 
 impl LuaScope<'_, '_> {
+    fn compiled_chunk(&self, source: &str) -> mlua::Result<Function> {
+        if let Some(cache_key) = self.script_cache.borrow().get(source) {
+            return self.lua.registry_value(cache_key);
+        }
+
+        let function = self.lua.load(source).into_function()?;
+        let registry_key = self.lua.create_registry_value(function.clone())?;
+        self.script_cache
+            .borrow_mut()
+            .insert(source.into(), registry_key);
+        Ok(function)
+    }
+
     /// Compiles and executes `source` as a Lua chunk in the shared VM state.
     ///
     /// # Errors
@@ -139,7 +158,7 @@ impl LuaScope<'_, '_> {
     /// # Ok::<(), mlua::Error>(())
     /// ```
     pub fn execute(&self, source: &str) -> mlua::Result<()> {
-        self.lua.load(source).exec()
+        self.compiled_chunk(source)?.call::<()>(())
     }
 
     /// Loads `source`, then calls `hook` passing an `EntityProxy` userdata as `self`.
@@ -172,7 +191,7 @@ impl LuaScope<'_, '_> {
     /// # Ok::<(), mlua::Error>(())
     /// ```
     pub fn call_hook(&self, entity: Entity, source: &str, hook: &str) -> mlua::Result<()> {
-        self.lua.load(source).exec()?;
+        self.compiled_chunk(source)?.call::<()>(())?;
 
         let globals = self.lua.globals();
         let entity_proxy = self.lua.create_userdata(EntityProxy { id: entity })?;
@@ -271,18 +290,27 @@ pub struct TriggerAccessor {
 pub struct ScriptRegistry {
     pub(crate) components: HashMap<String, ComponentAccessor>,
     pub(crate) triggers: HashMap<String, TriggerAccessor>,
+    pub(crate) query_cache: HashMap<Vec<String>, Option<QueryPlan>>,
 }
 
 impl ScriptRegistry {
     /// Registers a Lua-visible component accessor under `name`.
     pub fn register_component(&mut self, name: impl Into<String>, accessor: ComponentAccessor) {
         self.components.insert(name.into(), accessor);
+        self.query_cache.clear();
     }
 
     /// Registers a Lua-visible trigger accessor under `name`.
     pub fn register_trigger(&mut self, name: impl Into<String>, accessor: TriggerAccessor) {
         self.triggers.insert(name.into(), accessor);
     }
+}
+
+#[derive(Clone)]
+pub(crate) struct QueryPlan {
+    pub(crate) component_ids: Vec<ComponentId>,
+    pub(crate) get_fns: Vec<fn(Entity, &mut World) -> Option<Json>>,
+    pub(crate) set_fns: Vec<fn(Entity, &mut World, Json)>,
 }
 
 #[cfg(test)]
@@ -487,6 +515,37 @@ mod tests {
     }
 
     #[test]
+    fn execute_caches_compiled_chunks_by_source() {
+        let runtime = LuaRuntime::new();
+        let mut world = setup_world();
+
+        runtime.scope(&mut world).execute("counter = 1").unwrap();
+        runtime.scope(&mut world).execute("counter = 1").unwrap();
+
+        assert_eq!(runtime.script_cache.borrow().len(), 1);
+    }
+
+    #[test]
+    fn call_hook_reuses_cached_script_chunk() {
+        let runtime = LuaRuntime::new();
+        let mut world = setup_world();
+        let entity = world.spawn_empty().id();
+        let source = "function Entity:onTick() touched = true end";
+
+        runtime
+            .scope(&mut world)
+            .call_hook(entity, source, "onTick")
+            .unwrap();
+
+        runtime
+            .scope(&mut world)
+            .call_hook(entity, source, "onTick")
+            .unwrap();
+
+        assert_eq!(runtime.script_cache.borrow().len(), 1);
+    }
+
+    #[test]
     fn call_hook_with_empty_source_and_no_hook_is_noop() {
         let runtime = LuaRuntime::new();
         let mut world = setup_world();
@@ -547,6 +606,25 @@ mod tests {
             );
         }
         assert_eq!(registry.components.len(), 1);
+    }
+
+    #[test]
+    fn register_component_clears_query_cache() {
+        let mut registry = ScriptRegistry::default();
+        registry
+            .query_cache
+            .insert(vec!["Health".to_string()], None);
+
+        registry.register_component(
+            "Health",
+            ComponentAccessor {
+                get: |_, _| None,
+                set: |_, _, _| {},
+                component_id: |_| unreachable!(),
+            },
+        );
+
+        assert!(registry.query_cache.is_empty());
     }
 
     #[test]

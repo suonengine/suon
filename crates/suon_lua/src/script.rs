@@ -4,6 +4,7 @@
 //! invoked by [`crate::LuaCommands::lua_hook`] at command-flush time.
 
 use bevy::prelude::*;
+use std::sync::Arc;
 
 /// Lua source code attached to a Bevy entity.
 ///
@@ -24,7 +25,7 @@ use bevy::prelude::*;
 /// ```
 #[derive(Component, Clone)]
 pub struct LuaScript {
-    source: String,
+    source: Arc<str>,
 }
 
 impl LuaScript {
@@ -37,7 +38,7 @@ impl LuaScript {
     /// let script = LuaScript::new("function Entity:onTick() end");
     /// # let _ = script;
     /// ```
-    pub fn new(source: impl Into<String>) -> Self {
+    pub fn new(source: impl Into<Arc<str>>) -> Self {
         Self {
             source: source.into(),
         }
@@ -54,6 +55,10 @@ impl LuaScript {
     /// ```
     pub fn source(&self) -> &str {
         &self.source
+    }
+
+    pub(crate) fn shared_source(&self) -> Arc<str> {
+        Arc::clone(&self.source)
     }
 }
 

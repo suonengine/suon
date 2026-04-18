@@ -458,6 +458,90 @@ mod tests {
     }
 
     #[test]
+    fn trigger_removes_component_from_entity() {
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
+        world.resource_mut::<ScriptRegistry>().register_trigger(
+            "RemoveHealth",
+            TriggerAccessor {
+                fire: |entity, world, _json| {
+                    world.entity_mut(entity).remove::<TestHealth>();
+                },
+            },
+        );
+
+        let runtime = LuaRuntime::new();
+        let entity = world.spawn(TestHealth { value: 100 }).id();
+
+        runtime
+            .scope(&mut world)
+            .execute(&format!(
+                "world:entity({}):trigger('RemoveHealth', {{}})",
+                entity.to_bits()
+            ))
+            .expect("lua exec should succeed");
+
+        assert!(
+            world.get::<TestHealth>(entity).is_none(),
+            "TestHealth should have been removed by the trigger"
+        );
+    }
+
+    #[test]
+    fn trigger_chain_fires_both_handlers() {
+        #[derive(Resource, Default)]
+        struct FireLog(Vec<&'static str>);
+
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
+        world.init_resource::<FireLog>();
+
+        world.resource_mut::<ScriptRegistry>().register_trigger(
+            "Inner",
+            TriggerAccessor {
+                fire: |_entity, world, _json| {
+                    world.resource_mut::<FireLog>().0.push("inner");
+                },
+            },
+        );
+
+        world.resource_mut::<ScriptRegistry>().register_trigger(
+            "Outer",
+            TriggerAccessor {
+                fire: |entity, world, _json| {
+                    world.resource_mut::<FireLog>().0.push("outer");
+                    // A trigger firing another trigger tests re-entrant ScriptRegistry access.
+                    let inner_fire = world
+                        .resource::<ScriptRegistry>()
+                        .triggers
+                        .get("Inner")
+                        .map(|t| t.fire);
+                    if let Some(fire) = inner_fire {
+                        fire(entity, world, serde_json::Value::Null);
+                    }
+                },
+            },
+        );
+
+        let runtime = LuaRuntime::new();
+        let entity = world.spawn_empty().id();
+
+        runtime
+            .scope(&mut world)
+            .execute(&format!(
+                "world:entity({}):trigger('Outer', {{}})",
+                entity.to_bits()
+            ))
+            .expect("lua exec should succeed");
+
+        assert_eq!(
+            world.resource::<FireLog>().0.as_slice(),
+            &["outer", "inner"],
+            "outer trigger should fire first, then the inner trigger it chains to"
+        );
+    }
+
+    #[test]
     fn id_matches_entity_bits_after_spawn() {
         let (runtime, mut world) = setup();
         let a = world.spawn_empty().id();

@@ -4,6 +4,7 @@
 //! taking direct ownership of [`LuaRuntime`].
 
 use bevy::prelude::*;
+use std::sync::Arc;
 
 use crate::{runtime::LuaRuntime, script::LuaScript};
 
@@ -36,7 +37,7 @@ impl Command for RunLuaHook {
     fn apply(self, world: &mut World) {
         let Some(source) = world
             .get::<LuaScript>(self.entity)
-            .map(|script| script.source().to_owned())
+            .map(LuaScript::shared_source)
         else {
             return;
         };
@@ -68,7 +69,7 @@ impl Command for RunLuaHook {
 /// }
 /// ```
 pub struct RunLuaScript {
-    pub(crate) source: String,
+    pub(crate) source: Arc<str>,
 }
 
 impl Command for RunLuaScript {
@@ -116,7 +117,7 @@ pub trait LuaCommands {
     ///     );
     /// }
     /// ```
-    fn lua_execute(&mut self, source: impl Into<String>);
+    fn lua_execute(&mut self, source: impl Into<Arc<str>>);
 }
 
 impl LuaCommands for Commands<'_, '_> {
@@ -124,7 +125,7 @@ impl LuaCommands for Commands<'_, '_> {
         self.queue(RunLuaHook { entity, hook });
     }
 
-    fn lua_execute(&mut self, source: impl Into<String>) {
+    fn lua_execute(&mut self, source: impl Into<Arc<str>>) {
         self.queue(RunLuaScript {
             source: source.into(),
         });

@@ -327,6 +327,137 @@ mod tests {
     }
 
     #[test]
+    fn on_add_does_not_overwrite_existing_accessor() {
+        let mut app = app_with_lua();
+
+        // First spawn triggers auto-registration via the on_add hook.
+        app.world_mut().spawn(Mana { points: 0 });
+
+        // Replace with a sentinel that always returns points = 999.
+        app.world_mut()
+            .resource_mut::<ScriptRegistry>()
+            .components
+            .insert(
+                "Mana".to_string(),
+                ComponentAccessor {
+                    get: |_entity, _world| Some(serde_json::json!({ "points": 999 })),
+                    set: |_, _, _| {},
+                    component_id: register_component_id::<Mana>,
+                },
+            );
+
+        // Second spawn — on_add should skip because "Mana" is already in the registry.
+        app.world_mut().spawn(Mana { points: 50 });
+
+        // Call the accessor: if it still returns 999 the sentinel wasn't overwritten.
+        let get_fn = app
+            .world()
+            .resource::<ScriptRegistry>()
+            .components
+            .get("Mana")
+            .expect("Mana should still be in registry")
+            .get;
+
+        let mut dummy_world = World::new();
+        let dummy_entity = dummy_world.spawn_empty().id();
+        assert_eq!(
+            get_fn(dummy_entity, &mut dummy_world),
+            Some(serde_json::json!({ "points": 999 })),
+            "on_add should not overwrite an existing accessor"
+        );
+    }
+
+    #[test]
+    fn change_detection_fires_after_lua_set() {
+        // Verifies that entity:set() triggers Bevy's change detection by checking
+        // the component's change tick after the Lua call.
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
+        world.insert_non_send_resource(LuaRuntime::new());
+
+        #[derive(Serialize, Deserialize, Clone)]
+        struct Coins {
+            count: i32,
+        }
+        impl Component for Coins {
+            const STORAGE_TYPE: bevy::ecs::component::StorageType =
+                bevy::ecs::component::StorageType::Table;
+            type Mutability = bevy::ecs::component::Mutable;
+        }
+
+        world.resource_mut::<ScriptRegistry>().register_component(
+            "Coins",
+            ComponentAccessor {
+                get: serialize_component::<Coins>,
+                set: deserialize_component::<Coins>,
+                component_id: register_component_id::<Coins>,
+            },
+        );
+
+        let entity = world.spawn(Coins { count: 0 }).id();
+        // Advance the world tick so the spawn's change stamp is in the past.
+        world.clear_trackers();
+        world.increment_change_tick();
+
+        LuaRuntime::take_scope(&mut world, |runtime, w| {
+            runtime.scope(w).execute(&format!(
+                "world:entity({}):set('Coins', {{ count = 5 }})",
+                entity.to_bits()
+            ))
+        })
+        .expect("LuaRuntime missing")
+        .expect("lua exec should succeed");
+
+        // ComponentTicks::is_changed uses world.last_change_tick() as last_run, so
+        // the insert that happened after increment_change_tick() must be detected.
+        let ticks = world
+            .entity(entity)
+            .get_change_ticks::<Coins>()
+            .expect("Coins should have change ticks");
+
+        assert!(
+            ticks.is_changed(world.last_change_tick(), world.change_tick()),
+            "Coins should be detected as changed after Lua entity:set()"
+        );
+    }
+
+    #[test]
+    fn lua_hook_runs_each_update_when_queued_by_system() {
+        use bevy::app::Update;
+
+        let mut app = app_with_lua();
+
+        let entity = app
+            .world_mut()
+            .spawn((
+                Mana { points: 0 },
+                LuaScript::new(
+                    "function Entity:onTick()
+                        local m = self:get('Mana')
+                        self:set('Mana', { points = m.points + 1 })
+                    end",
+                ),
+            ))
+            .id();
+
+        app.add_systems(Update, move |mut commands: Commands| {
+            commands.lua_hook(entity, "onTick");
+        });
+
+        app.update();
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<Mana>(entity)
+                .expect("Mana should exist")
+                .points,
+            2,
+            "hook should have incremented Mana.points once per Update tick"
+        );
+    }
+
+    #[test]
     fn lua_query_filters_entities_that_have_all_components() {
         #[derive(Serialize, Deserialize, Clone)]
         struct Stamina {
