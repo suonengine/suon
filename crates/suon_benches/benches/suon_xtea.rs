@@ -13,9 +13,7 @@ fn packet_with_payload_len(payload_len: usize) -> Vec<u8> {
 fn benchmark_xtea(c: &mut Criterion) {
     let mut group = c.benchmark_group("xtea");
 
-    group.bench_function("expand_key", |b| {
-        b.iter(|| expand_key(black_box(&KEY)))
-    });
+    group.bench_function("expand_key", |b| b.iter(|| expand_key(black_box(&KEY))));
 
     for payload_len in [0usize, 5, 14, 64, 256] {
         let packet = packet_with_payload_len(payload_len);

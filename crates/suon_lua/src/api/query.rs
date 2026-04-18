@@ -73,16 +73,14 @@ impl UserData for QueryProxy {
                     let data_idx = data.clone();
                     meta.set(
                         "__index",
-                        lua.create_function(
-                            move |lua, (_proxy, key): (mlua::Table, String)| {
-                                let val = data_idx
-                                    .borrow()
-                                    .get(&key)
-                                    .cloned()
-                                    .unwrap_or(serde_json::Value::Null);
-                                json_to_lua(lua, val)
-                            },
-                        )?,
+                        lua.create_function(move |lua, (_proxy, key): (mlua::Table, String)| {
+                            let val = data_idx
+                                .borrow()
+                                .get(&key)
+                                .cloned()
+                                .unwrap_or(serde_json::Value::Null);
+                            json_to_lua(lua, val)
+                        })?,
                     )?;
 
                     let data_ni = data.clone();
@@ -124,24 +122,24 @@ impl UserData for QueryProxy {
 ///
 /// Uses [`resource_scope`] so the registry and world can be borrowed independently,
 /// then builds a dynamic [`QueryState`] via [`QueryBuilder`].
-fn collect_query(
-    world: &mut World,
-    component_names: &[String],
-) -> Vec<(u64, Vec<ComponentData>)> {
+fn collect_query(world: &mut World, component_names: &[String]) -> Vec<(u64, Vec<ComponentData>)> {
     let mut results = Vec::new();
 
     world.resource_scope(|world, registry: Mut<ScriptRegistry>| {
         let entries: Vec<ComponentEntry> = component_names
             .iter()
             .filter_map(|name| {
-                registry.components.get(name.as_str()).map(|accessor| {
-                    (accessor.component_id, accessor.get, accessor.set)
-                })
+                registry
+                    .components
+                    .get(name.as_str())
+                    .map(|accessor| (accessor.component_id, accessor.get, accessor.set))
             })
             .collect();
 
-        let component_ids: Vec<ComponentId> =
-            entries.iter().map(|(init_id, _, _)| init_id(world)).collect();
+        let component_ids: Vec<ComponentId> = entries
+            .iter()
+            .map(|(init_id, _, _)| init_id(world))
+            .collect();
 
         let get_fns: Vec<fn(Entity, &mut World) -> Option<serde_json::Value>> =
             entries.iter().map(|(_, get, _)| *get).collect();
@@ -236,7 +234,9 @@ mod tests {
             },
             set: |entity, world, json| {
                 if let Some(v) = json.get("value").and_then(|v| v.as_i64()) {
-                    world.entity_mut(entity).insert(TestHealth { value: v as i32 });
+                    world
+                        .entity_mut(entity)
+                        .insert(TestHealth { value: v as i32 });
                 }
             },
             component_id: |world| world.register_component::<TestHealth>(),
@@ -372,7 +372,8 @@ mod tests {
             &mut world,
             "
             for id, health, pos in world:query('TestHealth', 'TestPosition'):iter() do
-                assert(health.value == 7,  'health.value expected 7, got '  .. tostring(health.value))
+                assert(health.value == 7,  'health.value expected 7, got '  .. \
+             tostring(health.value))
                 assert(pos.x      == 3,   'pos.x expected 3, got '          .. tostring(pos.x))
                 assert(pos.y      == 4,   'pos.y expected 4, got '          .. tostring(pos.y))
             end
