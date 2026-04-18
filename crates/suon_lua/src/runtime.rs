@@ -27,6 +27,19 @@ impl LuaRuntime {
             _context: WorldContext::enter(world),
         }
     }
+
+    /// Removes [`LuaRuntime`] from `world`, passes it alongside `world` to `f`, then re-inserts it.
+    ///
+    /// Returns `None` if the runtime resource is missing.
+    pub fn take_scope<R>(
+        world: &mut World,
+        f: impl FnOnce(&LuaRuntime, &mut World) -> R,
+    ) -> Option<R> {
+        let runtime = world.remove_non_send_resource::<LuaRuntime>()?;
+        let result = f(&runtime, world);
+        world.insert_non_send_resource(runtime);
+        Some(result)
+    }
 }
 
 /// Execution context that combines an active Lua state with exclusive world access.
@@ -83,8 +96,8 @@ pub struct TriggerAccessor {
     pub fire: fn(Entity, &mut World, Json),
 }
 
-#[cfg(test)]
 impl LuaScope<'_, '_> {
+    #[cfg(test)]
     pub(crate) fn eval<T: mlua::FromLua>(&self, expression: &str) -> mlua::Result<T> {
         self.lua.load(expression).eval::<T>()
     }
@@ -394,5 +407,30 @@ mod tests {
             registry.register_trigger("Heal", TriggerAccessor { fire: |_, _, _| {} });
         }
         assert_eq!(registry.triggers.len(), 1);
+    }
+
+    #[test]
+    fn take_scope_returns_none_when_runtime_is_missing() {
+        let mut world = World::new();
+        let result = LuaRuntime::take_scope(&mut world, |_, _| ());
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn take_scope_restores_runtime_after_call() {
+        let mut world = setup_world();
+        world.insert_non_send_resource(LuaRuntime::new());
+        LuaRuntime::take_scope(&mut world, |_, _| ());
+        assert!(world.get_non_send_resource::<LuaRuntime>().is_some());
+    }
+
+    #[test]
+    fn take_scope_restores_runtime_when_f_returns_err() {
+        let mut world = setup_world();
+        world.insert_non_send_resource(LuaRuntime::new());
+        LuaRuntime::take_scope(&mut world, |_, _| -> mlua::Result<()> {
+            Err(mlua::Error::RuntimeError("test".into()))
+        });
+        assert!(world.get_non_send_resource::<LuaRuntime>().is_some());
     }
 }

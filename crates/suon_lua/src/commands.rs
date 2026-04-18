@@ -19,7 +19,7 @@ impl Command for RunLuaHook {
             return;
         };
 
-        let result = with_runtime(world, |runtime, world| {
+        let result = LuaRuntime::take_scope(world, |runtime, world| {
             runtime
                 .scope(world)
                 .call_hook(self.entity, &source, self.hook)
@@ -38,7 +38,7 @@ pub struct RunLuaScript {
 
 impl Command for RunLuaScript {
     fn apply(self, world: &mut World) {
-        let result = with_runtime(world, |runtime, world| {
+        let result = LuaRuntime::take_scope(world, |runtime, world| {
             runtime.scope(world).exec(&self.source)
         });
 
@@ -46,16 +46,6 @@ impl Command for RunLuaScript {
             bevy::log::error!("lua_exec error: {error}");
         }
     }
-}
-
-/// Removes [`LuaRuntime`] from `world`, passes it alongside `world` to `f`, then re-inserts it.
-///
-/// Returns `None` if the runtime resource is missing.
-fn with_runtime<R>(world: &mut World, f: impl FnOnce(&LuaRuntime, &mut World) -> R) -> Option<R> {
-    let runtime = world.remove_non_send_resource::<LuaRuntime>()?;
-    let result = f(&runtime, world);
-    world.insert_non_send_resource(runtime);
-    Some(result)
 }
 
 /// Extends [`Commands`] with Lua execution methods.
@@ -91,7 +81,7 @@ mod tests {
     }
 
     fn read_lua_global<T: mlua::FromLua>(world: &mut World, expression: &str) -> T {
-        with_runtime(world, |runtime, world| {
+        LuaRuntime::take_scope(world, |runtime, world| {
             runtime.scope(world).eval::<T>(expression)
         })
         .expect("LuaRuntime missing")
@@ -182,31 +172,6 @@ mod tests {
             source: "error('boom')".into(),
         }
         .apply(&mut world);
-    }
-
-    #[test]
-    fn with_runtime_returns_none_when_runtime_is_missing() {
-        let mut world = World::new();
-        let result = with_runtime(&mut world, |_, _| ());
-        assert!(result.is_none());
-    }
-
-    #[test]
-    fn with_runtime_restores_resource_after_successful_call() {
-        let mut world = setup_world();
-        with_runtime(&mut world, |_, _| ());
-        assert!(world.get_non_send_resource::<LuaRuntime>().is_some());
-    }
-
-    #[test]
-    fn with_runtime_restores_resource_even_when_f_returns_error() {
-        let mut world = setup_world();
-
-        with_runtime(&mut world, |_, _| -> mlua::Result<()> {
-            Err(mlua::Error::RuntimeError("test".into()))
-        });
-
-        assert!(world.get_non_send_resource::<LuaRuntime>().is_some());
     }
 
     #[test]

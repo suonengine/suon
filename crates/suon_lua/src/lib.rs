@@ -18,8 +18,8 @@ pub struct LuaPlugin;
 
 impl Plugin for LuaPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_non_send_resource(LuaRuntime::new());
-        app.init_resource::<ScriptRegistry>();
+        app.init_resource::<ScriptRegistry>()
+            .insert_non_send_resource(LuaRuntime::new());
     }
 }
 
@@ -79,15 +79,11 @@ mod tests {
     }
 
     fn run_lua(app: &mut App, source: &str) {
-        let runtime = app
-            .world_mut()
-            .remove_non_send_resource::<LuaRuntime>()
-            .expect("LuaRuntime should be present");
-        runtime
-            .scope(app.world_mut())
-            .exec(source)
-            .expect("lua exec should succeed");
-        app.world_mut().insert_non_send_resource(runtime);
+        LuaRuntime::take_scope(app.world_mut(), |runtime, world| {
+            runtime.scope(world).exec(source)
+        })
+        .expect("LuaRuntime missing")
+        .expect("lua exec should succeed");
     }
 
     #[test]
