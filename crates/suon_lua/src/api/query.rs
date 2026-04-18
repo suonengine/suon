@@ -22,17 +22,23 @@ type ComponentEntry = (
 
 type ComponentData = (serde_json::Value, fn(Entity, &mut World, serde_json::Value));
 
+type PendingEntry = (
+    Rc<RefCell<serde_json::Value>>,
+    Rc<Cell<bool>>,
+    Entity,
+    fn(Entity, &mut World, serde_json::Value),
+);
+
 /// Lua UserData returned by `world:query(...)`.
 ///
 /// ```lua
 /// for id, hp in world:query("Health"):iter() do
-///     hp.value = hp.value + 10   -- writes back to the ECS immediately
+///     hp.value = hp.value + 10   -- batched: written to ECS once per entity at end of each step
 /// end
 ///
 /// for id, hp, pos in world:query("Health", "Position"):iter() do
-///     if hp.value < 10 then
-///         pos.x = 0
-///     end
+///     hp.value = 0   -- both fields written in a single component_set at end of step
+///     pos.x = 0
 /// end
 /// ```
 pub struct QueryProxy {
@@ -49,8 +55,19 @@ impl UserData for QueryProxy {
 
             let rows = Rc::new(rows);
             let cursor = Rc::new(Cell::new(0usize));
+            let pending: Rc<RefCell<Vec<PendingEntry>>> = Rc::new(RefCell::new(Vec::new()));
 
             let iter_fn = lua.create_function(move |lua, _: mlua::MultiValue| {
+                // Flush dirty proxies from the previous iteration before advancing.
+                for (data, dirty, entity, set_fn) in pending.borrow().iter() {
+                    if dirty.get() {
+                        dirty.set(false);
+                        let snapshot = data.borrow().clone();
+                        world_cell::with(|world| set_fn(*entity, world, snapshot));
+                    }
+                }
+                pending.borrow_mut().clear();
+
                 let index = cursor.get();
                 if index >= rows.len() {
                     return Ok(mlua::MultiValue::new());
@@ -65,7 +82,12 @@ impl UserData for QueryProxy {
 
                 for (component_json, set_fn) in components.iter() {
                     let data = Rc::new(RefCell::new(component_json.clone()));
+                    let dirty = Rc::new(Cell::new(false));
                     let set_fn = *set_fn;
+
+                    pending
+                        .borrow_mut()
+                        .push((data.clone(), dirty.clone(), entity, set_fn));
 
                     let proxy = lua.create_table()?;
                     let meta = lua.create_table()?;
@@ -84,23 +106,16 @@ impl UserData for QueryProxy {
                     )?;
 
                     let data_ni = data.clone();
+                    let dirty_ni = dirty.clone();
                     meta.set(
                         "__newindex",
                         lua.create_function(
-                            move |_lua,
-                                  (_proxy, key, lua_val): (
-                                mlua::Table,
-                                String,
-                                mlua::Value,
-                            )| {
-                                {
-                                    let mut d = data_ni.borrow_mut();
-                                    if let serde_json::Value::Object(ref mut map) = *d {
-                                        map.insert(key, lua_to_json(lua_val)?);
-                                    }
+                            move |_lua, (_proxy, key, lua_val): (mlua::Table, String, mlua::Value)| {
+                                let mut d = data_ni.borrow_mut();
+                                if let serde_json::Value::Object(ref mut map) = *d {
+                                    map.insert(key, lua_to_json(lua_val)?);
                                 }
-                                let snapshot = data_ni.borrow().clone();
-                                world_cell::with(|world| set_fn(entity, world, snapshot));
+                                dirty_ni.set(true);
                                 Ok(())
                             },
                         )?,
@@ -437,7 +452,13 @@ mod tests {
     }
 
     #[test]
-    fn proxy_assignment_writes_multiple_fields_independently() {
+    fn proxy_assignment_writes_multiple_fields_as_single_set() {
+        use std::cell::Cell;
+
+        thread_local! {
+            static SET_COUNT: Cell<u32> = const { Cell::new(0) };
+        }
+
         let mut world = World::new();
         world.init_resource::<ScriptRegistry>();
         world.resource_mut::<ScriptRegistry>().register_component(
@@ -449,6 +470,7 @@ mod tests {
                         .map(|p| serde_json::json!({ "x": p.x, "y": p.y }))
                 },
                 set: |entity, world, json| {
+                    SET_COUNT.with(|c| c.set(c.get() + 1));
                     let x = json.get("x").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
                     let y = json.get("y").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
                     world.entity_mut(entity).insert(TestPosition { x, y });
@@ -476,5 +498,47 @@ mod tests {
             .expect("TestPosition should be present");
         assert_eq!(pos.x, 10);
         assert_eq!(pos.y, 20);
+        assert_eq!(
+            SET_COUNT.with(|c| c.get()),
+            1,
+            "two field writes should produce exactly one component_set call"
+        );
+    }
+
+    #[test]
+    fn proxy_dirty_flag_does_not_write_when_no_assignment_made() {
+        use std::cell::Cell;
+
+        thread_local! {
+            static SET_COUNT: Cell<u32> = const { Cell::new(0) };
+        }
+
+        let (runtime, mut world) = setup();
+        world
+            .resource_mut::<ScriptRegistry>()
+            .components
+            .get_mut("TestHealth")
+            .expect("TestHealth should be registered")
+            .set = |_entity, _world, _json| {
+            SET_COUNT.with(|c| c.set(c.get() + 1));
+        };
+
+        world.spawn(TestHealth { value: 42 });
+
+        run(
+            &runtime,
+            &mut world,
+            "
+            for id, health in world:query('TestHealth'):iter() do
+                local _ = health.value  -- read only, no assignment
+            end
+        ",
+        );
+
+        assert_eq!(
+            SET_COUNT.with(|c| c.get()),
+            0,
+            "read-only iteration should not trigger any component_set calls"
+        );
     }
 }
