@@ -214,4 +214,36 @@ mod tests {
             "lua_name should return &'static str"
         );
     }
+
+    #[test]
+    fn generates_correct_impl_for_unit_struct() {
+        let input: DeriveInput = syn::parse_str("struct Marker;").unwrap();
+        let output = expand_derive_lua_component(input).to_string();
+
+        assert!(
+            output.contains("impl bevy :: ecs :: component :: Component for Marker"),
+            "Component impl should support unit structs"
+        );
+
+        assert!(
+            output.contains("impl suon_lua :: LuaComponent for Marker"),
+            "LuaComponent impl should support unit structs"
+        );
+    }
+
+    #[test]
+    fn generates_correct_impl_for_tuple_struct() {
+        let input: DeriveInput = syn::parse_str("struct Health(i32);").unwrap();
+        let output = expand_derive_lua_component(input).to_string();
+
+        assert!(
+            output.contains("impl bevy :: ecs :: component :: Component for Health"),
+            "Component impl should support tuple structs"
+        );
+
+        assert!(
+            output.contains("impl suon_lua :: LuaComponent for Health"),
+            "LuaComponent impl should support tuple structs"
+        );
+    }
 }

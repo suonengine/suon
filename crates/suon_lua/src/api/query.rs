@@ -169,6 +169,14 @@ fn collect_query(world: &mut World, component_names: &[String]) -> Vec<(u64, Vec
             })
             .collect();
 
+        // A dynamic query should only proceed when every requested component name
+        // resolved successfully. Silently dropping unknown names would turn
+        // `world:query("A", "Missing", "B")` into `world:query("A", "B")`,
+        // which is surprising and hides script mistakes.
+        if entries.len() != component_names.len() {
+            return;
+        }
+
         let component_ids: Vec<ComponentId> = entries
             .iter()
             .map(|(init_id, _, _)| init_id(world))
@@ -391,6 +399,44 @@ mod tests {
                 count = count + 1
             end
             assert(count == 0)
+        ",
+        );
+    }
+
+    #[test]
+    fn iter_is_empty_when_unknown_component_name_appears_in_the_middle() {
+        let (runtime, mut world) = setup();
+        world.spawn((TestHealth { value: 7 }, TestPosition { x: 3, y: 4 }));
+
+        run(
+            &runtime,
+            &mut world,
+            "
+            local count = 0
+            for id in world:query('TestHealth', 'Missing', 'TestPosition'):iter() do
+                count = count + 1
+            end
+            assert(count == 0, 'expected 0, got ' .. count)
+        ",
+        );
+    }
+
+    #[test]
+    fn iter_with_duplicate_component_names_returns_both_columns() {
+        let (runtime, mut world) = setup();
+        world.spawn(TestHealth { value: 33 });
+
+        run(
+            &runtime,
+            &mut world,
+            "
+            local count = 0
+            for id, health_a, health_b in world:query('TestHealth', 'TestHealth'):iter() do
+                count = count + 1
+                assert(health_a.value == 33)
+                assert(health_b.value == 33)
+            end
+            assert(count == 1, 'expected 1, got ' .. count)
         ",
         );
     }

@@ -271,6 +271,21 @@ mod tests {
     }
 
     #[test]
+    fn lua_hook_is_noop_when_entity_is_despawned_before_flush() {
+        let mut app = app_with_lua();
+        let entity = app
+            .world_mut()
+            .spawn(LuaScript::new("function onTick(entity) ran = true end"))
+            .id();
+
+        app.world_mut().commands().lua_hook(entity, "onTick");
+        app.world_mut().despawn(entity);
+        app.world_mut().flush();
+
+        assert!(app.world().get_entity(entity).is_err());
+    }
+
+    #[test]
     fn lua_script_source_getter_returns_stored_content() {
         let script = LuaScript::new("print('hello')");
         assert_eq!(script.source(), "print('hello')");

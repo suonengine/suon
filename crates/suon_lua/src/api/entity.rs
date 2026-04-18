@@ -290,6 +290,28 @@ mod tests {
     }
 
     #[test]
+    fn trigger_returns_error_when_argument_is_not_a_table() {
+        let (runtime, mut world) = setup();
+        let entity = world.spawn_empty().id();
+
+        let error = runtime
+            .scope(&mut world)
+            .execute(&format!(
+                "
+            local entity = world:entity({})
+            entity:trigger('Heal', 123)
+        ",
+                entity.to_bits()
+            ))
+            .expect_err("non-table trigger arguments should error");
+
+        assert!(
+            error.to_string().to_lowercase().contains("table"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
     fn id_returns_entity_bits_as_integer() {
         let (runtime, mut world) = setup();
         let entity = world.spawn_empty().id();
