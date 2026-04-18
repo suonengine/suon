@@ -132,7 +132,7 @@ mod tests {
     }
 
     #[test]
-    fn component_get_serializes_to_json() {
+    fn serialize_component_serializes_to_json() {
         let mut world = World::new();
         let entity = world.spawn(Gold { amount: 42 }).id();
         let json = serialize_component::<Gold>(entity, &mut world)
@@ -141,14 +141,14 @@ mod tests {
     }
 
     #[test]
-    fn component_get_returns_none_when_component_absent() {
+    fn serialize_component_returns_none_when_component_absent() {
         let mut world = World::new();
         let entity = world.spawn_empty().id();
         assert!(serialize_component::<Gold>(entity, &mut world).is_none());
     }
 
     #[test]
-    fn component_set_inserts_deserialized_component() {
+    fn deserialize_component_inserts_deserialized_component() {
         let mut world = World::new();
         let entity = world.spawn_empty().id();
         deserialize_component::<Gold>(entity, &mut world, serde_json::json!({ "amount": 99 }));
@@ -162,7 +162,7 @@ mod tests {
     }
 
     #[test]
-    fn component_set_updates_existing_component() {
+    fn deserialize_component_updates_existing_component() {
         let mut world = World::new();
         let entity = world.spawn(Gold { amount: 1 }).id();
         deserialize_component::<Gold>(entity, &mut world, serde_json::json!({ "amount": 50 }));
@@ -176,7 +176,7 @@ mod tests {
     }
 
     #[test]
-    fn component_set_ignores_malformed_json() {
+    fn deserialize_component_ignores_malformed_json() {
         let mut world = World::new();
         let entity = world.spawn(Gold { amount: 7 }).id();
         deserialize_component::<Gold>(entity, &mut world, serde_json::json!("not an object"));
@@ -190,7 +190,7 @@ mod tests {
     }
 
     #[test]
-    fn component_register_id_returns_stable_id() {
+    fn register_component_id_returns_stable_id() {
         let mut world = World::new();
         let first = register_component_id::<Gold>(&mut world);
         let second = register_component_id::<Gold>(&mut world);
@@ -258,7 +258,7 @@ mod tests {
     }
 
     #[test]
-    fn component_get_returns_none_for_despawned_entity() {
+    fn serialize_component_returns_none_for_despawned_entity() {
         let mut world = World::new();
         let entity = world.spawn(Gold { amount: 5 }).id();
         world.despawn(entity);
@@ -266,7 +266,7 @@ mod tests {
     }
 
     #[test]
-    fn component_set_with_null_json_does_not_insert_component() {
+    fn deserialize_component_with_null_json_does_not_insert_component() {
         let mut world = World::new();
         let entity = world.spawn_empty().id();
         deserialize_component::<Gold>(entity, &mut world, serde_json::Value::Null);

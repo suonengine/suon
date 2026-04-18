@@ -15,7 +15,7 @@ use std::{
 };
 
 use crate::{
-    api::{json_to_lua, lua_to_json},
+    api::{json_value_to_lua_value, lua_value_to_json_value},
     runtime::ScriptRegistry,
     world_cell,
 };
@@ -43,7 +43,7 @@ type PendingEntry = (
 /// end
 ///
 /// for id, hp, pos in world:query("Health", "Position"):iter() do
-///     hp.value = 0   -- both fields written in a single component_set at end of step
+///     hp.value = 0   -- both fields written in a single deserialize_component call at end of step
 ///     pos.x = 0
 /// end
 /// ```
@@ -69,10 +69,10 @@ impl UserData for QueryProxy {
                 // because Lua reads the __newindex result immediately after assignment —
                 // deferring until the next call lets the current step finish without
                 // a re-entrant world borrow.
-                for (data, dirty, entity, set_fn) in pending.borrow().iter() {
-                    if dirty.get() {
-                        dirty.set(false);
-                        let snapshot = data.borrow().clone();
+                for (component_data, is_dirty, entity, set_fn) in pending.borrow().iter() {
+                    if is_dirty.get() {
+                        is_dirty.set(false);
+                        let snapshot = component_data.borrow().clone();
                         world_cell::with(|world| set_fn(*entity, world, snapshot));
                     }
                 }
@@ -91,18 +91,21 @@ impl UserData for QueryProxy {
                 return_values.push_back(mlua::Value::Integer(entity_bits as i64));
 
                 for (component_json, set_fn) in components.iter() {
-                    let data = Rc::new(RefCell::new(component_json.clone()));
-                    let dirty = Rc::new(Cell::new(false));
+                    let component_data = Rc::new(RefCell::new(component_json.clone()));
+                    let is_dirty = Rc::new(Cell::new(false));
                     let set_fn = *set_fn;
 
-                    pending
-                        .borrow_mut()
-                        .push((data.clone(), dirty.clone(), entity, set_fn));
+                    pending.borrow_mut().push((
+                        component_data.clone(),
+                        is_dirty.clone(),
+                        entity,
+                        set_fn,
+                    ));
 
                     let proxy = lua.create_table()?;
                     let metatable = lua.create_table()?;
 
-                    let data_for_index = data.clone();
+                    let data_for_index = component_data.clone();
                     metatable.set(
                         "__index",
                         lua.create_function(move |lua, (_proxy, key): (mlua::Table, String)| {
@@ -111,12 +114,12 @@ impl UserData for QueryProxy {
                                 .get(&key)
                                 .cloned()
                                 .unwrap_or(serde_json::Value::Null);
-                            json_to_lua(lua, value)
+                            json_value_to_lua_value(lua, value)
                         })?,
                     )?;
 
-                    let data_for_newindex = data.clone();
-                    let dirty_for_newindex = dirty.clone();
+                    let data_for_newindex = component_data.clone();
+                    let dirty_for_newindex = is_dirty.clone();
                     metatable.set(
                             "__newindex",
                             lua.create_function(
@@ -128,7 +131,7 @@ impl UserData for QueryProxy {
                                 )| {
                                     let mut data = data_for_newindex.borrow_mut();
                                     if let serde_json::Value::Object(ref mut map) = *data {
-                                        map.insert(key, lua_to_json(lua_value)?);
+                                        map.insert(key, lua_value_to_json_value(lua_value)?);
                                     }
                                     dirty_for_newindex.set(true);
                                     Ok(())
@@ -516,7 +519,7 @@ mod tests {
         assert_eq!(
             SET_COUNT.with(|c| c.get()),
             1,
-            "two field writes should produce exactly one component_set call"
+            "two field writes should produce exactly one deserialize_component call"
         );
     }
 
@@ -577,7 +580,7 @@ mod tests {
         assert_eq!(
             SET_COUNT.with(|c| c.get()),
             0,
-            "read-only iteration should not trigger any component_set calls"
+            "read-only iteration should not trigger any deserialize_component calls"
         );
     }
 }

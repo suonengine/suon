@@ -53,7 +53,7 @@ impl Command for RunLuaScript {
         });
 
         if let Some(Err(error)) = result {
-            bevy::log::error!("lua_exec error: {error}");
+            bevy::log::error!("lua_execute error: {error}");
         }
     }
 }

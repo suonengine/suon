@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use mlua::{UserData, UserDataMethods};
 
 use crate::{
-    api::{json_to_lua, lua_to_json},
+    api::{json_value_to_lua_value, lua_value_to_json_value},
     runtime::ScriptRegistry,
     world_cell,
 };
@@ -42,7 +42,7 @@ impl UserData for EntityProxy {
 
             let json = world_cell::with(|world| get_fn(this.id, world));
             match json {
-                Some(json_value) => json_to_lua(lua, json_value),
+                Some(json_value) => json_value_to_lua_value(lua, json_value),
                 None => Ok(mlua::Value::Nil),
             }
         });
@@ -50,7 +50,7 @@ impl UserData for EntityProxy {
         methods.add_method(
             "set",
             |_lua, this, (component_name, lua_value): (String, mlua::Value)| {
-                let json = lua_to_json(lua_value)?;
+                let json = lua_value_to_json_value(lua_value)?;
 
                 let set_fn = world_cell::with(|world| {
                     world
@@ -71,7 +71,7 @@ impl UserData for EntityProxy {
         methods.add_method(
             "trigger",
             |_lua, this, (trigger_name, args_table): (String, mlua::Table)| {
-                let json = lua_to_json(mlua::Value::Table(args_table))?;
+                let json = lua_value_to_json_value(mlua::Value::Table(args_table))?;
 
                 let fire_fn = world_cell::with(|world| {
                     world

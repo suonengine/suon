@@ -1,6 +1,6 @@
 //! Lua value conversion helpers and sub-modules for the world/entity/query APIs.
 //!
-//! [`json_to_lua`] and [`lua_to_json`] are the serialisation bridge used by every
+//! [`json_value_to_lua_value`] and [`lua_value_to_json_value`] are the serialisation bridge used by every
 //! component accessor: ECS components travel as `serde_json::Value` between Rust and Lua.
 
 pub mod entity;
@@ -8,7 +8,10 @@ pub mod query;
 pub mod world;
 
 /// Converts a [`serde_json::Value`] to an equivalent Lua value.
-pub(crate) fn json_to_lua(lua: &mlua::Lua, value: serde_json::Value) -> mlua::Result<mlua::Value> {
+pub(crate) fn json_value_to_lua_value(
+    lua: &mlua::Lua,
+    value: serde_json::Value,
+) -> mlua::Result<mlua::Value> {
     use serde_json::Value as Json;
     match value {
         Json::Null => Ok(mlua::Value::Nil),
@@ -24,14 +27,14 @@ pub(crate) fn json_to_lua(lua: &mlua::Lua, value: serde_json::Value) -> mlua::Re
         Json::Array(array) => {
             let table = lua.create_table()?;
             for (index, element) in array.into_iter().enumerate() {
-                table.raw_set(index + 1, json_to_lua(lua, element)?)?;
+                table.raw_set(index + 1, json_value_to_lua_value(lua, element)?)?;
             }
             Ok(mlua::Value::Table(table))
         }
         Json::Object(object) => {
             let table = lua.create_table()?;
             for (key, value) in object {
-                table.raw_set(key, json_to_lua(lua, value)?)?;
+                table.raw_set(key, json_value_to_lua_value(lua, value)?)?;
             }
             Ok(mlua::Value::Table(table))
         }
@@ -39,7 +42,7 @@ pub(crate) fn json_to_lua(lua: &mlua::Lua, value: serde_json::Value) -> mlua::Re
 }
 
 /// Converts a Lua value to a [`serde_json::Value`].
-pub(crate) fn lua_to_json(value: mlua::Value) -> mlua::Result<serde_json::Value> {
+pub(crate) fn lua_value_to_json_value(value: mlua::Value) -> mlua::Result<serde_json::Value> {
     use serde_json::Value as Json;
     match value {
         mlua::Value::Nil => Ok(Json::Null),
@@ -59,7 +62,7 @@ pub(crate) fn lua_to_json(value: mlua::Value) -> mlua::Result<serde_json::Value>
                     mlua::Value::Integer(integer) => integer.to_string(),
                     _ => continue,
                 };
-                object.insert(key_string, lua_to_json(value)?);
+                object.insert(key_string, lua_value_to_json_value(value)?);
             }
             Ok(Json::Object(object))
         }
@@ -77,37 +80,37 @@ mod tests {
 
     #[test]
     fn json_null_becomes_lua_nil() {
-        let result =
-            json_to_lua(&lua(), serde_json::Value::Null).expect("json_to_lua should succeed");
+        let result = json_value_to_lua_value(&lua(), serde_json::Value::Null)
+            .expect("json_value_to_lua_value should succeed");
         assert_eq!(result, mlua::Value::Nil);
     }
 
     #[test]
     fn json_bool_true_becomes_lua_true() {
-        let result =
-            json_to_lua(&lua(), serde_json::json!(true)).expect("json_to_lua should succeed");
+        let result = json_value_to_lua_value(&lua(), serde_json::json!(true))
+            .expect("json_value_to_lua_value should succeed");
         assert_eq!(result, mlua::Value::Boolean(true));
     }
 
     #[test]
     fn json_bool_false_becomes_lua_false() {
-        let result =
-            json_to_lua(&lua(), serde_json::json!(false)).expect("json_to_lua should succeed");
+        let result = json_value_to_lua_value(&lua(), serde_json::json!(false))
+            .expect("json_value_to_lua_value should succeed");
         assert_eq!(result, mlua::Value::Boolean(false));
     }
 
     #[test]
     fn json_integer_becomes_lua_integer() {
-        let result =
-            json_to_lua(&lua(), serde_json::json!(42)).expect("json_to_lua should succeed");
+        let result = json_value_to_lua_value(&lua(), serde_json::json!(42))
+            .expect("json_value_to_lua_value should succeed");
         assert_eq!(result, mlua::Value::Integer(42));
     }
 
     #[test]
     fn json_float_becomes_lua_number() {
         let value = 1.5_f64;
-        let result =
-            json_to_lua(&lua(), serde_json::json!(value)).expect("json_to_lua should succeed");
+        let result = json_value_to_lua_value(&lua(), serde_json::json!(value))
+            .expect("json_value_to_lua_value should succeed");
         let mlua::Value::Number(number) = result else {
             panic!("expected Number")
         };
@@ -117,8 +120,8 @@ mod tests {
     #[test]
     fn json_string_becomes_lua_string() {
         let lua = lua();
-        let result =
-            json_to_lua(&lua, serde_json::json!("hello")).expect("json_to_lua should succeed");
+        let result = json_value_to_lua_value(&lua, serde_json::json!("hello"))
+            .expect("json_value_to_lua_value should succeed");
         let mlua::Value::String(string) = result else {
             panic!("expected String")
         };
@@ -131,8 +134,8 @@ mod tests {
     #[test]
     fn json_array_becomes_one_based_lua_table() {
         let lua = lua();
-        let result =
-            json_to_lua(&lua, serde_json::json!([10, 20, 30])).expect("json_to_lua should succeed");
+        let result = json_value_to_lua_value(&lua, serde_json::json!([10, 20, 30]))
+            .expect("json_value_to_lua_value should succeed");
         let mlua::Value::Table(table) = result else {
             panic!("expected Table")
         };
@@ -144,8 +147,8 @@ mod tests {
     #[test]
     fn json_object_becomes_lua_table_with_string_keys() {
         let lua = lua();
-        let result = json_to_lua(&lua, serde_json::json!({ "x": 1, "y": 2 }))
-            .expect("json_to_lua should succeed");
+        let result = json_value_to_lua_value(&lua, serde_json::json!({ "x": 1, "y": 2 }))
+            .expect("json_value_to_lua_value should succeed");
         let mlua::Value::Table(table) = result else {
             panic!("expected Table")
         };
@@ -155,32 +158,37 @@ mod tests {
 
     #[test]
     fn lua_nil_becomes_json_null() {
-        let result = lua_to_json(mlua::Value::Nil).expect("lua_to_json should succeed");
+        let result = lua_value_to_json_value(mlua::Value::Nil)
+            .expect("lua_value_to_json_value should succeed");
         assert_eq!(result, serde_json::Value::Null);
     }
 
     #[test]
     fn lua_bool_becomes_json_bool() {
         assert_eq!(
-            lua_to_json(mlua::Value::Boolean(true)).expect("lua_to_json should succeed"),
+            lua_value_to_json_value(mlua::Value::Boolean(true))
+                .expect("lua_value_to_json_value should succeed"),
             serde_json::json!(true)
         );
 
         assert_eq!(
-            lua_to_json(mlua::Value::Boolean(false)).expect("lua_to_json should succeed"),
+            lua_value_to_json_value(mlua::Value::Boolean(false))
+                .expect("lua_value_to_json_value should succeed"),
             serde_json::json!(false)
         );
     }
 
     #[test]
     fn lua_integer_becomes_json_number() {
-        let result = lua_to_json(mlua::Value::Integer(99)).expect("lua_to_json should succeed");
+        let result = lua_value_to_json_value(mlua::Value::Integer(99))
+            .expect("lua_value_to_json_value should succeed");
         assert_eq!(result, serde_json::json!(99));
     }
 
     #[test]
     fn lua_float_becomes_json_number() {
-        let result = lua_to_json(mlua::Value::Number(2.5)).expect("lua_to_json should succeed");
+        let result = lua_value_to_json_value(mlua::Value::Number(2.5))
+            .expect("lua_value_to_json_value should succeed");
         assert!(
             (result.as_f64().expect("json value should be a float") - 2.5).abs() < f64::EPSILON
         );
@@ -193,7 +201,8 @@ mod tests {
             .create_string("world")
             .expect("should create lua string");
 
-        let result = lua_to_json(mlua::Value::String(string)).expect("lua_to_json should succeed");
+        let result = lua_value_to_json_value(mlua::Value::String(string))
+            .expect("lua_value_to_json_value should succeed");
         assert_eq!(result, serde_json::json!("world"));
     }
 
@@ -203,7 +212,8 @@ mod tests {
         let table = lua.create_table().expect("should create lua table");
         table.set("hp", 50_i64).expect("table set should succeed");
 
-        let result = lua_to_json(mlua::Value::Table(table)).expect("lua_to_json should succeed");
+        let result = lua_value_to_json_value(mlua::Value::Table(table))
+            .expect("lua_value_to_json_value should succeed");
         assert_eq!(result["hp"], serde_json::json!(50));
     }
 
@@ -214,22 +224,23 @@ mod tests {
             .create_function(|_, ()| Ok(()))
             .expect("should create lua function");
 
-        let result =
-            lua_to_json(mlua::Value::Function(function)).expect("lua_to_json should succeed");
+        let result = lua_value_to_json_value(mlua::Value::Function(function))
+            .expect("lua_value_to_json_value should succeed");
         assert_eq!(result, serde_json::Value::Null);
     }
 
     #[test]
     fn json_negative_integer_becomes_lua_integer() {
-        let result =
-            json_to_lua(&lua(), serde_json::json!(-99)).expect("json_to_lua should succeed");
+        let result = json_value_to_lua_value(&lua(), serde_json::json!(-99))
+            .expect("json_value_to_lua_value should succeed");
         assert_eq!(result, mlua::Value::Integer(-99));
     }
 
     #[test]
     fn json_empty_array_becomes_empty_lua_table() {
         let lua = lua();
-        let result = json_to_lua(&lua, serde_json::json!([])).expect("json_to_lua should succeed");
+        let result = json_value_to_lua_value(&lua, serde_json::json!([]))
+            .expect("json_value_to_lua_value should succeed");
         let mlua::Value::Table(table) = result else {
             panic!("expected Table")
         };
@@ -240,17 +251,19 @@ mod tests {
     fn json_nested_object_roundtrip() {
         let lua = lua();
         let original = serde_json::json!({ "position": { "x": 1, "y": 2 } });
-        let roundtrip =
-            lua_to_json(json_to_lua(&lua, original).expect("json_to_lua should succeed"))
-                .expect("lua_to_json should succeed");
+        let roundtrip = lua_value_to_json_value(
+            json_value_to_lua_value(&lua, original)
+                .expect("json_value_to_lua_value should succeed"),
+        )
+        .expect("lua_value_to_json_value should succeed");
         assert_eq!(roundtrip["position"]["x"], serde_json::json!(1));
         assert_eq!(roundtrip["position"]["y"], serde_json::json!(2));
     }
 
     #[test]
     fn lua_nan_float_becomes_zero_in_json() {
-        let result =
-            lua_to_json(mlua::Value::Number(f64::NAN)).expect("lua_to_json should succeed");
+        let result = lua_value_to_json_value(mlua::Value::Number(f64::NAN))
+            .expect("lua_value_to_json_value should succeed");
         assert_eq!(result, serde_json::json!(0));
     }
 
@@ -258,9 +271,11 @@ mod tests {
     fn integer_roundtrip() {
         let lua = lua();
         let original = serde_json::json!(123);
-        let roundtrip =
-            lua_to_json(json_to_lua(&lua, original.clone()).expect("json_to_lua should succeed"))
-                .expect("lua_to_json should succeed");
+        let roundtrip = lua_value_to_json_value(
+            json_value_to_lua_value(&lua, original.clone())
+                .expect("json_value_to_lua_value should succeed"),
+        )
+        .expect("lua_value_to_json_value should succeed");
         assert_eq!(roundtrip, original);
     }
 
@@ -268,9 +283,11 @@ mod tests {
     fn object_roundtrip_preserves_keys_and_values() {
         let lua = lua();
         let original = serde_json::json!({ "name": "test", "value": 42 });
-        let roundtrip =
-            lua_to_json(json_to_lua(&lua, original.clone()).expect("json_to_lua should succeed"))
-                .expect("lua_to_json should succeed");
+        let roundtrip = lua_value_to_json_value(
+            json_value_to_lua_value(&lua, original.clone())
+                .expect("json_value_to_lua_value should succeed"),
+        )
+        .expect("lua_value_to_json_value should succeed");
         assert_eq!(roundtrip["name"], original["name"]);
         assert_eq!(roundtrip["value"], original["value"]);
     }
@@ -279,9 +296,11 @@ mod tests {
     fn json_i64_max_roundtrips_through_lua() {
         let lua = lua();
         let original = serde_json::json!(i64::MAX);
-        let roundtrip =
-            lua_to_json(json_to_lua(&lua, original.clone()).expect("json_to_lua should succeed"))
-                .expect("lua_to_json should succeed");
+        let roundtrip = lua_value_to_json_value(
+            json_value_to_lua_value(&lua, original.clone())
+                .expect("json_value_to_lua_value should succeed"),
+        )
+        .expect("lua_value_to_json_value should succeed");
         assert_eq!(roundtrip, original);
     }
 
@@ -289,9 +308,11 @@ mod tests {
     fn json_i64_min_roundtrips_through_lua() {
         let lua = lua();
         let original = serde_json::json!(i64::MIN);
-        let roundtrip =
-            lua_to_json(json_to_lua(&lua, original.clone()).expect("json_to_lua should succeed"))
-                .expect("lua_to_json should succeed");
+        let roundtrip = lua_value_to_json_value(
+            json_value_to_lua_value(&lua, original.clone())
+                .expect("json_value_to_lua_value should succeed"),
+        )
+        .expect("lua_value_to_json_value should succeed");
         assert_eq!(roundtrip, original);
     }
 
@@ -299,7 +320,8 @@ mod tests {
     fn json_mixed_array_converts_each_element_type() {
         let lua = lua();
         let original = serde_json::json!([1, "two", true, null]);
-        let result = json_to_lua(&lua, original).expect("json_to_lua should succeed");
+        let result = json_value_to_lua_value(&lua, original)
+            .expect("json_value_to_lua_value should succeed");
         let mlua::Value::Table(table) = result else {
             panic!("expected Table");
         };
@@ -319,16 +341,19 @@ mod tests {
     fn unicode_string_roundtrips() {
         let lua = lua();
         let original = serde_json::json!("你好世界 🌍");
-        let roundtrip =
-            lua_to_json(json_to_lua(&lua, original.clone()).expect("json_to_lua should succeed"))
-                .expect("lua_to_json should succeed");
+        let roundtrip = lua_value_to_json_value(
+            json_value_to_lua_value(&lua, original.clone())
+                .expect("json_value_to_lua_value should succeed"),
+        )
+        .expect("lua_value_to_json_value should succeed");
         assert_eq!(roundtrip, original);
     }
 
     #[test]
     fn json_empty_object_becomes_empty_lua_table() {
         let lua = lua();
-        let result = json_to_lua(&lua, serde_json::json!({})).expect("json_to_lua should succeed");
+        let result = json_value_to_lua_value(&lua, serde_json::json!({}))
+            .expect("json_value_to_lua_value should succeed");
         let mlua::Value::Table(table) = result else {
             panic!("expected Table");
         };
@@ -340,7 +365,8 @@ mod tests {
         let lua = lua();
         let table = lua.create_table().expect("should create lua table");
         table.set(1_i64, "first").expect("table set should succeed");
-        let result = lua_to_json(mlua::Value::Table(table)).expect("lua_to_json should succeed");
+        let result = lua_value_to_json_value(mlua::Value::Table(table))
+            .expect("lua_value_to_json_value should succeed");
         assert!(result.is_object());
         assert_eq!(result["1"], serde_json::json!("first"));
     }
@@ -351,9 +377,11 @@ mod tests {
         let original = serde_json::json!({
             "a": { "b": { "c": { "d": { "e": { "value": 42 } } } } }
         });
-        let roundtrip =
-            lua_to_json(json_to_lua(&lua, original.clone()).expect("json_to_lua should succeed"))
-                .expect("lua_to_json should succeed");
+        let roundtrip = lua_value_to_json_value(
+            json_value_to_lua_value(&lua, original.clone())
+                .expect("json_value_to_lua_value should succeed"),
+        )
+        .expect("lua_value_to_json_value should succeed");
         assert_eq!(
             roundtrip["a"]["b"]["c"]["d"]["e"]["value"],
             serde_json::json!(42)
@@ -364,7 +392,8 @@ mod tests {
     fn json_array_with_nested_objects_roundtrips() {
         let lua = lua();
         let original = serde_json::json!([{ "x": 1 }, { "x": 2 }]);
-        let result = json_to_lua(&lua, original).expect("json_to_lua should succeed");
+        let result = json_value_to_lua_value(&lua, original)
+            .expect("json_value_to_lua_value should succeed");
         let mlua::Value::Table(table) = result else {
             panic!("expected Table");
         };

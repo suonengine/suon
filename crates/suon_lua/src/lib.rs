@@ -90,7 +90,7 @@ mod tests {
         type Mutability = bevy::ecs::component::Mutable;
 
         fn on_add() -> Option<bevy::ecs::lifecycle::ComponentHook> {
-            Some(|mut world, _ctx| {
+            Some(|mut world, _context| {
                 if !world
                     .resource::<ScriptRegistry>()
                     .components
@@ -187,7 +187,7 @@ mod tests {
     }
 
     #[test]
-    fn lua_exec_runs_snippet_at_next_flush() {
+    fn lua_execute_runs_snippet_at_next_flush() {
         let mut app = app_with_lua();
 
         let entity = app.world_mut().spawn(Mana { points: 10 }).id();
@@ -266,7 +266,7 @@ mod tests {
     }
 
     #[test]
-    fn multiple_lua_exec_commands_queued_execute_in_order() {
+    fn multiple_lua_execute_commands_queued_execute_in_order() {
         let mut app = app_with_lua();
         let entity = app.world_mut().spawn(Mana { points: 0 }).id();
 
@@ -313,7 +313,7 @@ mod tests {
             type Mutability = bevy::ecs::component::Mutable;
 
             fn on_add() -> Option<bevy::ecs::lifecycle::ComponentHook> {
-                Some(|mut world, _ctx| {
+                Some(|mut world, _context| {
                     if !world
                         .resource::<ScriptRegistry>()
                         .components

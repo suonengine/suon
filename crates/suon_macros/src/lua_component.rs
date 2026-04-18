@@ -14,9 +14,9 @@ fn lua_name_from_attr(derive_input: &DeriveInput) -> Option<String> {
             continue;
         }
         let mut name = None;
-        let _ = attr.parse_nested_meta(|meta| {
-            if meta.path.is_ident("name") {
-                let value: LitStr = meta.value()?.parse()?;
+        let _ = attr.parse_nested_meta(|context| {
+            if context.path.is_ident("name") {
+                let value: LitStr = context.value()?.parse()?;
                 name = Some(value.value());
             }
             Ok(())

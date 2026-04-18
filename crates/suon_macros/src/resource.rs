@@ -28,24 +28,25 @@ use syn::{DeriveInput, parse_macro_input, parse_quote};
 /// The macro expands to an empty implementation block with trait bounds.
 pub fn derive_table(input: TokenStream) -> TokenStream {
     // Parse the input tokens into a syntax tree representation of the struct.
-    let ast = parse_macro_input!(input as DeriveInput);
+    let derive_input = parse_macro_input!(input as DeriveInput);
 
-    TokenStream::from(expand_derive_table(ast))
+    TokenStream::from(expand_derive_table(derive_input))
 }
 
-fn expand_derive_table(mut ast: DeriveInput) -> TokenStream2 {
+fn expand_derive_table(mut derive_input: DeriveInput) -> TokenStream2 {
     // Add a `where` clause to the impl to require that Self implements Send + Sync + 'static.
-    ast.generics
+    derive_input
+        .generics
         .make_where_clause()
         .predicates
         // Append the predicate: Self: Send + Sync + 'static
         .push(parse_quote! { Self: Send + Sync + 'static });
 
     // Extract the struct's identifier (name).
-    let struct_name = &ast.ident;
+    let struct_name = &derive_input.ident;
 
     // Split the generics into parts for use in the impl block.
-    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
+    let (impl_generics, type_generics, where_clause) = &derive_input.generics.split_for_impl();
 
     // Path to the trait to be implemented.
     let trait_path = quote! { suon_database::Table };
