@@ -1,19 +1,41 @@
+//! [`LuaScript`] component — stores Lua source attached to an entity.
+//!
+//! Hook functions defined in the source (e.g. `function Entity:onTick()`) are
+//! invoked by [`crate::LuaCommands::lua_hook`] at command-flush time.
+
 use bevy::prelude::*;
 
-/// Lua script source attached to an entity.
-/// The script defines hook functions such as `function Entity:onTeleport(from, to)`.
+/// Lua source code attached to a Bevy entity.
+///
+/// Hook functions defined in the source are invoked by [`crate::LuaCommands::lua_hook`].
+/// The conventional hook style is `function Entity:onTick() ... end`; the entity
+/// itself is passed as `self` so scripts can call `self:get(...)` and `self:set(...)`.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// commands.spawn(LuaScript::new(
+///     "function Entity:onHeal()\
+///         local hp = self:get('Health')\
+///         self:set('Health', { value = hp.value + 10 })\
+///     end",
+/// ));
+/// commands.lua_hook(entity, "onHeal");
+/// ```
 #[derive(Component, Clone)]
 pub struct LuaScript {
     source: String,
 }
 
 impl LuaScript {
+    /// Creates a new script component with the given Lua `source`.
     pub fn new(source: impl Into<String>) -> Self {
         Self {
             source: source.into(),
         }
     }
 
+    /// Returns the stored Lua source.
     pub fn source(&self) -> &str {
         &self.source
     }

@@ -1,3 +1,9 @@
+//! [`QueryProxy`] — the Lua userdata returned by `world:query("A", "B", ...)`.
+//!
+//! Iterating via `:iter()` yields entity id and one proxy table per component.
+//! Writes to those proxy tables are batched and flushed to the ECS at the start
+//! of the **next** iteration step rather than immediately (see comment in `iter_fn`).
+
 use bevy::{
     ecs::{component::ComponentId, query::QueryBuilder},
     prelude::*,
@@ -58,7 +64,11 @@ impl UserData for QueryProxy {
             let pending: Rc<RefCell<Vec<PendingEntry>>> = Rc::new(RefCell::new(Vec::new()));
 
             let iter_fn = lua.create_function(move |lua, _: mlua::MultiValue| {
-                // Flush dirty proxies from the previous iteration before advancing.
+                // Flush writes from the previous step before advancing the cursor.
+                // We flush here (start of step N+1) rather than at the end of step N
+                // because Lua reads the __newindex result immediately after assignment —
+                // deferring until the next call lets the current step finish without
+                // a re-entrant world borrow.
                 for (data, dirty, entity, set_fn) in pending.borrow().iter() {
                     if dirty.get() {
                         dirty.set(false);

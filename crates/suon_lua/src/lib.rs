@@ -1,3 +1,43 @@
+//! Lua scripting for Bevy — attach scripts to entities, query the ECS from Lua, and fire triggers.
+//!
+//! # Architecture
+//!
+//! ```text
+//! LuaPlugin
+//!   ├── LuaRuntime (NonSend resource) — owns the mlua::Lua VM
+//!   ├── ScriptRegistry (Resource)     — component/trigger accessors keyed by name
+//!   └── world_cell                    — thread-local raw pointer bridging Rust ↔ Lua callbacks
+//! ```
+//!
+//! # Quick start
+//!
+//! ```rust,ignore
+//! use bevy::prelude::*;
+//! use serde::{Deserialize, Serialize};
+//! use suon_lua::{LuaPlugin, LuaCommands, LuaScript};
+//!
+//! #[derive(LuaComponent, Serialize, Deserialize)]
+//! struct Health { value: i32 }
+//!
+//! fn main() {
+//!     App::new()
+//!         .add_plugins((DefaultPlugins, LuaPlugin))
+//!         .add_systems(Startup, |mut commands: Commands| {
+//!             commands.spawn((
+//!                 Health { value: 100 },
+//!                 LuaScript::new("function Entity:onTick()
+//!                     local hp = self:get('Health')
+//!                     self:set('Health', { value = hp.value - 1 })
+//!                 end"),
+//!             ));
+//!         })
+//!         .add_systems(Update, |mut commands: Commands, q: Query<Entity>| {
+//!             for entity in &q { commands.lua_execute(format!("-- tick {}", entity.to_bits())); }
+//!         })
+//!         .run();
+//! }
+//! ```
+
 pub(crate) mod api;
 pub mod commands;
 pub mod lua_component;
@@ -14,6 +54,11 @@ pub use script::LuaScript;
 
 use bevy::prelude::*;
 
+/// Bevy plugin that sets up the Lua scripting runtime.
+///
+/// Inserts [`LuaRuntime`] as a non-send resource and initialises [`ScriptRegistry`].
+/// Register components with [`AppLuaExt::register_lua_component`] or rely on the
+/// automatic registration that fires on the first `insert` of a [`LuaComponent`].
 pub struct LuaPlugin;
 
 impl Plugin for LuaPlugin {

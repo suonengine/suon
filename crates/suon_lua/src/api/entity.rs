@@ -1,3 +1,9 @@
+//! [`EntityProxy`] — the Lua userdata object returned by `world:entity(id)`.
+//!
+//! Exposes `get`, `set`, `trigger`, and `id` methods to Lua scripts.
+//! All ECS access goes through [`world_cell::with`] so the proxy never holds a
+//! borrow across a Lua call boundary.
+
 use bevy::prelude::*;
 use mlua::{UserData, UserDataMethods};
 
@@ -22,7 +28,6 @@ pub struct EntityProxy {
 impl UserData for EntityProxy {
     fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
         methods.add_method("get", |lua, this, component_name: String| {
-            // Copy the getter fn ptr out of the registry (immutable borrow of world).
             let get_fn = world_cell::with(|world| {
                 world
                     .resource::<ScriptRegistry>()
@@ -35,7 +40,6 @@ impl UserData for EntityProxy {
                 return Ok(mlua::Value::Nil);
             };
 
-            // Call the getter (mutable world, no registry borrow).
             let json = world_cell::with(|world| get_fn(this.id, world));
             match json {
                 Some(json_value) => json_to_lua(lua, json_value),
@@ -48,7 +52,6 @@ impl UserData for EntityProxy {
             |_lua, this, (component_name, lua_value): (String, mlua::Value)| {
                 let json = lua_to_json(lua_value)?;
 
-                // Copy setter fn ptr.
                 let set_fn = world_cell::with(|world| {
                     world
                         .resource::<ScriptRegistry>()
@@ -58,7 +61,6 @@ impl UserData for EntityProxy {
                 });
 
                 if let Some(set_fn) = set_fn {
-                    // Call setter.
                     world_cell::with(|world| set_fn(this.id, world, json));
                 }
 
@@ -71,7 +73,6 @@ impl UserData for EntityProxy {
             |_lua, this, (trigger_name, args_table): (String, mlua::Table)| {
                 let json = lua_to_json(mlua::Value::Table(args_table))?;
 
-                // Copy fire fn ptr.
                 let fire_fn = world_cell::with(|world| {
                     world
                         .resource::<ScriptRegistry>()
@@ -81,7 +82,6 @@ impl UserData for EntityProxy {
                 });
 
                 if let Some(fire_fn) = fire_fn {
-                    // Fire trigger.
                     world_cell::with(|world| fire_fn(this.id, world, json));
                 }
 
@@ -89,7 +89,6 @@ impl UserData for EntityProxy {
             },
         );
 
-        // Returns the raw entity bits as a Lua integer.
         methods.add_method("id", |_lua, this, ()| Ok(this.id.to_bits() as i64));
     }
 }

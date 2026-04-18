@@ -1,3 +1,8 @@
+//! Lua value conversion helpers and sub-modules for the world/entity/query APIs.
+//!
+//! [`json_to_lua`] and [`lua_to_json`] are the serialisation bridge used by every
+//! component accessor: ECS components travel as `serde_json::Value` between Rust and Lua.
+
 pub mod entity;
 pub mod query;
 pub mod world;

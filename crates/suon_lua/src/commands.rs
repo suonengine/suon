@@ -1,10 +1,18 @@
+//! Bevy [`Command`]s that queue Lua execution until the next command flush.
+//!
+//! Use [`LuaCommands`] on [`Commands`] to enqueue snippets or hook calls without
+//! taking direct ownership of [`LuaRuntime`].
+
 use bevy::prelude::*;
 
 use crate::{runtime::LuaRuntime, script::LuaScript};
 
 /// Bevy [`Command`] that calls a named hook on an entity's [`LuaScript`].
 ///
-/// The hook is resolved as `Entity:<hook>(self)` first, then as a plain global `<hook>(entity)`.
+/// Enqueued by [`LuaCommands::lua_hook`]; applied at the next command flush.
+/// If the entity has no [`LuaScript`], or the script does not define the named
+/// hook, the command is a silent no-op. Errors from the hook are logged and
+/// swallowed so one bad script cannot stall the command queue.
 pub struct RunLuaHook {
     pub(crate) entity: Entity,
     pub(crate) hook: &'static str,
@@ -31,7 +39,9 @@ impl Command for RunLuaHook {
     }
 }
 
-/// Bevy [`Command`] that executes a Lua snippet directly.
+/// Bevy [`Command`] that executes a Lua snippet at the next command flush.
+///
+/// Enqueued by [`LuaCommands::lua_execute`]. Errors are logged and swallowed.
 pub struct RunLuaScript {
     pub(crate) source: String,
 }
@@ -50,9 +60,15 @@ impl Command for RunLuaScript {
 
 /// Extends [`Commands`] with Lua execution methods.
 pub trait LuaCommands {
-    /// Queues a named hook call on an entity's [`LuaScript`].
+    /// Queues a [`RunLuaHook`] command that calls `hook` on `entity`'s [`LuaScript`].
+    ///
+    /// The hook runs at the next [`Commands`] flush, inside the shared Lua VM.
+    /// No-op if the entity has no script or the hook is not defined.
     fn lua_hook(&mut self, entity: Entity, hook: &'static str);
-    /// Queues execution of an arbitrary Lua snippet at the next command flush.
+
+    /// Queues a [`RunLuaScript`] command that executes `source` at the next flush.
+    ///
+    /// The snippet runs inside the shared Lua VM and has access to the `world` global.
     fn lua_execute(&mut self, source: impl Into<String>);
 }
 

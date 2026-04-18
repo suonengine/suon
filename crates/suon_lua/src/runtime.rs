@@ -1,3 +1,9 @@
+//! Core Lua runtime: [`LuaRuntime`], [`LuaScope`], [`ScriptRegistry`], and accessors.
+//!
+//! [`LuaRuntime`] owns the VM; [`LuaScope`] combines it with exclusive world access
+//! so Lua callbacks can reach Bevy components safely. [`ScriptRegistry`] maps string
+//! names to type-erased get/set/trigger function pointers.
+
 use bevy::{ecs::component::ComponentId, prelude::*};
 use mlua::Function;
 use serde_json::Value as Json;
@@ -5,7 +11,14 @@ use std::collections::HashMap;
 
 use crate::{api::entity::EntityProxy, world_cell::WorldContext};
 
-/// Non-Send Bevy resource that owns the Lua state.
+/// Non-send Bevy resource that owns the mlua Lua VM.
+///
+/// There is exactly one `LuaRuntime` per Bevy world, inserted by [`crate::LuaPlugin`].
+/// Because mlua's `Lua` is `!Send`, the runtime is stored as a non-send resource
+/// and must be accessed from the main thread only.
+///
+/// Use [`LuaRuntime::scope`] to execute Lua code, or [`LuaRuntime::take_scope`]
+/// when you need to hold `&mut World` alongside the runtime.
 pub struct LuaRuntime {
     lua: mlua::Lua,
 }
@@ -35,6 +48,8 @@ impl LuaRuntime {
         world: &mut World,
         callback: impl FnOnce(&LuaRuntime, &mut World) -> R,
     ) -> Option<R> {
+        // LuaRuntime is !Send and cannot be borrowed while world is also borrowed mutably,
+        // so we remove it, call the closure, then re-insert it.
         let runtime = world.remove_non_send_resource::<LuaRuntime>()?;
         let result = callback(&runtime, world);
         world.insert_non_send_resource(runtime);
@@ -42,29 +57,56 @@ impl LuaRuntime {
     }
 }
 
-/// Execution context that combines an active Lua state with exclusive world access.
+/// Short-lived execution context that pairs the Lua VM with exclusive ECS access.
 ///
-/// Created via [`LuaRuntime::scope`]. Clears the world pointer on drop.
+/// Created by [`LuaRuntime::scope`]. For its lifetime the raw world pointer in
+/// `world_cell` is valid, so Lua callbacks triggered by [`execute`] or
+/// [`call_hook`] can safely call `world_cell::with`.
+///
+/// Dropping `LuaScope` clears the world pointer — any Lua callback that outlives
+/// this scope will panic if it tries to access the world.
+///
+/// [`execute`]: LuaScope::execute
+/// [`call_hook`]: LuaScope::call_hook
 pub struct LuaScope<'runtime, 'world> {
     lua: &'runtime mlua::Lua,
     _context: WorldContext<'world>,
 }
 
 impl LuaScope<'_, '_> {
-    /// Executes a Lua source snippet.
+    /// Compiles and executes `source` as a Lua chunk in the shared VM state.
+    ///
+    /// # Errors
+    ///
+    /// Returns `mlua::Error::SyntaxError` for invalid Lua, or
+    /// `mlua::Error::RuntimeError` if the chunk calls `error(...)`.
+    /// The VM state is **not** rolled back on error — globals set before the
+    /// error remain visible in subsequent calls.
     pub fn execute(&self, source: &str) -> mlua::Result<()> {
         self.lua.load(source).exec()
     }
 
     /// Loads `source`, then calls `hook` passing an `EntityProxy` userdata as `self`.
     ///
-    /// Looks up `Entity:<hook>` first (method style), then a plain global `<hook>`.
+    /// Resolution order (OOP-first so scripts can write `function Entity:onTick()`):
+    /// 1. `Entity.<hook>` — called as a method: `Entity:onTick(proxy)`
+    /// 2. global `<hook>` — called as a plain function: `onTick(proxy)`
+    ///
+    /// If neither form exists the call is a silent no-op (not an error).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `source` has a syntax error or if the hook function
+    /// itself calls `error(...)`.
     pub fn call_hook(&self, entity: Entity, source: &str, hook: &str) -> mlua::Result<()> {
         self.lua.load(source).exec()?;
 
         let globals = self.lua.globals();
         let entity_proxy = self.lua.create_userdata(EntityProxy { id: entity })?;
 
+        // Method style takes priority so scripts can write `function Entity:onTick()`
+        // using Lua's OOP convention; falling back to a plain global keeps simple
+        // one-off hooks working without boilerplate.
         if let Ok(class) = globals.get::<mlua::Table>("Entity")
             && let Ok(func) = class.get::<Function>(hook)
         {
@@ -80,7 +122,15 @@ impl LuaScope<'_, '_> {
     }
 }
 
-/// Type-erased component accessor registered for use from Lua.
+/// Type-erased vtable for a single component type registered in [`ScriptRegistry`].
+///
+/// All three fields must be consistent — they should all refer to the same `T`:
+/// - `get` serialises `T` to JSON (returns `None` when the entity lacks the component)
+/// - `set` deserialises JSON and inserts/replaces `T` on the entity
+/// - `component_id` registers `T` with the world and returns its stable [`ComponentId`]
+///
+/// Construct via [`crate::LuaComponent::make_accessor`] or [`crate::serialize_component`] /
+/// [`crate::deserialize_component`] / [`crate::register_component_id`] for manual wiring.
 pub struct ComponentAccessor {
     /// Serializes the component to JSON. Returns `None` if the entity lacks the component.
     pub get: fn(Entity, &mut World) -> Option<Json>,
@@ -90,7 +140,9 @@ pub struct ComponentAccessor {
     pub component_id: fn(&mut World) -> ComponentId,
 }
 
-/// Type-erased trigger registered for use from `entity:trigger(Name, {...})`.
+/// Type-erased vtable for a trigger registered in [`ScriptRegistry`].
+///
+/// `fire` receives the entity, the world, and the args table serialised to JSON.
 pub struct TriggerAccessor {
     /// Deserializes the args table and fires the trigger on the entity.
     pub fire: fn(Entity, &mut World, Json),
@@ -103,7 +155,14 @@ impl LuaScope<'_, '_> {
     }
 }
 
-/// Registry of components and triggers exposed to Lua scripts.
+/// Bevy resource that maps Lua-visible names to component and trigger accessors.
+///
+/// Components are registered automatically the first time a [`crate::LuaComponent`] is
+/// inserted into any entity (via the `on_add` hook generated by `#[derive(LuaComponent)]`).
+/// Manual registration via [`register_component`] or [`crate::AppLuaExt::register_lua_component`]
+/// is needed when you want the component available before the first insert.
+///
+/// [`register_component`]: ScriptRegistry::register_component
 #[derive(Resource, Default)]
 pub struct ScriptRegistry {
     pub(crate) components: HashMap<String, ComponentAccessor>,

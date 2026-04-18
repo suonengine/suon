@@ -1,3 +1,8 @@
+//! [`WorldProxy`] and [`register_world_api`] — wires the `world` and `Entity` Lua globals.
+//!
+//! Called once from [`LuaRuntime::new`]. Scripts access the ECS exclusively through
+//! `world:entity(id)` and `world:query(...)`.
+
 use mlua::{Lua, UserData, UserDataMethods};
 
 use crate::api::{entity::EntityProxy, query::QueryProxy};

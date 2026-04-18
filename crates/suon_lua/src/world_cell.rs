@@ -1,3 +1,9 @@
+//! Thread-local world pointer shared between the Rust call stack and Lua callbacks.
+//!
+//! [`WorldContext`] sets the pointer for its lifetime; [`with`] retrieves it.
+//! The design lets Lua callbacks reach the ECS without passing `&mut World` through
+//! the mlua API, which does not support lifetimed state.
+
 use bevy::prelude::World;
 use std::{cell::Cell, marker::PhantomData};
 
@@ -39,8 +45,12 @@ pub(crate) fn with<R>(callback: impl FnOnce(&mut World) -> R) -> R {
             !world_ptr.is_null(),
             "world_cell accessed outside of a WorldContext"
         );
-        // SAFETY: pointer is valid for 'world (tied to WorldContext lifetime).
-        // Lua is !Send so no concurrent access is possible.
+        // SAFETY: Two invariants make this sound:
+        // (i)  The pointer is set in `WorldContext::enter` which ties its validity to 'world —
+        //      the WorldContext RAII guard clears it on drop, so the pointer cannot dangle.
+        // (ii) mlua's Lua is !Send, which means all Lua execution (and therefore all calls to
+        //      `with`) happen on the thread that created the WorldContext, with no concurrent
+        //      mutable access possible.
         unsafe { callback(&mut *world_ptr) }
     })
 }
