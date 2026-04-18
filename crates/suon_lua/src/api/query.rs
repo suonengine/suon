@@ -3,21 +3,35 @@ use bevy::{
     prelude::*,
 };
 use mlua::{UserData, UserDataMethods};
-use std::{cell::Cell, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
 
-use crate::{api::json_to_lua, runtime::ScriptRegistry, world_cell};
+use crate::{
+    api::{json_to_lua, lua_to_json},
+    runtime::ScriptRegistry,
+    world_cell,
+};
 
 type ComponentEntry = (
     fn(&mut World) -> ComponentId,
     fn(Entity, &mut World) -> Option<serde_json::Value>,
+    fn(Entity, &mut World, serde_json::Value),
 );
+
+type ComponentData = (serde_json::Value, fn(Entity, &mut World, serde_json::Value));
 
 /// Lua UserData returned by `world:query(...)`.
 ///
 /// ```lua
+/// for id, hp in world:query("Health"):iter() do
+///     hp.value = hp.value + 10   -- writes back to the ECS immediately
+/// end
+///
 /// for id, hp, pos in world:query("Health", "Position"):iter() do
 ///     if hp.value < 10 then
-///         world:entity(id):trigger("TeleportIntent", { to = { x=0, y=0 } })
+///         pos.x = 0
 ///     end
 /// end
 /// ```
@@ -30,14 +44,12 @@ impl UserData for QueryProxy {
         methods.add_method("iter", |lua, this, ()| {
             let component_names = this.components.clone();
 
-            // Collect all (entity_bits, [comp_json, ...]) rows from the world.
-            let rows = world_cell::with(|world| collect_query(world, &component_names));
+            let rows: Vec<(u64, Vec<ComponentData>)> =
+                world_cell::with(|world| collect_query(world, &component_names));
 
-            // Wrap in Rc so the stateful closure can own it without requiring Send.
             let rows = Rc::new(rows);
             let cursor = Rc::new(Cell::new(0usize));
 
-            // Return a stateful Lua function usable in `for ... in` loops.
             let iter_fn = lua.create_function(move |lua, _: mlua::MultiValue| {
                 let index = cursor.get();
                 if index >= rows.len() {
@@ -45,13 +57,62 @@ impl UserData for QueryProxy {
                 }
                 cursor.set(index + 1);
 
-                let (entity_bits, ref component_values) = rows[index];
-                let mut multi_value = mlua::MultiValue::new();
-                multi_value.push_back(mlua::Value::Integer(entity_bits as i64));
-                for component_json in component_values {
-                    multi_value.push_back(json_to_lua(lua, component_json.clone())?);
+                let (entity_bits, ref components) = rows[index];
+                let entity = Entity::from_bits(entity_bits);
+
+                let mut multi = mlua::MultiValue::new();
+                multi.push_back(mlua::Value::Integer(entity_bits as i64));
+
+                for (component_json, set_fn) in components.iter() {
+                    let data = Rc::new(RefCell::new(component_json.clone()));
+                    let set_fn = *set_fn;
+
+                    let proxy = lua.create_table()?;
+                    let meta = lua.create_table()?;
+
+                    let data_idx = data.clone();
+                    meta.set(
+                        "__index",
+                        lua.create_function(
+                            move |lua, (_proxy, key): (mlua::Table, String)| {
+                                let val = data_idx
+                                    .borrow()
+                                    .get(&key)
+                                    .cloned()
+                                    .unwrap_or(serde_json::Value::Null);
+                                json_to_lua(lua, val)
+                            },
+                        )?,
+                    )?;
+
+                    let data_ni = data.clone();
+                    meta.set(
+                        "__newindex",
+                        lua.create_function(
+                            move |_lua,
+                                  (_proxy, key, lua_val): (
+                                mlua::Table,
+                                String,
+                                mlua::Value,
+                            )| {
+                                {
+                                    let mut d = data_ni.borrow_mut();
+                                    if let serde_json::Value::Object(ref mut map) = *d {
+                                        map.insert(key, lua_to_json(lua_val)?);
+                                    }
+                                }
+                                let snapshot = data_ni.borrow().clone();
+                                world_cell::with(|world| set_fn(entity, world, snapshot));
+                                Ok(())
+                            },
+                        )?,
+                    )?;
+
+                    let _ = proxy.set_metatable(Some(meta));
+                    multi.push_back(mlua::Value::Table(proxy));
                 }
-                Ok(multi_value)
+
+                Ok(multi)
             })?;
 
             Ok(iter_fn)
@@ -66,33 +127,32 @@ impl UserData for QueryProxy {
 fn collect_query(
     world: &mut World,
     component_names: &[String],
-) -> Vec<(u64, Vec<serde_json::Value>)> {
+) -> Vec<(u64, Vec<ComponentData>)> {
     let mut results = Vec::new();
 
     world.resource_scope(|world, registry: Mut<ScriptRegistry>| {
-        // Collect fn ptrs from registry — borrow ends after collect().
         let entries: Vec<ComponentEntry> = component_names
             .iter()
             .filter_map(|name| {
-                registry
-                    .components
-                    .get(name.as_str())
-                    .map(|accessor| (accessor.component_id, accessor.get))
+                registry.components.get(name.as_str()).map(|accessor| {
+                    (accessor.component_id, accessor.get, accessor.set)
+                })
             })
             .collect();
 
-        // Resolve ComponentIds using world (registry no longer borrowed).
         let component_ids: Vec<ComponentId> =
-            entries.iter().map(|(init_id, _)| init_id(world)).collect();
+            entries.iter().map(|(init_id, _, _)| init_id(world)).collect();
 
         let get_fns: Vec<fn(Entity, &mut World) -> Option<serde_json::Value>> =
-            entries.iter().map(|(_, get)| *get).collect();
+            entries.iter().map(|(_, get, _)| *get).collect();
+
+        let set_fns: Vec<fn(Entity, &mut World, serde_json::Value)> =
+            entries.iter().map(|(_, _, set)| *set).collect();
 
         if component_ids.is_empty() {
             return;
         }
 
-        // Dynamic query — entities that have all requested components.
         let mut builder = QueryBuilder::<Entity>::new(world);
         for &component_id in &component_ids {
             builder.with_id(component_id);
@@ -101,13 +161,13 @@ fn collect_query(
         let mut query_state = builder.build();
         let entities: Vec<Entity> = query_state.iter(world).collect();
 
-        // Fetch component values per entity.
         for entity in entities {
-            let component_values: Vec<serde_json::Value> = get_fns
+            let components: Vec<ComponentData> = get_fns
                 .iter()
-                .filter_map(|get| get(entity, world))
+                .zip(set_fns.iter())
+                .filter_map(|(get, set)| get(entity, world).map(|json| (json, *set)))
                 .collect();
-            results.push((entity.to_bits(), component_values));
+            results.push((entity.to_bits(), components));
         }
     });
 
@@ -165,6 +225,22 @@ mod tests {
         }
 
         (LuaRuntime::new(), world)
+    }
+
+    fn writable_health_accessor() -> ComponentAccessor {
+        ComponentAccessor {
+            get: |entity, world| {
+                world
+                    .get::<TestHealth>(entity)
+                    .map(|h| serde_json::json!({ "value": h.value }))
+            },
+            set: |entity, world, json| {
+                if let Some(v) = json.get("value").and_then(|v| v.as_i64()) {
+                    world.entity_mut(entity).insert(TestHealth { value: v as i32 });
+                }
+            },
+            component_id: |world| world.register_component::<TestHealth>(),
+        }
     }
 
     fn run(runtime: &LuaRuntime, world: &mut World, lua: &str) {
@@ -231,9 +307,9 @@ mod tests {
     #[test]
     fn iter_requires_all_queried_components() {
         let (runtime, mut world) = setup();
-        world.spawn(TestHealth { value: 1 }); // health only
-        world.spawn(TestPosition { x: 0, y: 0 }); // position only
-        world.spawn((TestHealth { value: 2 }, TestPosition { x: 1, y: 1 })); // both
+        world.spawn(TestHealth { value: 1 });
+        world.spawn(TestPosition { x: 0, y: 0 });
+        world.spawn((TestHealth { value: 2 }, TestPosition { x: 1, y: 1 }));
 
         run(
             &runtime,
@@ -296,8 +372,7 @@ mod tests {
             &mut world,
             "
             for id, health, pos in world:query('TestHealth', 'TestPosition'):iter() do
-                assert(health.value == 7,  'health.value expected 7, got '  .. \
-             tostring(health.value))
+                assert(health.value == 7,  'health.value expected 7, got '  .. tostring(health.value))
                 assert(pos.x      == 3,   'pos.x expected 3, got '          .. tostring(pos.x))
                 assert(pos.y      == 4,   'pos.y expected 4, got '          .. tostring(pos.y))
             end
@@ -308,20 +383,12 @@ mod tests {
     #[test]
     fn iter_reflects_values_after_lua_set() {
         let (runtime, mut world) = setup();
-
-        // Register a writable accessor for TestHealth
         world
             .resource_mut::<ScriptRegistry>()
             .components
             .get_mut("TestHealth")
             .expect("TestHealth accessor should be registered")
-            .set = |entity, world, json| {
-            if let Some(value) = json.get("value").and_then(|v| v.as_i64()) {
-                world.entity_mut(entity).insert(TestHealth {
-                    value: value as i32,
-                });
-            }
-        };
+            .set = writable_health_accessor().set;
 
         world.spawn(TestHealth { value: 1 });
 
@@ -329,15 +396,84 @@ mod tests {
             &runtime,
             &mut world,
             "
-            -- Bump every entity's health by 10
             for id, health in world:query('TestHealth'):iter() do
                 world:entity(id):set('TestHealth', { value = health.value + 10 })
             end
-            -- Re-query and verify the new value
             for id, health in world:query('TestHealth'):iter() do
                 assert(health.value == 11, 'expected 11, got ' .. tostring(health.value))
             end
         ",
         );
+    }
+
+    #[test]
+    fn proxy_assignment_writes_component_back_to_ecs() {
+        let (runtime, mut world) = setup();
+        world
+            .resource_mut::<ScriptRegistry>()
+            .components
+            .insert("TestHealth".to_string(), writable_health_accessor());
+
+        let entity = world.spawn(TestHealth { value: 5 }).id();
+
+        run(
+            &runtime,
+            &mut world,
+            "
+            for id, health in world:query('TestHealth'):iter() do
+                health.value = health.value + 10
+            end
+        ",
+        );
+
+        assert_eq!(
+            world
+                .get::<TestHealth>(entity)
+                .expect("TestHealth should be present")
+                .value,
+            15
+        );
+    }
+
+    #[test]
+    fn proxy_assignment_writes_multiple_fields_independently() {
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
+        world.resource_mut::<ScriptRegistry>().register_component(
+            "TestPosition",
+            ComponentAccessor {
+                get: |entity, world| {
+                    world
+                        .get::<TestPosition>(entity)
+                        .map(|p| serde_json::json!({ "x": p.x, "y": p.y }))
+                },
+                set: |entity, world, json| {
+                    let x = json.get("x").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+                    let y = json.get("y").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+                    world.entity_mut(entity).insert(TestPosition { x, y });
+                },
+                component_id: |world| world.register_component::<TestPosition>(),
+            },
+        );
+
+        let entity = world.spawn(TestPosition { x: 1, y: 2 }).id();
+        let runtime = LuaRuntime::new();
+
+        run(
+            &runtime,
+            &mut world,
+            "
+            for id, pos in world:query('TestPosition'):iter() do
+                pos.x = 10
+                pos.y = 20
+            end
+        ",
+        );
+
+        let pos = world
+            .get::<TestPosition>(entity)
+            .expect("TestPosition should be present");
+        assert_eq!(pos.x, 10);
+        assert_eq!(pos.y, 20);
     }
 }
