@@ -234,6 +234,31 @@ mod tests {
     }
 
     #[test]
+    fn component_get_returns_none_for_despawned_entity() {
+        let mut world = World::new();
+        let entity = world.spawn(Gold { amount: 5 }).id();
+        world.despawn(entity);
+        assert!(component_get::<Gold>(entity, &mut world).is_none());
+    }
+
+    #[test]
+    fn component_set_with_null_json_does_not_insert_component() {
+        let mut world = World::new();
+        let entity = world.spawn_empty().id();
+        component_set::<Gold>(entity, &mut world, serde_json::Value::Null);
+        assert!(world.get::<Gold>(entity).is_none());
+    }
+
+    #[test]
+    fn component_roundtrip_via_get_then_set() {
+        let mut world = World::new();
+        let entity = world.spawn(Gold { amount: 33 }).id();
+        let json = component_get::<Gold>(entity, &mut world).expect("should serialize");
+        component_set::<Gold>(entity, &mut world, json);
+        assert_eq!(world.get::<Gold>(entity).unwrap().amount, 33);
+    }
+
+    #[test]
     fn app_register_lua_component_is_callable_from_lua() {
         let mut app = App::new();
         app.init_resource::<ScriptRegistry>();

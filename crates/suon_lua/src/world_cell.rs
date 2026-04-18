@@ -98,4 +98,28 @@ mod tests {
         }
         with(|_| ()); // ptr was cleared on drop — panics
     }
+
+    #[test]
+    fn second_enter_overwrites_pointer_and_inner_context_sees_new_world() {
+        let mut world_a = World::new();
+        let mut world_b = World::new();
+
+        #[derive(Resource)]
+        struct MarkerA;
+        #[derive(Resource)]
+        struct MarkerB;
+
+        world_a.insert_resource(MarkerA);
+        world_b.insert_resource(MarkerB);
+
+        let _ctx_a = WorldContext::enter(&mut world_a);
+        {
+            // Second enter overwrites the pointer.
+            let _ctx_b = WorldContext::enter(&mut world_b);
+            // Inside ctx_b the accessible world is world_b.
+            let has_b = with(|w| w.contains_resource::<MarkerB>());
+            assert!(has_b, "inner context should see world_b");
+        }
+        // ctx_b dropped: pointer is now null. ctx_a drop also clears to null (idempotent).
+    }
 }

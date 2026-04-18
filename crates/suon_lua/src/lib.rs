@@ -224,6 +224,36 @@ mod tests {
     }
 
     #[test]
+    fn multiple_lua_exec_commands_queued_execute_in_order() {
+        let mut app = app_with_lua();
+        let entity = app.world_mut().spawn(Mana { points: 0 }).id();
+
+        app.world_mut().commands().lua_exec(format!(
+            "world:entity({bits}):set('Mana', {{ points = 1 }})",
+            bits = entity.to_bits()
+        ));
+        app.world_mut().commands().lua_exec(format!(
+            "local e = world:entity({bits})
+             local m = e:get('Mana')
+             e:set('Mana', {{ points = m.points + 10 }})",
+            bits = entity.to_bits()
+        ));
+        app.world_mut().flush();
+
+        assert_eq!(
+            app.world().get::<Mana>(entity).expect("Mana should exist").points,
+            11
+        );
+    }
+
+    #[test]
+    fn lua_plugin_world_global_is_accessible_in_exec() {
+        let mut app = app_with_lua();
+        app.world_mut().commands().lua_exec("assert(world ~= nil)");
+        app.world_mut().flush();
+    }
+
+    #[test]
     fn lua_query_filters_entities_that_have_all_components() {
         #[derive(Serialize, Deserialize, Clone)]
         struct Stamina {

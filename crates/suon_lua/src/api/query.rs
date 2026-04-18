@@ -506,6 +506,30 @@ mod tests {
     }
 
     #[test]
+    fn second_query_observes_proxy_writes_from_first_query() {
+        let (runtime, mut world) = setup();
+        world
+            .resource_mut::<ScriptRegistry>()
+            .components
+            .insert("TestHealth".to_string(), writable_health_accessor());
+
+        world.spawn(TestHealth { value: 1 });
+
+        run(
+            &runtime,
+            &mut world,
+            "
+            for id, health in world:query('TestHealth'):iter() do
+                health.value = health.value + 100
+            end
+            for id, health in world:query('TestHealth'):iter() do
+                assert(health.value == 101, 'expected 101, got ' .. tostring(health.value))
+            end
+        ",
+        );
+    }
+
+    #[test]
     fn proxy_dirty_flag_does_not_write_when_no_assignment_made() {
         use std::cell::Cell;
 

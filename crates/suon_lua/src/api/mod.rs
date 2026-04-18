@@ -269,4 +269,104 @@ mod tests {
         assert_eq!(roundtrip["name"], original["name"]);
         assert_eq!(roundtrip["value"], original["value"]);
     }
+
+    #[test]
+    fn json_i64_max_roundtrips_through_lua() {
+        let lua = lua();
+        let original = serde_json::json!(i64::MAX);
+        let roundtrip =
+            lua_to_json(json_to_lua(&lua, original.clone()).expect("json_to_lua should succeed"))
+                .expect("lua_to_json should succeed");
+        assert_eq!(roundtrip, original);
+    }
+
+    #[test]
+    fn json_i64_min_roundtrips_through_lua() {
+        let lua = lua();
+        let original = serde_json::json!(i64::MIN);
+        let roundtrip =
+            lua_to_json(json_to_lua(&lua, original.clone()).expect("json_to_lua should succeed"))
+                .expect("lua_to_json should succeed");
+        assert_eq!(roundtrip, original);
+    }
+
+    #[test]
+    fn json_mixed_array_converts_each_element_type() {
+        let lua = lua();
+        let original = serde_json::json!([1, "two", true, null]);
+        let result = json_to_lua(&lua, original).expect("json_to_lua should succeed");
+        let mlua::Value::Table(table) = result else {
+            panic!("expected Table");
+        };
+        assert_eq!(table.get::<i64>(1).expect("index 1 should be integer"), 1);
+        assert_eq!(
+            table.get::<String>(2).expect("index 2 should be string"),
+            "two"
+        );
+        assert!(table.get::<bool>(3).expect("index 3 should be bool"));
+        assert_eq!(
+            table.get::<mlua::Value>(4).expect("index 4 should exist"),
+            mlua::Value::Nil
+        );
+    }
+
+    #[test]
+    fn unicode_string_roundtrips() {
+        let lua = lua();
+        let original = serde_json::json!("你好世界 🌍");
+        let roundtrip =
+            lua_to_json(json_to_lua(&lua, original.clone()).expect("json_to_lua should succeed"))
+                .expect("lua_to_json should succeed");
+        assert_eq!(roundtrip, original);
+    }
+
+    #[test]
+    fn json_empty_object_becomes_empty_lua_table() {
+        let lua = lua();
+        let result = json_to_lua(&lua, serde_json::json!({})).expect("json_to_lua should succeed");
+        let mlua::Value::Table(table) = result else {
+            panic!("expected Table");
+        };
+        assert_eq!(table.len().expect("should get table length"), 0);
+    }
+
+    #[test]
+    fn lua_table_with_integer_key_appears_in_json_as_string_key() {
+        let lua = lua();
+        let table = lua.create_table().expect("should create lua table");
+        table.set(1_i64, "first").expect("table set should succeed");
+        let result = lua_to_json(mlua::Value::Table(table)).expect("lua_to_json should succeed");
+        assert!(result.is_object());
+        assert_eq!(result["1"], serde_json::json!("first"));
+    }
+
+    #[test]
+    fn deeply_nested_object_roundtrips_correctly() {
+        let lua = lua();
+        let original = serde_json::json!({
+            "a": { "b": { "c": { "d": { "e": { "value": 42 } } } } }
+        });
+        let roundtrip =
+            lua_to_json(json_to_lua(&lua, original.clone()).expect("json_to_lua should succeed"))
+                .expect("lua_to_json should succeed");
+        assert_eq!(
+            roundtrip["a"]["b"]["c"]["d"]["e"]["value"],
+            serde_json::json!(42)
+        );
+    }
+
+    #[test]
+    fn json_array_with_nested_objects_roundtrips() {
+        let lua = lua();
+        let original = serde_json::json!([{ "x": 1 }, { "x": 2 }]);
+        let result =
+            json_to_lua(&lua, original).expect("json_to_lua should succeed");
+        let mlua::Value::Table(table) = result else {
+            panic!("expected Table");
+        };
+        let first: mlua::Table = table.get(1).expect("index 1 should exist");
+        let second: mlua::Table = table.get(2).expect("index 2 should exist");
+        assert_eq!(first.get::<i64>("x").expect("x should exist"), 1);
+        assert_eq!(second.get::<i64>("x").expect("x should exist"), 2);
+    }
 }

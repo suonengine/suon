@@ -396,4 +396,64 @@ mod tests {
             0
         );
     }
+
+    #[test]
+    fn get_is_case_sensitive_for_component_name() {
+        let (runtime, mut world) = setup();
+        let entity = world.spawn(TestHealth { value: 1 }).id();
+
+        run(
+            &runtime,
+            &mut world,
+            &format!(
+                "
+            local entity = world:entity({})
+            assert(entity:get('testhealth') == nil, 'wrong-case name should return nil')
+            assert(entity:get('TESTHEALTH') == nil, 'uppercase name should return nil')
+            assert(entity:get('TestHealth') ~= nil, 'exact-case name should return the component')
+        ",
+                entity.to_bits()
+            ),
+        );
+    }
+
+    #[test]
+    fn get_returns_nil_when_entity_is_dead() {
+        let (runtime, mut world) = setup();
+        let entity = world.spawn(TestHealth { value: 5 }).id();
+        let bits = entity.to_bits() as i64;
+        world.despawn(entity);
+
+        run(
+            &runtime,
+            &mut world,
+            &format!(
+                "
+            local entity = world:entity({bits})
+            assert(entity:get('TestHealth') == nil, 'dead entity should return nil')
+        "
+            ),
+        );
+    }
+
+    #[test]
+    fn id_matches_entity_bits_after_spawn() {
+        let (runtime, mut world) = setup();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+
+        run(
+            &runtime,
+            &mut world,
+            &format!(
+                "
+            assert(world:entity({a}):id() == {a})
+            assert(world:entity({b}):id() == {b})
+            assert(world:entity({a}):id() ~= world:entity({b}):id())
+        ",
+                a = a.to_bits() as i64,
+                b = b.to_bits() as i64
+            ),
+        );
+    }
 }

@@ -47,4 +47,22 @@ mod tests {
         let cloned = original.clone();
         assert_eq!(cloned.source(), "z = 3");
     }
+
+    #[test]
+    fn new_stores_empty_string() {
+        let script = LuaScript::new("");
+        assert_eq!(script.source(), "");
+    }
+
+    #[test]
+    fn source_with_unicode_characters() {
+        let src = "-- 你好 🌍\nlocal x = 1";
+        assert_eq!(LuaScript::new(src).source(), src);
+    }
+
+    #[test]
+    fn source_with_special_lua_characters() {
+        let src = "local t = { [1] = 'a', [\"b\"] = 2 }";
+        assert_eq!(LuaScript::new(src).source(), src);
+    }
 }

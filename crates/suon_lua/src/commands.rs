@@ -208,4 +208,62 @@ mod tests {
 
         assert!(world.get_non_send_resource::<LuaRuntime>().is_some());
     }
+
+    #[test]
+    fn multiple_run_lua_script_commands_execute_in_order() {
+        let mut world = setup_world();
+
+        RunLuaScript {
+            source: "order = 'first'".into(),
+        }
+        .apply(&mut world);
+        RunLuaScript {
+            source: "order = order .. '_second'".into(),
+        }
+        .apply(&mut world);
+
+        assert_eq!(
+            read_lua_global::<String>(&mut world, "order"),
+            "first_second"
+        );
+    }
+
+    #[test]
+    fn error_in_run_lua_script_does_not_prevent_next_command() {
+        let mut world = setup_world();
+
+        RunLuaScript {
+            source: "error('intentional')".into(),
+        }
+        .apply(&mut world);
+        RunLuaScript {
+            source: "after_error = true".into(),
+        }
+        .apply(&mut world);
+
+        assert!(read_lua_global::<bool>(&mut world, "after_error == true"));
+    }
+
+    #[test]
+    fn error_in_run_lua_hook_does_not_prevent_next_command() {
+        let mut world = setup_world();
+        let entity = world
+            .spawn(LuaScript::new("function onTick(e) error('boom') end"))
+            .id();
+
+        RunLuaHook {
+            entity,
+            hook: "onTick",
+        }
+        .apply(&mut world);
+        RunLuaScript {
+            source: "after_hook_error = true".into(),
+        }
+        .apply(&mut world);
+
+        assert!(read_lua_global::<bool>(
+            &mut world,
+            "after_hook_error == true"
+        ));
+    }
 }

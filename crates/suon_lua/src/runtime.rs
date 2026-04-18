@@ -298,6 +298,38 @@ mod tests {
     }
 
     #[test]
+    fn exec_empty_string_succeeds() {
+        let runtime = LuaRuntime::new();
+        let mut world = setup_world();
+        runtime
+            .scope(&mut world)
+            .exec("")
+            .expect("empty source should succeed");
+    }
+
+    #[test]
+    fn globals_persist_across_separate_scope_calls_on_same_runtime() {
+        let runtime = LuaRuntime::new();
+        let mut world = setup_world();
+
+        runtime.scope(&mut world).exec("x = 42").unwrap();
+        let val: i64 = runtime.scope(&mut world).eval("x").unwrap();
+        assert_eq!(val, 42);
+    }
+
+    #[test]
+    fn call_hook_with_empty_source_and_no_hook_is_noop() {
+        let runtime = LuaRuntime::new();
+        let mut world = setup_world();
+        let entity = world.spawn_empty().id();
+
+        runtime
+            .scope(&mut world)
+            .call_hook(entity, "", "onTick")
+            .expect("empty source with no hook should be a noop");
+    }
+
+    #[test]
     fn call_hook_returns_error_when_source_has_syntax_error() {
         let runtime = LuaRuntime::new();
         let mut world = setup_world();
