@@ -1,0 +1,57 @@
+name: Benchmarks
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  bench:
+    name: Run benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - name: Restore cargo registry and git cache
+        uses: actions/cache@v4.3.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Restore workspace target cache
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-bench-target-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bench-target-
+
+      - name: Run benchmarks
+        run: cargo bench -p suon_benches --benches -- --output-format bencher | tee target/benchmarks.txt
+
+      - name: Upload criterion HTML reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: criterion-reports-${{ github.sha }}
+          path: target/criterion/
+          if-no-files-found: ignore
+
+      - name: Store benchmark results
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: cargo
+          output-file-path: target/benchmarks.txt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: benchmarks
+          comment-on-alert: true
+          alert-threshold: "150%"
+          fail-on-alert: false

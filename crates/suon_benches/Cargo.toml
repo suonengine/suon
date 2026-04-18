@@ -5,6 +5,9 @@ edition.workspace = true
 repository.workspace = true
 publish = false
 
+[lib]
+bench = false
+
 [dependencies]
 bevy.workspace = true
 bytes.workspace = true
@@ -22,6 +25,7 @@ syn = { workspace = true, features = [
 suon_checksum.workspace = true
 suon_chunk.workspace = true
 suon_database.workspace = true
+suon_lua.workspace = true
 suon_movement.workspace = true
 suon_network.workspace = true
 suon_position.workspace = true
@@ -40,6 +44,10 @@ harness = false
 
 [[bench]]
 name = "suon_database"
+harness = false
+
+[[bench]]
+name = "suon_lua"
 harness = false
 
 [[bench]]
