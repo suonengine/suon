@@ -14,10 +14,6 @@ thread_local! {
 /// RAII guard that makes `world` available to Lua callbacks for its lifetime.
 ///
 /// Automatically clears the pointer on drop, so panics inside hooks are safe.
-// Usage:
-//   let _context = WorldContext::enter(world);
-//   exec_hook(...);  // callbacks can call world_cell::with(...)
-//   // _context drops here, pointer cleared
 pub(crate) struct WorldContext<'world> {
     _world: PhantomData<&'world mut World>,
 }
@@ -38,6 +34,10 @@ impl Drop for WorldContext<'_> {
 }
 
 /// Runs `callback` with exclusive world access. Only valid inside a [`WorldContext`].
+///
+/// This stays private because correctness depends on the lifecycle established by
+/// [`WorldContext::enter`]: callers must ensure the thread-local pointer is live
+/// only while the outer Rust stack still owns the corresponding `&mut World`.
 pub(crate) fn with<R>(callback: impl FnOnce(&mut World) -> R) -> R {
     WORLD.with(|world_cell| {
         let world_ptr = world_cell.get();

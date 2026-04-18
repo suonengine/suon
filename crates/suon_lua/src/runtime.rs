@@ -19,6 +19,15 @@ use crate::{api::entity::EntityProxy, world_cell::WorldContext};
 ///
 /// Use [`LuaRuntime::scope`] to execute Lua code, or [`LuaRuntime::take_scope`]
 /// when you need to hold `&mut World` alongside the runtime.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// # use bevy::prelude::*;
+/// # use suon_lua::LuaRuntime;
+/// let mut world = World::new();
+/// world.insert_non_send_resource(LuaRuntime::new());
+/// ```
 pub struct LuaRuntime {
     lua: mlua::Lua,
 }
@@ -31,6 +40,17 @@ impl LuaRuntime {
     }
 
     /// Enters a [`LuaScope`] that gives Lua callbacks access to `world` for its lifetime.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// # use bevy::prelude::*;
+    /// # use suon_lua::LuaRuntime;
+    /// let runtime = LuaRuntime::new();
+    /// let mut world = World::new();
+    /// runtime.scope(&mut world).execute("x = 1")?;
+    /// # Ok::<(), mlua::Error>(())
+    /// ```
     pub fn scope<'runtime, 'world>(
         &'runtime self,
         world: &'world mut World,
@@ -44,6 +64,19 @@ impl LuaRuntime {
     /// Removes [`LuaRuntime`] from `world`, passes it alongside `world` to `callback`, then re-inserts it.
     ///
     /// Returns `None` if the runtime resource is missing.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// # use bevy::prelude::*;
+    /// # use suon_lua::LuaRuntime;
+    /// let mut world = World::new();
+    /// world.insert_non_send_resource(LuaRuntime::new());
+    ///
+    /// LuaRuntime::take_scope(&mut world, |runtime, world| {
+    ///     runtime.scope(world).execute("x = 1")
+    /// });
+    /// ```
     pub fn take_scope<R>(
         world: &mut World,
         callback: impl FnOnce(&LuaRuntime, &mut World) -> R,
@@ -68,6 +101,18 @@ impl LuaRuntime {
 ///
 /// [`execute`]: LuaScope::execute
 /// [`call_hook`]: LuaScope::call_hook
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// # use bevy::prelude::*;
+/// # use suon_lua::LuaRuntime;
+/// let runtime = LuaRuntime::new();
+/// let mut world = World::new();
+/// let scope = runtime.scope(&mut world);
+/// scope.execute("flag = true")?;
+/// # Ok::<(), mlua::Error>(())
+/// ```
 pub struct LuaScope<'runtime, 'world> {
     lua: &'runtime mlua::Lua,
     _context: WorldContext<'world>,
@@ -82,6 +127,17 @@ impl LuaScope<'_, '_> {
     /// `mlua::Error::RuntimeError` if the chunk calls `error(...)`.
     /// The VM state is **not** rolled back on error — globals set before the
     /// error remain visible in subsequent calls.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// # use bevy::prelude::*;
+    /// # use suon_lua::LuaRuntime;
+    /// let runtime = LuaRuntime::new();
+    /// let mut world = World::new();
+    /// runtime.scope(&mut world).execute("counter = 1")?;
+    /// # Ok::<(), mlua::Error>(())
+    /// ```
     pub fn execute(&self, source: &str) -> mlua::Result<()> {
         self.lua.load(source).exec()
     }
@@ -98,6 +154,23 @@ impl LuaScope<'_, '_> {
     ///
     /// Returns an error if `source` has a syntax error or if the hook function
     /// itself calls `error(...)`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// # use bevy::prelude::*;
+    /// # use suon_lua::LuaRuntime;
+    /// let runtime = LuaRuntime::new();
+    /// let mut world = World::new();
+    /// let entity = world.spawn_empty().id();
+    ///
+    /// runtime.scope(&mut world).call_hook(
+    ///     entity,
+    ///     "function Entity:onTick() touched = true end",
+    ///     "onTick",
+    /// )?;
+    /// # Ok::<(), mlua::Error>(())
+    /// ```
     pub fn call_hook(&self, entity: Entity, source: &str, hook: &str) -> mlua::Result<()> {
         self.lua.load(source).exec()?;
 
@@ -131,6 +204,25 @@ impl LuaScope<'_, '_> {
 ///
 /// Construct via [`crate::LuaComponent::make_accessor`] or [`crate::serialize_component`] /
 /// [`crate::deserialize_component`] / [`crate::register_component_id`] for manual wiring.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// # use bevy::prelude::*;
+/// # use serde::{Deserialize, Serialize};
+/// # use suon_lua::{ComponentAccessor, deserialize_component, register_component_id, serialize_component};
+/// #[derive(Component, Serialize, Deserialize)]
+/// struct Health {
+///     value: i32,
+/// }
+///
+/// let accessor = ComponentAccessor {
+///     get: serialize_component::<Health>,
+///     set: deserialize_component::<Health>,
+///     component_id: register_component_id::<Health>,
+/// };
+/// # let _ = accessor;
+/// ```
 pub struct ComponentAccessor {
     /// Serializes the component to JSON. Returns `None` if the entity lacks the component.
     pub get: fn(Entity, &mut World) -> Option<Json>,
@@ -143,6 +235,17 @@ pub struct ComponentAccessor {
 /// Type-erased vtable for a trigger registered in [`ScriptRegistry`].
 ///
 /// `fire` receives the entity, the world, and the args table serialised to JSON.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// # use bevy::prelude::*;
+/// # use suon_lua::TriggerAccessor;
+/// let trigger = TriggerAccessor {
+///     fire: |_entity, _world, _args| {},
+/// };
+/// # let _ = trigger;
+/// ```
 pub struct TriggerAccessor {
     /// Deserializes the args table and fires the trigger on the entity.
     pub fire: fn(Entity, &mut World, Json),
@@ -156,6 +259,14 @@ pub struct TriggerAccessor {
 /// is needed when you want the component available before the first insert.
 ///
 /// [`register_component`]: ScriptRegistry::register_component
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// # use suon_lua::ScriptRegistry;
+/// let registry = ScriptRegistry::default();
+/// # let _ = registry;
+/// ```
 #[derive(Resource, Default)]
 pub struct ScriptRegistry {
     pub(crate) components: HashMap<String, ComponentAccessor>,
@@ -163,10 +274,12 @@ pub struct ScriptRegistry {
 }
 
 impl ScriptRegistry {
+    /// Registers a Lua-visible component accessor under `name`.
     pub fn register_component(&mut self, name: impl Into<String>, accessor: ComponentAccessor) {
         self.components.insert(name.into(), accessor);
     }
 
+    /// Registers a Lua-visible trigger accessor under `name`.
     pub fn register_trigger(&mut self, name: impl Into<String>, accessor: TriggerAccessor) {
         self.triggers.insert(name.into(), accessor);
     }

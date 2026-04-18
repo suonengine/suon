@@ -29,6 +29,14 @@ pub struct LuaScript {
 
 impl LuaScript {
     /// Creates a new script component with the given Lua `source`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// # use suon_lua::LuaScript;
+    /// let script = LuaScript::new("function Entity:onTick() end");
+    /// # let _ = script;
+    /// ```
     pub fn new(source: impl Into<String>) -> Self {
         Self {
             source: source.into(),
@@ -36,6 +44,14 @@ impl LuaScript {
     }
 
     /// Returns the stored Lua source.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// # use suon_lua::LuaScript;
+    /// let script = LuaScript::new("print('hello')");
+    /// assert_eq!(script.source(), "print('hello')");
+    /// ```
     pub fn source(&self) -> &str {
         &self.source
     }

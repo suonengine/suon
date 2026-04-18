@@ -59,6 +59,17 @@ use bevy::prelude::*;
 /// Inserts [`LuaRuntime`] as a non-send resource and initialises [`ScriptRegistry`].
 /// Register components with [`AppLuaExt::register_lua_component`] or rely on the
 /// automatic registration that fires on the first `insert` of a [`LuaComponent`].
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use bevy::prelude::*;
+/// use suon_lua::LuaPlugin;
+///
+/// App::new()
+///     .add_plugins((MinimalPlugins, LuaPlugin))
+///     .run();
+/// ```
 pub struct LuaPlugin;
 
 impl Plugin for LuaPlugin {

@@ -13,6 +13,20 @@ use crate::{runtime::LuaRuntime, script::LuaScript};
 /// If the entity has no [`LuaScript`], or the script does not define the named
 /// hook, the command is a silent no-op. Errors from the hook are logged and
 /// swallowed so one bad script cannot stall the command queue.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use bevy::prelude::*;
+/// use suon_lua::{LuaCommands, LuaScript};
+///
+/// fn queue_hook(mut commands: Commands, entity: Entity) {
+///     commands.entity(entity).insert(LuaScript::new(
+///         "function Entity:onSpawned() print('spawned') end",
+///     ));
+///     commands.lua_hook(entity, "onSpawned");
+/// }
+/// ```
 pub struct RunLuaHook {
     pub(crate) entity: Entity,
     pub(crate) hook: &'static str,
@@ -42,6 +56,17 @@ impl Command for RunLuaHook {
 /// Bevy [`Command`] that executes a Lua snippet at the next command flush.
 ///
 /// Enqueued by [`LuaCommands::lua_execute`]. Errors are logged and swallowed.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use bevy::prelude::*;
+/// use suon_lua::LuaCommands;
+///
+/// fn queue_script(mut commands: Commands) {
+///     commands.lua_execute("counter = (counter or 0) + 1");
+/// }
+/// ```
 pub struct RunLuaScript {
     pub(crate) source: String,
 }
@@ -64,11 +89,33 @@ pub trait LuaCommands {
     ///
     /// The hook runs at the next [`Commands`] flush, inside the shared Lua VM.
     /// No-op if the entity has no script or the hook is not defined.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// # use bevy::prelude::*;
+    /// # use suon_lua::LuaCommands;
+    /// fn on_damage(mut commands: Commands, entity: Entity) {
+    ///     commands.lua_hook(entity, "onDamage");
+    /// }
+    /// ```
     fn lua_hook(&mut self, entity: Entity, hook: &'static str);
 
     /// Queues a [`RunLuaScript`] command that executes `source` at the next flush.
     ///
     /// The snippet runs inside the shared Lua VM and has access to the `world` global.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// # use bevy::prelude::*;
+    /// # use suon_lua::LuaCommands;
+    /// fn reset_all(mut commands: Commands) {
+    ///     commands.lua_execute(
+    ///         "for id, hp in world:query('Health'):iter() do hp.value = 100 end",
+    ///     );
+    /// }
+    /// ```
     fn lua_execute(&mut self, source: impl Into<String>);
 }
 
