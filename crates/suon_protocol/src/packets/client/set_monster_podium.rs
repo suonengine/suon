@@ -55,7 +55,11 @@ mod tests {
     #[test]
     fn should_decode_set_monster_podium() {
         let mut payload: &[u8] = &[
-            0x78, 0x56, 0x34, 0x12, 0x34, 0x12, 0x78, 0x56, 0xBC, 0x9A, 4, 2, 1, 0,
+            0x78, 0x56, 0x34, 0x12, // monster_race_id = 0x12345678
+            0x34, 0x12, 0x78, 0x56, // position = (0x1234, 0x5678)
+            0x00, // floor
+            0xBC, 0x9A, // item_id = 0x9ABC
+            4, 2, 1, 0, // stack_position, direction, podium_visible, monster_visible
         ];
 
         let packet = SetMonsterPodium::decode(PacketKind::SetMonsterPodium, &mut payload)

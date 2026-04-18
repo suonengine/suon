@@ -30,7 +30,7 @@ mod tests {
 
     #[test]
     fn should_decode_teleport() {
-        let mut payload: &[u8] = &[0x34, 0x12, 0x78, 0x56];
+        let mut payload: &[u8] = &[0x34, 0x12, 0x78, 0x56, 0x01];
 
         let packet = Teleport::decode(PacketKind::Teleport, &mut payload)
             .expect("Teleport packets should decode positions");
@@ -42,6 +42,7 @@ mod tests {
                 y: 0x5678,
             }
         );
+        assert_eq!(packet.floor, Floor::from(0x01));
         assert!(payload.is_empty());
     }
 }

@@ -8,10 +8,10 @@ use super::prelude::*;
 ///
 /// # Examples
 /// ```
-/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::BrowseForgeHistory};
+/// use suon_protocol::packets::client::{Decodable, PacketKind, prelude::ForgeHistory};
 ///
 /// let mut payload: &[u8] = &[7];
-/// let packet = BrowseForgeHistory::decode(PacketKind::BrowseForgeHistory, &mut payload).unwrap();
+/// let packet = ForgeHistory::decode(PacketKind::ForgeHistory, &mut payload).unwrap();
 ///
 /// assert_eq!(packet.page, 7);
 /// ```
