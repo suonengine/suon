@@ -42,8 +42,8 @@ pub struct ObservabilitySettings {
 }
 
 impl ObservabilitySettings {
-    /// Path to the root observability settings file.
-    pub const PATH: &'static str = "ObservabilitySettings.toml";
+    /// Path to the observability settings file.
+    pub const PATH: &'static str = "settings/ObservabilitySettings.toml";
 
     /// Loads the settings file or creates it with defaults when it does not exist.
     pub fn load_or_default() -> anyhow::Result<Self> {
@@ -67,23 +67,49 @@ impl ObservabilitySettings {
     }
 
     fn load_at(path: &Path) -> anyhow::Result<Self> {
+        debug!("Attempting to read configuration from '{}'", path.display());
         let config =
             fs::read_to_string(path).context("Failed to read observability settings file")?;
-        toml::from_str(&config).context("Failed to parse observability settings as TOML")
+
+        info!("Successfully read configuration file '{}'", path.display());
+
+        let settings =
+            toml::from_str(&config).context("Failed to parse observability settings as TOML")?;
+        trace!("Loaded settings: {:?}", settings);
+
+        Ok(settings)
     }
 
     fn create_at(path: &Path) -> anyhow::Result<Self> {
+        info!("Creating default configuration file '{}'", path.display());
         let default_config = Self::default();
+
+        debug!("Serializing default configuration to TOML format");
+
         let config = toml::to_string_pretty(&default_config)
             .context("Failed to serialize default observability settings")?;
-        {
-            let mut file =
-                File::create(path).context("Failed to create the observability settings file")?;
-            file.write_all(config.as_bytes())
-                .context("Failed to write the default observability settings file")?;
-            file.sync_all()
-                .context("Failed to flush the default observability settings file")?;
+
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).context("Failed to create settings directory")?;
         }
+
+        debug!("Creating configuration file at '{}'", path.display());
+        let mut file =
+            File::create(path).context("Failed to create the observability settings file")?;
+
+        debug!("Writing default configuration to file");
+
+        file.write_all(config.as_bytes())
+            .context("Failed to write the default observability settings file")?;
+
+        file.sync_all()
+            .context("Failed to flush the default observability settings file")?;
+
+        info!(
+            "Default configuration written to '{}'. Reloading from file.",
+            path.display()
+        );
+
         Self::load_at(path)
     }
 }

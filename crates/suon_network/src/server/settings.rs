@@ -31,7 +31,7 @@ pub(crate) struct Settings {
 
 impl Settings {
     /// Path to the configuration file.
-    const PATH: &'static str = "NetworkServerSettings.toml";
+    const PATH: &'static str = "settings/NetworkServerSettings.toml";
 
     /// Tries to load the settings, or creates the file with default settings if it doesn't exist.
     pub(crate) fn load_or_default() -> anyhow::Result<Self> {
@@ -81,6 +81,10 @@ impl Settings {
             .context("Failed to serialize default configuration")?;
 
         debug!("Creating configuration file at '{}'", Self::PATH);
+
+        if let Some(parent) = std::path::Path::new(Self::PATH).parent() {
+            fs::create_dir_all(parent).context("Failed to create settings directory")?;
+        }
 
         let mut file =
             File::create(Self::PATH).context("Failed to create the configuration file")?;
@@ -427,8 +431,13 @@ mod tests {
             },
         };
 
+        let settings_path = temp_dir.join(Settings::PATH);
+
+        fs::create_dir_all(settings_path.parent().unwrap())
+            .expect("The test should create the settings directory");
+
         fs::write(
-            temp_dir.join(Settings::PATH),
+            &settings_path,
             toml::to_string_pretty(&expected)
                 .expect("The expected settings should serialize to TOML"),
         )
