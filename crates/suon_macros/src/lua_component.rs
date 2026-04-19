@@ -16,6 +16,7 @@ fn lua_name_from_attr(derive_input: &DeriveInput) -> Option<String> {
         if !attr.path().is_ident("lua") {
             continue;
         }
+
         let mut name = None;
         let _ = attr.parse_nested_meta(|context| {
             if context.path.is_ident("name") {
@@ -47,8 +48,7 @@ fn expand_derive_lua_component(derive_input: DeriveInput) -> TokenStream2 {
                 Some(|mut world, _context| {
                     if !world
                         .resource::<suon_lua::ScriptRegistry>()
-                        .components
-                        .contains_key(<#struct_name as suon_lua::LuaComponent>::lua_name())
+                        .has_component(<#struct_name as suon_lua::LuaComponent>::lua_name())
                     {
                         world.resource_mut::<suon_lua::ScriptRegistry>().register_component(
                             <#struct_name as suon_lua::LuaComponent>::lua_name(),
@@ -66,9 +66,15 @@ fn expand_derive_lua_component(derive_input: DeriveInput) -> TokenStream2 {
 
             fn make_accessor() -> suon_lua::ComponentAccessor {
                 suon_lua::ComponentAccessor {
-                    get: suon_lua::serialize_component::<Self>,
-                    set: suon_lua::deserialize_component::<Self>,
-                    component_id: suon_lua::register_component_id::<Self>,
+                    get: |entity, world| {
+                        <bevy::prelude::World as suon_lua::WorldLuaComponentExt>
+                            ::serialize_lua_component::<Self>(world, entity)
+                    },
+                    set: |entity, world, json| {
+                        <bevy::prelude::World as suon_lua::WorldLuaComponentExt>
+                            ::deserialize_lua_component::<Self>(world, entity, json)
+                    },
+                    component_id: |world| world.register_component::<Self>(),
                 }
             }
         }
@@ -129,7 +135,7 @@ mod tests {
         let output = expand_derive_lua_component(input).to_string();
 
         assert!(
-            output.contains("contains_key"),
+            output.contains("has_component"),
             "on_add hook should guard against duplicate registration"
         );
     }
@@ -156,18 +162,23 @@ mod tests {
         let output = expand_derive_lua_component(input).to_string();
 
         assert!(
-            output.contains("suon_lua :: serialize_component :: < Self >"),
-            "make_accessor get field should use serialize_component"
+            output.contains("WorldLuaComponentExt"),
+            "make_accessor should route through WorldLuaComponentExt"
         );
 
         assert!(
-            output.contains("suon_lua :: deserialize_component :: < Self >"),
-            "make_accessor set field should use deserialize_component"
+            output.contains("serialize_lua_component"),
+            "make_accessor get field should use serialize_lua_component"
         );
 
         assert!(
-            output.contains("suon_lua :: register_component_id :: < Self >"),
-            "make_accessor component_id field should use register_component_id"
+            output.contains("deserialize_lua_component"),
+            "make_accessor set field should use deserialize_lua_component"
+        );
+
+        assert!(
+            output.contains("register_component :: < Self >"),
+            "make_accessor component_id field should register the component directly"
         );
     }
 

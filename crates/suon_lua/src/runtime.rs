@@ -10,7 +10,7 @@ use serde_json::Value as Json;
 use std::{cell::RefCell, collections::HashMap};
 
 use crate::{
-    api::{entity::EntityProxy, json_value_to_lua_value},
+    api::{IntoLuaValueExt, entity::EntityProxy, world::LuaWorldApiExt},
     world_cell::WorldContext,
 };
 
@@ -20,7 +20,7 @@ use crate::{
 /// Because mlua's `Lua` is `!Send`, the runtime is stored as a non-send resource
 /// and must be accessed from the main thread only.
 ///
-/// Use [`LuaRuntime::scope`] to execute Lua code, or [`LuaRuntime::take_scope`]
+/// Use [`LuaRuntime::scope`] to execute Lua code, or [`WorldLuaRuntimeExt::lua_runtime`]
 /// when you need to hold `&mut World` alongside the runtime.
 ///
 /// # Examples
@@ -42,7 +42,7 @@ impl LuaRuntime {
     /// Creates a new runtime and registers the global Lua API surface.
     pub(crate) fn new() -> Self {
         let lua = mlua::Lua::new();
-        if let Err(error) = crate::api::world::register_world_api(&lua) {
+        if let Err(error) = lua.register_world_api() {
             panic!("failed to register Lua globals: {error}");
         }
         Self {
@@ -73,32 +73,21 @@ impl LuaRuntime {
             _context: WorldContext::enter(world),
         }
     }
+}
 
-    /// Removes [`LuaRuntime`] from `world`, passes it alongside `world` to `callback`, then re-inserts it.
+/// Extension methods for accessing the non-send [`LuaRuntime`] straight from [`World`].
+pub trait WorldLuaRuntimeExt {
+    /// Temporarily removes the [`LuaRuntime`] resource, runs `callback`, then re-inserts it.
     ///
-    /// Returns `None` if the runtime resource is missing.
-    ///
-    /// # Examples
-    ///
-    /// ```rust,ignore
-    /// # use bevy::prelude::*;
-    /// # use suon_lua::LuaRuntime;
-    /// let mut world = World::new();
-    /// world.insert_non_send_resource(LuaRuntime::new());
-    ///
-    /// LuaRuntime::take_scope(&mut world, |runtime, world| {
-    ///     runtime.scope(world).execute("x = 1")
-    /// });
-    /// ```
-    pub fn take_scope<R>(
-        world: &mut World,
-        callback: impl FnOnce(&LuaRuntime, &mut World) -> R,
-    ) -> Option<R> {
-        // LuaRuntime is !Send and cannot be borrowed while world is also borrowed mutably,
-        // so we remove it, call the closure, then re-insert it.
-        let runtime = world.remove_non_send_resource::<LuaRuntime>()?;
-        let result = callback(&runtime, world);
-        world.insert_non_send_resource(runtime);
+    /// Returns `None` when the world does not contain a runtime.
+    fn lua_runtime<R>(&mut self, callback: impl FnOnce(&LuaRuntime, &mut World) -> R) -> Option<R>;
+}
+
+impl WorldLuaRuntimeExt for World {
+    fn lua_runtime<R>(&mut self, callback: impl FnOnce(&LuaRuntime, &mut World) -> R) -> Option<R> {
+        let runtime = self.remove_non_send_resource::<LuaRuntime>()?;
+        let result = callback(&runtime, self);
+        self.insert_non_send_resource(runtime);
         Some(result)
     }
 }
@@ -144,9 +133,11 @@ impl LuaScope<'_, '_> {
 
         let function = self.lua.load(source).into_function()?;
         let registry_key = self.lua.create_registry_value(function.clone())?;
+
         self.script_cache
             .borrow_mut()
             .insert(source.into(), registry_key);
+
         Ok(function)
     }
 
@@ -186,10 +177,10 @@ impl LuaScope<'_, '_> {
             Json::Null => {}
             Json::Array(items) => {
                 for item in items {
-                    values.push_back(json_value_to_lua_value(self.lua, item)?);
+                    values.push_back(item.into_lua_value(self.lua)?);
                 }
             }
-            value => values.push_back(json_value_to_lua_value(self.lua, value)?),
+            value => values.push_back(value.into_lua_value(self.lua)?),
         }
 
         Ok(values)
@@ -257,32 +248,35 @@ impl LuaScope<'_, '_> {
 /// - `set` deserialises JSON and inserts/replaces `T` on the entity
 /// - `component_id` registers `T` with the world and returns its stable [`ComponentId`]
 ///
-/// Construct via [`crate::LuaComponent::make_accessor`] or [`crate::serialize_component`] /
-/// [`crate::deserialize_component`] / [`crate::register_component_id`] for manual wiring.
+/// Construct via [`crate::LuaComponent::make_accessor`] or closures that call
+/// [`crate::WorldLuaComponentExt::serialize_lua_component`],
+/// [`crate::WorldLuaComponentExt::deserialize_lua_component`], and `World::register_component::<T>()`.
 ///
 /// # Examples
 ///
 /// ```rust,ignore
 /// # use bevy::prelude::*;
 /// # use serde::{Deserialize, Serialize};
-/// # use suon_lua::{ComponentAccessor, deserialize_component, register_component_id, serialize_component};
+/// # use suon_lua::{ComponentAccessor, WorldLuaComponentExt};
 /// #[derive(Component, Serialize, Deserialize)]
 /// struct Health {
 ///     value: i32,
 /// }
 ///
 /// let accessor = ComponentAccessor {
-///     get: serialize_component::<Health>,
-///     set: deserialize_component::<Health>,
-///     component_id: register_component_id::<Health>,
+///     get: |entity, world| world.serialize_lua_component::<Health>(entity),
+///     set: |entity, world, json| world.deserialize_lua_component::<Health>(entity, json),
+///     component_id: |world| world.register_component::<Health>(),
 /// };
 /// # let _ = accessor;
 /// ```
 pub struct ComponentAccessor {
     /// Serializes the component to JSON. Returns `None` if the entity lacks the component.
     pub get: fn(Entity, &mut World) -> Option<Json>,
+
     /// Deserializes JSON and inserts/updates the component on the entity.
     pub set: fn(Entity, &mut World, Json),
+
     /// Returns the [`ComponentId`] for this component type, registering it if needed.
     pub component_id: fn(&mut World) -> ComponentId,
 }
@@ -326,13 +320,20 @@ pub struct TriggerAccessor {
 pub struct ScriptRegistry {
     /// Component accessors keyed by their Lua-visible names.
     pub(crate) components: HashMap<String, ComponentAccessor>,
+
     /// Trigger accessors keyed by their Lua-visible names.
     pub(crate) triggers: HashMap<String, TriggerAccessor>,
+
     /// Cached query plans keyed by the requested component name list.
     pub(crate) query_cache: HashMap<Vec<String>, Option<QueryPlan>>,
 }
 
 impl ScriptRegistry {
+    /// Returns `true` if a component accessor is registered under `name`.
+    pub fn has_component(&self, name: &str) -> bool {
+        self.components.contains_key(name)
+    }
+
     /// Registers a Lua-visible component accessor under `name`.
     pub fn register_component(&mut self, name: impl Into<String>, accessor: ComponentAccessor) {
         self.components.insert(name.into(), accessor);
@@ -349,8 +350,10 @@ impl ScriptRegistry {
 pub(crate) struct QueryPlan {
     /// Registered Bevy component ids used to build the dynamic query.
     pub(crate) component_ids: Vec<ComponentId>,
+
     /// Component serializers used to materialize Lua-visible row values.
     pub(crate) get_fns: Vec<fn(Entity, &mut World) -> Option<Json>>,
+
     /// Component deserializers used to flush proxy writes back into the ECS.
     pub(crate) set_fns: Vec<fn(Entity, &mut World, Json)>,
 }
@@ -359,43 +362,49 @@ pub(crate) struct QueryPlan {
 mod tests {
     use super::*;
 
-    fn setup_world() -> World {
-        let mut world = World::new();
-        world.init_resource::<ScriptRegistry>();
-        world
-    }
-
     #[test]
     fn new_registers_entity_global_in_lua() {
         let runtime = LuaRuntime::new();
-        let mut world = setup_world();
+
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
+
         runtime
             .scope(&mut world)
             .execute("assert(Entity ~= nil)")
-            .unwrap_or_else(|error| panic!("lua exec should succeed: {error}"));
+            .expect("lua exec should succeed");
     }
 
     #[test]
     fn exec_runs_lua_code() {
         let runtime = LuaRuntime::new();
-        let mut world = setup_world();
+
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
+
         let scope = runtime.scope(&mut world);
+
         scope
             .execute("result = 1 + 2")
-            .unwrap_or_else(|error| panic!("lua exec should succeed: {error}"));
+            .expect("lua exec should succeed");
+
         scope
             .execute("assert(result == 3)")
-            .unwrap_or_else(|error| panic!("lua assertion should succeed: {error}"));
+            .expect("lua assertion should succeed");
     }
 
     #[test]
     fn exec_returns_error_on_syntax_error() {
         let runtime = LuaRuntime::new();
-        let mut world = setup_world();
+
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
+
         let error = runtime
             .scope(&mut world)
             .execute("this is !! not lua")
             .unwrap_err();
+
         assert!(
             error.to_string().to_lowercase().contains("syntax")
                 || matches!(error, mlua::Error::SyntaxError { .. }),
@@ -406,19 +415,27 @@ mod tests {
     #[test]
     fn exec_returns_error_on_runtime_error() {
         let runtime = LuaRuntime::new();
-        let mut world = setup_world();
+
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
+
         let error = runtime
             .scope(&mut world)
             .execute("error('intentional')")
             .unwrap_err();
+
         assert!(error.to_string().contains("intentional"));
     }
 
     #[test]
     fn call_hook_entity_method_style() {
         let runtime = LuaRuntime::new();
-        let mut world = setup_world();
+
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
+
         let entity = world.spawn_empty().id();
+
         let scope = runtime.scope(&mut world);
 
         scope
@@ -428,17 +445,22 @@ mod tests {
                 "onTick",
                 Json::Null,
             )
-            .unwrap_or_else(|error| panic!("hook should execute without error: {error}"));
+            .expect("hook should execute without error");
+
         scope
             .execute("assert(ran == true)")
-            .unwrap_or_else(|error| panic!("lua assertion should succeed: {error}"));
+            .expect("lua assertion should succeed");
     }
 
     #[test]
     fn call_hook_ignores_plain_global_function() {
         let runtime = LuaRuntime::new();
-        let mut world = setup_world();
+
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
+
         let entity = world.spawn_empty().id();
+
         let scope = runtime.scope(&mut world);
 
         scope
@@ -448,48 +470,64 @@ mod tests {
                 "onTick",
                 Json::Null,
             )
-            .unwrap_or_else(|error| panic!("hook should execute without error: {error}"));
+            .expect("hook should execute without error");
         scope
             .execute("assert(ran == nil)")
-            .unwrap_or_else(|error| panic!("lua assertion should succeed: {error}"));
+            .expect("lua assertion should succeed");
     }
 
     #[test]
     fn call_hook_missing_hook_is_noop() {
         let runtime = LuaRuntime::new();
-        let mut world = setup_world();
+
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
+
         let entity = world.spawn_empty().id();
 
         runtime
             .scope(&mut world)
             .call_hook(entity, "", "nonexistent", Json::Null)
-            .unwrap_or_else(|error| panic!("missing hook should be a noop, not an error: {error}"));
+            .expect("missing hook should be a noop, not an error");
     }
 
     #[test]
     fn call_hook_uses_only_entity_method_style() {
         let runtime = LuaRuntime::new();
-        let mut world = setup_world();
+
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
+
         let entity = world.spawn_empty().id();
+
         let scope = runtime.scope(&mut world);
 
-        let source = "
+        scope
+            .call_hook(
+                entity,
+                "
             function Entity:onTick() style = 'method' end
             function onTick(entity)  style = 'plain'  end
-        ";
-        scope
-            .call_hook(entity, source, "onTick", Json::Null)
-            .unwrap_or_else(|error| panic!("hook should execute without error: {error}"));
+        ",
+                "onTick",
+                Json::Null,
+            )
+            .expect("hook should execute without error");
+
         scope
             .execute("assert(style == 'method')")
-            .unwrap_or_else(|error| panic!("lua assertion should succeed: {error}"));
+            .expect("lua assertion should succeed");
     }
 
     #[test]
     fn call_hook_passes_entity_proxy_as_self() {
         let runtime = LuaRuntime::new();
-        let mut world = setup_world();
+
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
+
         let entity = world.spawn_empty().id();
+
         let scope = runtime.scope(&mut world);
 
         scope
@@ -499,18 +537,22 @@ mod tests {
                 "onTick",
                 Json::Null,
             )
-            .unwrap_or_else(|error| panic!("hook should execute without error: {error}"));
+            .expect("hook should execute without error");
 
         scope
             .execute(&format!("assert(received_id == {})", entity.to_bits()))
-            .unwrap_or_else(|error| panic!("lua assertion should succeed: {error}"));
+            .expect("lua assertion should succeed");
     }
 
     #[test]
     fn call_hook_passes_single_table_argument() {
         let runtime = LuaRuntime::new();
-        let mut world = setup_world();
+
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
+
         let entity = world.spawn_empty().id();
+
         let scope = runtime.scope(&mut world);
 
         scope
@@ -520,18 +562,22 @@ mod tests {
                 "onMove",
                 serde_json::json!({ "x": 5, "y": 9 }),
             )
-            .unwrap_or_else(|error| panic!("hook should execute without error: {error}"));
+            .expect("hook should execute without error");
 
         scope
             .execute("assert(moved_x == 5 and moved_y == 9)")
-            .unwrap_or_else(|error| panic!("lua assertion should succeed: {error}"));
+            .expect("lua assertion should succeed");
     }
 
     #[test]
     fn call_hook_expands_array_into_multiple_arguments() {
         let runtime = LuaRuntime::new();
-        let mut world = setup_world();
+
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
+
         let entity = world.spawn_empty().id();
+
         let scope = runtime.scope(&mut world);
 
         scope
@@ -541,39 +587,48 @@ mod tests {
                 "onDamage",
                 serde_json::json!([12, "lava"]),
             )
-            .unwrap_or_else(|error| panic!("hook should execute without error: {error}"));
+            .expect("hook should execute without error");
 
         scope
             .execute("assert(damage == 12 and dealer == 'lava')")
-            .unwrap_or_else(|error| panic!("lua assertion should succeed: {error}"));
+            .expect("lua assertion should succeed");
     }
 
     #[test]
     fn exec_state_persists_across_multiple_calls_on_same_scope() {
         let runtime = LuaRuntime::new();
-        let mut world = setup_world();
+
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
+
         let scope = runtime.scope(&mut world);
 
         scope
             .execute("counter = 0")
-            .unwrap_or_else(|error| panic!("lua exec should succeed: {error}"));
+            .expect("lua exec should succeed");
+
         scope
             .execute("counter = counter + 1")
-            .unwrap_or_else(|error| panic!("lua exec should succeed: {error}"));
+            .expect("lua exec should succeed");
+
         scope
             .execute("counter = counter + 1")
-            .unwrap_or_else(|error| panic!("lua exec should succeed: {error}"));
+            .expect("lua exec should succeed");
 
         scope
             .execute("assert(counter == 2)")
-            .unwrap_or_else(|error| panic!("lua assertion should succeed: {error}"));
+            .expect("lua assertion should succeed");
     }
 
     #[test]
     fn call_hook_returns_error_when_hook_itself_errors() {
         let runtime = LuaRuntime::new();
-        let mut world = setup_world();
+
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
+
         let entity = world.spawn_empty().id();
+
         let scope = runtime.scope(&mut world);
 
         let error = scope
@@ -591,41 +646,50 @@ mod tests {
     #[test]
     fn exec_empty_string_succeeds() {
         let runtime = LuaRuntime::new();
-        let mut world = setup_world();
+
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
+
         runtime
             .scope(&mut world)
             .execute("")
-            .unwrap_or_else(|error| panic!("empty source should succeed: {error}"));
+            .expect("empty source should succeed");
     }
 
     #[test]
     fn globals_persist_across_separate_scope_calls_on_same_runtime() {
         let runtime = LuaRuntime::new();
-        let mut world = setup_world();
+
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
 
         runtime
             .scope(&mut world)
             .execute("x = 42")
-            .unwrap_or_else(|error| panic!("lua execution should succeed: {error}"));
+            .expect("lua execution should succeed");
+
         runtime
             .scope(&mut world)
             .execute("assert(x == 42)")
-            .unwrap_or_else(|error| panic!("lua assertion should succeed: {error}"));
+            .expect("lua assertion should succeed");
     }
 
     #[test]
     fn execute_caches_compiled_chunks_by_source() {
         let runtime = LuaRuntime::new();
-        let mut world = setup_world();
+
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
 
         runtime
             .scope(&mut world)
             .execute("counter = 1")
-            .unwrap_or_else(|error| panic!("first lua execution should succeed: {error}"));
+            .expect("first lua execution should succeed");
+
         runtime
             .scope(&mut world)
             .execute("counter = 1")
-            .unwrap_or_else(|error| panic!("second lua execution should succeed: {error}"));
+            .expect("second lua execution should succeed");
 
         assert_eq!(runtime.script_cache.borrow().len(), 1);
     }
@@ -633,19 +697,23 @@ mod tests {
     #[test]
     fn call_hook_reuses_cached_script_chunk() {
         let runtime = LuaRuntime::new();
-        let mut world = setup_world();
+
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
+
         let entity = world.spawn_empty().id();
+
         let source = "function Entity:onTick() touched = true end";
 
         runtime
             .scope(&mut world)
             .call_hook(entity, source, "onTick", Json::Null)
-            .unwrap_or_else(|error| panic!("cached chunk should execute successfully: {error}"));
+            .expect("cached chunk should execute successfully");
 
         runtime
             .scope(&mut world)
             .call_hook(entity, source, "onTick", Json::Null)
-            .unwrap_or_else(|error| panic!("cached chunk should execute successfully: {error}"));
+            .expect("cached chunk should execute successfully");
 
         assert_eq!(runtime.script_cache.borrow().len(), 1);
     }
@@ -653,19 +721,25 @@ mod tests {
     #[test]
     fn call_hook_with_empty_source_and_no_hook_is_noop() {
         let runtime = LuaRuntime::new();
-        let mut world = setup_world();
+
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
+
         let entity = world.spawn_empty().id();
 
         runtime
             .scope(&mut world)
             .call_hook(entity, "", "onTick", Json::Null)
-            .unwrap_or_else(|error| panic!("empty source with no hook should be a noop: {error}"));
+            .expect("empty source with no hook should be a noop");
     }
 
     #[test]
     fn call_hook_returns_error_when_source_has_syntax_error() {
         let runtime = LuaRuntime::new();
-        let mut world = setup_world();
+
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
+
         let entity = world.spawn_empty().id();
 
         let error = runtime
@@ -686,6 +760,7 @@ mod tests {
     #[test]
     fn register_component_inserts_into_map() {
         let mut registry = ScriptRegistry::default();
+
         registry.register_component(
             "Health",
             ComponentAccessor {
@@ -694,12 +769,14 @@ mod tests {
                 component_id: |_| unreachable!(),
             },
         );
+
         assert!(registry.components.contains_key("Health"));
     }
 
     #[test]
     fn register_component_overwrites_existing_entry() {
         let mut registry = ScriptRegistry::default();
+
         for _ in 0..2 {
             registry.register_component(
                 "Health",
@@ -710,12 +787,14 @@ mod tests {
                 },
             );
         }
+
         assert_eq!(registry.components.len(), 1);
     }
 
     #[test]
     fn register_component_clears_query_cache() {
         let mut registry = ScriptRegistry::default();
+
         registry
             .query_cache
             .insert(vec!["Health".to_string()], None);
@@ -735,41 +814,51 @@ mod tests {
     #[test]
     fn register_trigger_inserts_into_map() {
         let mut registry = ScriptRegistry::default();
+
         registry.register_trigger("Heal", TriggerAccessor { fire: |_, _, _| {} });
+
         assert!(registry.triggers.contains_key("Heal"));
     }
 
     #[test]
     fn register_trigger_overwrites_existing_entry() {
         let mut registry = ScriptRegistry::default();
+
         for _ in 0..2 {
             registry.register_trigger("Heal", TriggerAccessor { fire: |_, _, _| {} });
         }
+
         assert_eq!(registry.triggers.len(), 1);
     }
 
     #[test]
     fn take_scope_returns_none_when_runtime_is_missing() {
         let mut world = World::new();
-        let result = LuaRuntime::take_scope(&mut world, |_, _| ());
+        let result = world.lua_runtime(|_, _| ());
         assert!(result.is_none());
     }
 
     #[test]
     fn take_scope_restores_runtime_after_call() {
-        let mut world = setup_world();
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
         world.insert_non_send_resource(LuaRuntime::new());
-        LuaRuntime::take_scope(&mut world, |_, _| ());
+
+        world.lua_runtime(|_, _| ());
+
         assert!(world.get_non_send_resource::<LuaRuntime>().is_some());
     }
 
     #[test]
     fn take_scope_restores_runtime_when_f_returns_err() {
-        let mut world = setup_world();
+        let mut world = World::new();
+        world.init_resource::<ScriptRegistry>();
         world.insert_non_send_resource(LuaRuntime::new());
-        LuaRuntime::take_scope(&mut world, |_, _| -> mlua::Result<()> {
+
+        world.lua_runtime(|_, _| -> mlua::Result<()> {
             Err(mlua::Error::RuntimeError("test".into()))
         });
+
         assert!(world.get_non_send_resource::<LuaRuntime>().is_some());
     }
 }

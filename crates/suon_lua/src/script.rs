@@ -23,8 +23,10 @@ use std::sync::Arc;
 ///         self:set('Health', { value = hp.value + 10 })\
 ///     end",
 /// ));
+///
 /// #[derive(serde::Serialize, suon_macros::LuaHook)]
 /// struct Heal;
+///
 /// assert!(commands.lua_hook(entity, Heal).is_ok());
 /// ```
 #[derive(Component, Clone)]
@@ -60,11 +62,6 @@ impl LuaScript {
     /// ```
     pub fn source(&self) -> &str {
         &self.source
-    }
-
-    /// Returns a cloned handle to the underlying shared source buffer.
-    pub(crate) fn shared_source(&self) -> Arc<str> {
-        Arc::clone(&self.source)
     }
 }
 

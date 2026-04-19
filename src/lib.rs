@@ -16,9 +16,9 @@
 use bevy::{app::ScheduleRunnerPlugin, prelude::*};
 use std::time::Duration;
 use suon_chunk::ChunkPlugin;
+use suon_lua::LuaPlugin;
 use suon_movement::prelude::MovementPlugins;
 use suon_network::NetworkPlugins;
-mod settings;
 
 pub use settings::Settings;
 pub use suon_chunk;
@@ -28,6 +28,8 @@ pub use suon_network;
 pub use suon_observability::{self, ObservabilityPlugin, ObservabilitySettings};
 pub use suon_position;
 pub use suon_task;
+
+mod settings;
 
 /// Common imports for apps that build on top of the umbrella `suon` crate.
 pub mod prelude {
@@ -74,7 +76,7 @@ impl Plugin for SuonPlugin {
             MovementPlugins,
             NetworkPlugins,
         ));
-        app.add_plugins(suon_lua::LuaPlugin);
+        app.add_plugins(LuaPlugin);
     }
 }
 

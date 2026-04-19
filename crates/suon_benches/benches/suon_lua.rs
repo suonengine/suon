@@ -3,30 +3,14 @@ use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use serde::{Deserialize, Serialize};
 use std::hint::black_box;
 use suon_lua::{
-    AppLuaExt, LuaCommands, LuaComponent, LuaPlugin, LuaScript, ScriptRegistry,
-    deserialize_component, register_component_id,
-    runtime::{ComponentAccessor, LuaRuntime},
-    serialize_component,
+    AppLuaExt, LuaCommands, LuaPlugin, LuaScript, ScriptRegistry, WorldLuaComponentExt,
+    runtime::{ComponentAccessor, WorldLuaRuntimeExt},
 };
-use suon_macros::LuaHook;
+use suon_macros::{LuaComponent, LuaHook};
 
-#[derive(Component, Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, LuaComponent)]
 struct Health {
     value: i32,
-}
-
-impl LuaComponent for Health {
-    fn lua_name() -> &'static str {
-        "Health"
-    }
-
-    fn make_accessor() -> ComponentAccessor {
-        ComponentAccessor {
-            get: serialize_component::<Health>,
-            set: deserialize_component::<Health>,
-            component_id: register_component_id::<Health>,
-        }
-    }
 }
 
 #[derive(LuaHook, Serialize)]
@@ -40,28 +24,21 @@ fn app_with_health() -> App {
     app
 }
 
-fn with_runtime<R>(app: &mut App, f: impl FnOnce(&LuaRuntime, &mut World) -> R) -> R {
-    let runtime = app
-        .world_mut()
-        .remove_non_send_resource::<LuaRuntime>()
-        .expect("LuaRuntime should be present");
-    let result = f(&runtime, app.world_mut());
-    app.world_mut().insert_non_send_resource(runtime);
-    result
-}
-
 fn benchmark_lua(c: &mut Criterion) {
     let mut group = c.benchmark_group("lua");
 
     let mut app_exec = app_with_health();
     group.bench_function("exec_simple_snippet", |b| {
         b.iter(|| {
-            with_runtime(&mut app_exec, |runtime, world| {
-                runtime
-                    .scope(world)
-                    .execute(black_box("x = 1 + 2"))
-                    .expect("exec should succeed");
-            });
+            app_exec
+                .world_mut()
+                .lua_runtime(|runtime, world| {
+                    runtime
+                        .scope(world)
+                        .execute(black_box("x = 1 + 2"))
+                        .expect("exec should succeed");
+                })
+                .expect("LuaRuntime should be present");
         });
     });
 
@@ -69,7 +46,9 @@ fn benchmark_lua(c: &mut Criterion) {
     let entity_cget = app_cget.world_mut().spawn(Health { value: 100 }).id();
     group.bench_function("component_get", |b| {
         b.iter(|| {
-            let json = serialize_component::<Health>(black_box(entity_cget), app_cget.world_mut())
+            let json = app_cget
+                .world_mut()
+                .serialize_lua_component::<Health>(black_box(entity_cget))
                 .expect("Health should be present");
             black_box(json);
         });
@@ -80,9 +59,8 @@ fn benchmark_lua(c: &mut Criterion) {
     let json = serde_json::json!({ "value": 50 });
     group.bench_function("component_set", |b| {
         b.iter(|| {
-            deserialize_component::<Health>(
+            app_cset.world_mut().deserialize_lua_component::<Health>(
                 black_box(entity_cset),
-                app_cset.world_mut(),
                 black_box(json.clone()),
             );
         });
@@ -93,17 +71,20 @@ fn benchmark_lua(c: &mut Criterion) {
     let hook_source = "function Entity:onTick() x = 1 end";
     group.bench_function("call_hook", |b| {
         b.iter(|| {
-            with_runtime(&mut app_hook, |runtime, world| {
-                runtime
-                    .scope(world)
-                    .call_hook(
-                        black_box(entity_hook),
-                        black_box(hook_source),
-                        black_box("onTick"),
-                        serde_json::Value::Null,
-                    )
-                    .expect("hook should succeed");
-            });
+            app_hook
+                .world_mut()
+                .lua_runtime(|runtime, world| {
+                    runtime
+                        .scope(world)
+                        .call_hook(
+                            black_box(entity_hook),
+                            black_box(hook_source),
+                            black_box("onTick"),
+                            serde_json::Value::Null,
+                        )
+                        .expect("hook should succeed");
+                })
+                .expect("LuaRuntime should be present");
         });
     });
 
@@ -118,18 +99,20 @@ fn benchmark_lua(c: &mut Criterion) {
             &entity_count,
             |b, _| {
                 b.iter(|| {
-                    with_runtime(&mut app, |runtime, world| {
-                        runtime
-                            .scope(world)
-                            .execute(black_box(
-                                "local n = 0
-                                 for id, hp in Query('Health'):iter() do
-                                     n = n + hp.value
-                                 end
-                                 black_box = n",
-                            ))
-                            .expect("exec should succeed");
-                    });
+                    app.world_mut()
+                        .lua_runtime(|runtime, world| {
+                            runtime
+                                .scope(world)
+                                .execute(black_box(
+                                    "local n = 0
+                                     for id, hp in Query('Health'):iter() do
+                                         n = n + hp.value
+                                     end
+                                     black_box = n",
+                                ))
+                                .expect("exec should succeed");
+                        })
+                        .expect("LuaRuntime should be present");
                 });
             },
         );
@@ -181,9 +164,11 @@ fn benchmark_lua(c: &mut Criterion) {
             registry.register_component(
                 black_box("Health"),
                 ComponentAccessor {
-                    get: serialize_component::<Health>,
-                    set: deserialize_component::<Health>,
-                    component_id: register_component_id::<Health>,
+                    get: |entity, world| world.serialize_lua_component::<Health>(entity),
+                    set: |entity, world, json| {
+                        world.deserialize_lua_component::<Health>(entity, json)
+                    },
+                    component_id: |world| world.register_component::<Health>(),
                 },
             );
             black_box(registry);

@@ -48,10 +48,10 @@ pub mod script;
 pub(crate) mod world_cell;
 
 pub use commands::{Hook, LuaCommands, RunLuaHook, RunLuaScript};
-pub use lua_component::{
-    AppLuaExt, LuaComponent, deserialize_component, register_component_id, serialize_component,
+pub use lua_component::{AppLuaExt, LuaComponent, WorldLuaComponentExt};
+pub use runtime::{
+    ComponentAccessor, LuaRuntime, LuaScope, ScriptRegistry, TriggerAccessor, WorldLuaRuntimeExt,
 };
-pub use runtime::{ComponentAccessor, LuaRuntime, LuaScope, ScriptRegistry, TriggerAccessor};
 pub use script::LuaScript;
 
 use bevy::prelude::*;
@@ -85,13 +85,9 @@ impl Plugin for LuaPlugin {
 mod tests {
     use super::*;
     use serde::{Deserialize, Serialize};
-    use suon_macros::LuaHook;
+    use suon_macros::{LuaComponent, LuaHook};
 
-    use crate::{
-        deserialize_component, register_component_id,
-        runtime::{ComponentAccessor, LuaRuntime},
-        serialize_component,
-    };
+    use crate::runtime::{ComponentAccessor, LuaRuntime};
 
     #[derive(LuaHook, Serialize)]
     #[lua(name = "onTick")]
@@ -101,77 +97,37 @@ mod tests {
     #[lua(name = "onHeal")]
     struct HealHook;
 
-    #[derive(Serialize, Deserialize, Clone)]
+    #[derive(LuaComponent, Serialize, Deserialize, Clone)]
     struct Mana {
         points: i32,
     }
 
-    impl Component for Mana {
-        const STORAGE_TYPE: bevy::ecs::component::StorageType =
-            bevy::ecs::component::StorageType::Table;
-        type Mutability = bevy::ecs::component::Mutable;
-
-        fn on_add() -> Option<bevy::ecs::lifecycle::ComponentHook> {
-            Some(|mut world, _context| {
-                if !world
-                    .resource::<ScriptRegistry>()
-                    .components
-                    .contains_key(Mana::lua_name())
-                {
-                    world
-                        .resource_mut::<ScriptRegistry>()
-                        .register_component(Mana::lua_name(), Mana::make_accessor());
-                }
-            })
-        }
-    }
-
-    impl LuaComponent for Mana {
-        fn lua_name() -> &'static str {
-            "Mana"
-        }
-
-        fn make_accessor() -> ComponentAccessor {
-            ComponentAccessor {
-                get: serialize_component::<Mana>,
-                set: deserialize_component::<Mana>,
-                component_id: register_component_id::<Mana>,
-            }
-        }
-    }
-
-    fn app_with_lua() -> App {
-        let mut app = App::new();
-        app.add_plugins(LuaPlugin);
-        app
-    }
-
     fn run_lua(app: &mut App, source: &str) {
-        let result = LuaRuntime::take_scope(app.world_mut(), |runtime, world| {
-            runtime.scope(world).execute(source)
-        });
-        let result = match result {
-            Some(result) => result,
-            None => panic!("LuaRuntime missing"),
-        };
-        result.unwrap_or_else(|error| panic!("lua exec should succeed: {error}"));
+        let result = app
+            .world_mut()
+            .lua_runtime(|runtime, world| runtime.scope(world).execute(source));
+        let result = result.expect("LuaRuntime missing");
+        result.expect("lua exec should succeed");
     }
 
     #[test]
     fn lua_plugin_inserts_lua_runtime() {
-        let app = app_with_lua();
+        let mut app = App::new();
+        app.add_plugins(LuaPlugin);
         assert!(app.world().get_non_send_resource::<LuaRuntime>().is_some());
     }
 
     #[test]
     fn lua_plugin_inserts_script_registry() {
-        let app = app_with_lua();
+        let mut app = App::new();
+        app.add_plugins(LuaPlugin);
         assert!(app.world().get_resource::<ScriptRegistry>().is_some());
     }
 
     #[test]
     fn lua_component_auto_registers_on_first_spawn_and_is_queryable() {
-        let mut app = app_with_lua();
+        let mut app = App::new();
+        app.add_plugins(LuaPlugin);
 
         app.world_mut().spawn(Mana { points: 50 });
 
@@ -187,7 +143,8 @@ mod tests {
 
     #[test]
     fn lua_component_auto_registers_on_first_spawn_and_is_settable() {
-        let mut app = app_with_lua();
+        let mut app = App::new();
+        app.add_plugins(LuaPlugin);
 
         let entity = app.world_mut().spawn(Mana { points: 0 }).id();
 
@@ -205,7 +162,7 @@ mod tests {
         assert_eq!(
             app.world()
                 .get::<Mana>(entity)
-                .unwrap_or_else(|| panic!("Mana should be present"))
+                .expect("Mana should be present")
                 .points,
             99
         );
@@ -213,7 +170,8 @@ mod tests {
 
     #[test]
     fn lua_execute_runs_snippet_at_next_flush() {
-        let mut app = app_with_lua();
+        let mut app = App::new();
+        app.add_plugins(LuaPlugin);
 
         let entity = app.world_mut().spawn(Mana { points: 10 }).id();
 
@@ -229,7 +187,7 @@ mod tests {
         assert_eq!(
             app.world()
                 .get::<Mana>(entity)
-                .unwrap_or_else(|| panic!("Mana should be present"))
+                .expect("Mana should be present")
                 .points,
             7
         );
@@ -237,7 +195,8 @@ mod tests {
 
     #[test]
     fn lua_hook_calls_entity_method_from_script() {
-        let mut app = app_with_lua();
+        let mut app = App::new();
+        app.add_plugins(LuaPlugin);
         let entity = app
             .world_mut()
             .spawn((
@@ -254,13 +213,13 @@ mod tests {
         app.world_mut()
             .commands()
             .lua_hook(entity, HealHook)
-            .unwrap_or_else(|error| panic!("hook args should serialize: {error}"));
+            .expect("hook args should serialize");
         app.world_mut().flush();
 
         assert_eq!(
             app.world()
                 .get::<Mana>(entity)
-                .unwrap_or_else(|| panic!("Mana should be present"))
+                .expect("Mana should be present")
                 .points,
             10
         );
@@ -268,19 +227,21 @@ mod tests {
 
     #[test]
     fn lua_hook_is_noop_when_entity_lacks_script() {
-        let mut app = app_with_lua();
+        let mut app = App::new();
+        app.add_plugins(LuaPlugin);
         let entity = app.world_mut().spawn_empty().id();
 
         app.world_mut()
             .commands()
             .lua_hook(entity, TickHook)
-            .unwrap_or_else(|error| panic!("hook args should serialize: {error}"));
+            .expect("hook args should serialize");
         app.world_mut().flush();
     }
 
     #[test]
     fn lua_hook_is_noop_when_hook_function_is_missing() {
-        let mut app = app_with_lua();
+        let mut app = App::new();
+        app.add_plugins(LuaPlugin);
         let entity = app
             .world_mut()
             .spawn(LuaScript::new("-- no hooks here"))
@@ -289,13 +250,14 @@ mod tests {
         app.world_mut()
             .commands()
             .lua_hook(entity, TickHook)
-            .unwrap_or_else(|error| panic!("hook args should serialize: {error}"));
+            .expect("hook args should serialize");
         app.world_mut().flush();
     }
 
     #[test]
     fn lua_hook_is_noop_when_entity_is_despawned_before_flush() {
-        let mut app = app_with_lua();
+        let mut app = App::new();
+        app.add_plugins(LuaPlugin);
         let entity = app
             .world_mut()
             .spawn(LuaScript::new("function Entity:onTick() ran = true end"))
@@ -304,7 +266,7 @@ mod tests {
         app.world_mut()
             .commands()
             .lua_hook(entity, TickHook)
-            .unwrap_or_else(|error| panic!("hook args should serialize: {error}"));
+            .expect("hook args should serialize");
         app.world_mut().despawn(entity);
         app.world_mut().flush();
 
@@ -319,7 +281,8 @@ mod tests {
 
     #[test]
     fn multiple_lua_execute_commands_queued_execute_in_order() {
-        let mut app = app_with_lua();
+        let mut app = App::new();
+        app.add_plugins(LuaPlugin);
         let entity = app.world_mut().spawn(Mana { points: 0 }).id();
 
         app.world_mut().commands().lua_execute(format!(
@@ -337,7 +300,7 @@ mod tests {
         assert_eq!(
             app.world()
                 .get::<Mana>(entity)
-                .unwrap_or_else(|| panic!("Mana should exist"))
+                .expect("Mana should exist")
                 .points,
             11
         );
@@ -345,7 +308,8 @@ mod tests {
 
     #[test]
     fn lua_plugin_entity_global_is_accessible_in_exec() {
-        let mut app = app_with_lua();
+        let mut app = App::new();
+        app.add_plugins(LuaPlugin);
         app.world_mut()
             .commands()
             .lua_execute("assert(Entity ~= nil)");
@@ -354,7 +318,8 @@ mod tests {
 
     #[test]
     fn on_add_does_not_overwrite_existing_accessor() {
-        let mut app = app_with_lua();
+        let mut app = App::new();
+        app.add_plugins(LuaPlugin);
 
         // First spawn triggers auto-registration via the on_add hook.
         app.world_mut().spawn(Mana { points: 0 });
@@ -368,7 +333,7 @@ mod tests {
                 ComponentAccessor {
                     get: |_entity, _world| Some(serde_json::json!({ "points": 999 })),
                     set: |_, _, _| {},
-                    component_id: register_component_id::<Mana>,
+                    component_id: |world| world.register_component::<Mana>(),
                 },
             );
 
@@ -381,7 +346,7 @@ mod tests {
             .resource::<ScriptRegistry>()
             .components
             .get("Mana")
-            .unwrap_or_else(|| panic!("Mana should still be in registry"))
+            .expect("Mana should still be in registry")
             .get;
 
         let mut dummy_world = World::new();
@@ -401,48 +366,31 @@ mod tests {
         world.init_resource::<ScriptRegistry>();
         world.insert_non_send_resource(LuaRuntime::new());
 
-        #[derive(Serialize, Deserialize, Clone)]
+        #[derive(LuaComponent, Serialize, Deserialize, Clone)]
         struct Coins {
             count: i32,
         }
-        impl Component for Coins {
-            const STORAGE_TYPE: bevy::ecs::component::StorageType =
-                bevy::ecs::component::StorageType::Table;
-            type Mutability = bevy::ecs::component::Mutable;
-        }
-
-        world.resource_mut::<ScriptRegistry>().register_component(
-            "Coins",
-            ComponentAccessor {
-                get: serialize_component::<Coins>,
-                set: deserialize_component::<Coins>,
-                component_id: register_component_id::<Coins>,
-            },
-        );
 
         let entity = world.spawn(Coins { count: 0 }).id();
         // Advance the world tick so the spawn's change stamp is in the past.
         world.clear_trackers();
         world.increment_change_tick();
 
-        let result = LuaRuntime::take_scope(&mut world, |runtime, w| {
+        let result = world.lua_runtime(|runtime, w| {
             runtime.scope(w).execute(&format!(
                 "Entity({}):set('Coins', {{ count = 5 }})",
                 entity.to_bits()
             ))
         });
-        let result = match result {
-            Some(result) => result,
-            None => panic!("LuaRuntime missing"),
-        };
-        result.unwrap_or_else(|error| panic!("lua exec should succeed: {error}"));
+        let result = result.expect("LuaRuntime missing");
+        result.expect("lua exec should succeed");
 
         // ComponentTicks::is_changed uses world.last_change_tick() as last_run, so
         // the insert that happened after increment_change_tick() must be detected.
         let ticks = world
             .entity(entity)
             .get_change_ticks::<Coins>()
-            .unwrap_or_else(|| panic!("Coins should have change ticks"));
+            .expect("Coins should have change ticks");
 
         assert!(
             ticks.is_changed(world.last_change_tick(), world.change_tick()),
@@ -454,7 +402,8 @@ mod tests {
     fn lua_hook_runs_each_update_when_queued_by_system() {
         use bevy::app::Update;
 
-        let mut app = app_with_lua();
+        let mut app = App::new();
+        app.add_plugins(LuaPlugin);
 
         let entity = app
             .world_mut()
@@ -472,7 +421,7 @@ mod tests {
         app.add_systems(Update, move |mut commands: Commands| {
             commands
                 .lua_hook(entity, TickHook)
-                .unwrap_or_else(|error| panic!("hook args should serialize: {error}"));
+                .expect("hook args should serialize");
         });
 
         app.update();
@@ -481,7 +430,7 @@ mod tests {
         assert_eq!(
             app.world()
                 .get::<Mana>(entity)
-                .unwrap_or_else(|| panic!("Mana should exist"))
+                .expect("Mana should exist")
                 .points,
             2,
             "hook should have incremented Mana.points once per Update tick"
@@ -490,46 +439,13 @@ mod tests {
 
     #[test]
     fn lua_query_filters_entities_that_have_all_components() {
-        #[derive(Serialize, Deserialize, Clone)]
+        #[derive(LuaComponent, Serialize, Deserialize, Clone)]
         struct Stamina {
             value: i32,
         }
 
-        impl Component for Stamina {
-            const STORAGE_TYPE: bevy::ecs::component::StorageType =
-                bevy::ecs::component::StorageType::Table;
-            type Mutability = bevy::ecs::component::Mutable;
-
-            fn on_add() -> Option<bevy::ecs::lifecycle::ComponentHook> {
-                Some(|mut world, _context| {
-                    if !world
-                        .resource::<ScriptRegistry>()
-                        .components
-                        .contains_key(Stamina::lua_name())
-                    {
-                        world
-                            .resource_mut::<ScriptRegistry>()
-                            .register_component(Stamina::lua_name(), Stamina::make_accessor());
-                    }
-                })
-            }
-        }
-
-        impl LuaComponent for Stamina {
-            fn lua_name() -> &'static str {
-                "Stamina"
-            }
-
-            fn make_accessor() -> ComponentAccessor {
-                ComponentAccessor {
-                    get: serialize_component::<Stamina>,
-                    set: deserialize_component::<Stamina>,
-                    component_id: register_component_id::<Stamina>,
-                }
-            }
-        }
-
-        let mut app = app_with_lua();
+        let mut app = App::new();
+        app.add_plugins(LuaPlugin);
 
         app.world_mut().spawn(Mana { points: 1 });
         app.world_mut().spawn(Stamina { value: 2 });

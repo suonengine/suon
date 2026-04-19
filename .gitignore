@@ -2,4 +2,5 @@
 target
 
 # Settings
+Settings.toml
 NetworkServerSettings.toml
