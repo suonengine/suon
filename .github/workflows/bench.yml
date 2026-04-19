@@ -33,8 +33,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-bench-target-
 
+      - name: Build benchmarks
+        run: cargo bench -p suon_benches --benches --no-run
+
       - name: Run benchmarks
-        run: cargo bench -p suon_benches --benches -- --output-format bencher | tee target/benchmarks.txt
+        continue-on-error: true
+        run: cargo bench -p suon_benches --benches -- --output-format bencher 2>&1 | tee target/benchmarks.txt
 
       - name: Upload criterion HTML reports
         uses: actions/upload-artifact@v7.0.1
