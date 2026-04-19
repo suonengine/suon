@@ -1,6 +1,6 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
-use suon_movement::prelude::StepPath;
+use suon_movement::prelude::*;
 use suon_position::prelude::*;
 
 fn benchmark_direction_math(c: &mut Criterion) {

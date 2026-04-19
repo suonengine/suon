@@ -35,7 +35,6 @@ cargo run --example server
 To bootstrap a minimal server app:
 
 ```rust
-use bevy::prelude::*;
 use suon::prelude::*;
 
 fn main() {

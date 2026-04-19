@@ -4,7 +4,7 @@
 //! The design lets Lua callbacks reach the ECS without passing `&mut World` through
 //! the mlua API, which does not support lifetimed state.
 
-use bevy::prelude::World;
+use bevy::prelude::*;
 use std::{cell::Cell, marker::PhantomData};
 
 thread_local! {

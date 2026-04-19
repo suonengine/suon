@@ -69,7 +69,7 @@ impl<P: Decodable + Send + Sync + 'static> Packet<P> {
 mod tests {
     use super::*;
     use bytes::Bytes;
-    use suon_protocol::prelude::DecoderError;
+    use suon_protocol::prelude::*;
 
     #[derive(Debug, PartialEq, Eq)]
     struct PingLatencyPacket;

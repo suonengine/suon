@@ -21,7 +21,7 @@ impl Chunks {
     ///
     /// # Examples
     /// ```
-    /// use bevy::prelude::Entity;
+    /// use bevy::prelude::*;
     /// use suon_chunk::prelude::*;
     /// use suon_position::prelude::*;
     ///
@@ -49,7 +49,7 @@ impl Chunks {
     ///
     /// # Examples
     /// ```
-    /// use bevy::prelude::Entity;
+    /// use bevy::prelude::*;
     /// use suon_chunk::prelude::*;
     /// use suon_position::prelude::*;
     ///
@@ -66,7 +66,7 @@ impl Chunks {
     ///
     /// # Examples
     /// ```
-    /// use bevy::prelude::Entity;
+    /// use bevy::prelude::*;
     /// use suon_chunk::prelude::*;
     /// use suon_position::prelude::*;
     ///
@@ -85,7 +85,7 @@ impl Chunks {
     ///
     /// # Examples
     /// ```
-    /// use bevy::prelude::Entity;
+    /// use bevy::prelude::*;
     /// use suon_chunk::prelude::*;
     /// use suon_position::prelude::*;
     ///
@@ -110,7 +110,7 @@ impl FromIterator<(Position, Entity)> for Chunks {
     ///
     /// # Examples
     /// ```
-    /// use bevy::prelude::Entity;
+    /// use bevy::prelude::*;
     /// use suon_chunk::prelude::*;
     /// use suon_position::prelude::*;
     ///

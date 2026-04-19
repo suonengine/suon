@@ -12,7 +12,7 @@
 
 mod lua_component;
 mod lua_hook;
-mod resource;
+mod table;
 
 use proc_macro::TokenStream;
 
@@ -35,7 +35,7 @@ use proc_macro::TokenStream;
 /// for the annotated struct, based on the logic in `resource::derive_table`.
 #[proc_macro_derive(Table)]
 pub fn derive_table(input: TokenStream) -> TokenStream {
-    resource::derive_table(input)
+    table::derive_table(input)
 }
 
 /// Derives `suon_lua::LuaComponent` for a Bevy component that implements

@@ -1,4 +1,4 @@
-use bevy::prelude::Entity;
+use bevy::prelude::*;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 use suon_chunk::prelude::*;

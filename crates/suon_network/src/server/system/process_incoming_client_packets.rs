@@ -141,8 +141,8 @@ mod tests {
         time::Instant,
     };
     use suon_checksum::Adler32Checksum;
-    use suon_protocol::prelude::DecoderError;
-    use suon_protocol_client::prelude::DecodableError;
+    use suon_protocol::prelude::*;
+    use suon_protocol_client::prelude::*;
 
     #[derive(Resource, Default, Debug, PartialEq, Eq)]
     struct ObservedPackets(Vec<&'static str>);
