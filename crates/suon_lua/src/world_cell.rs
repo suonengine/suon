@@ -61,7 +61,6 @@ pub(crate) fn with<R>(callback: impl FnOnce(&mut World) -> R) -> R {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy::prelude::*;
 
     #[derive(Resource)]
     struct Marker;
