@@ -26,8 +26,8 @@
 //!             commands.spawn((
 //!                 Health { value: 100 },
 //!                 LuaScript::new("function Entity:onTick()
-//!                     local hp = self:get('Health')
-//!                     self:set('Health', { value = hp.value - 1 })
+//!                     local hp = self:get(Health)
+//!                     hp.value = hp.value - 1
 //!                 end"),
 //!             ));
 //!         })
@@ -134,7 +134,7 @@ mod tests {
         run_lua(
             &mut app,
             "
-            for id, mana in Query('Mana'):iter() do
+            for id, mana in Query(Mana):iter() do
                 assert(mana.points == 50, 'expected 50, got ' .. tostring(mana.points))
             end
         ",
@@ -142,7 +142,7 @@ mod tests {
     }
 
     #[test]
-    fn lua_component_auto_registers_on_first_spawn_and_is_settable() {
+    fn lua_component_auto_registers_on_first_spawn_and_is_writable_via_proxy() {
         let mut app = App::new();
         app.add_plugins(LuaPlugin);
 
@@ -152,8 +152,8 @@ mod tests {
             &mut app,
             &format!(
                 "
-            local entity = Entity({bits})
-            entity:set('Mana', {{ points = 99 }})
+            local mana = Entity({bits}):get(Mana)
+            mana.points = 99
         ",
                 bits = entity.to_bits()
             ),
@@ -177,8 +177,8 @@ mod tests {
 
         app.world_mut().commands().lua_execute(format!(
             "
-            local entity = Entity({bits})
-            entity:set('Mana', {{ points = 7 }})
+            local mana = Entity({bits}):get(Mana)
+            mana.points = 7
         ",
             bits = entity.to_bits()
         ));
@@ -203,8 +203,8 @@ mod tests {
                 Mana { points: 0 },
                 LuaScript::new(
                     "function Entity:onHeal()
-                        local mana = self:get('Mana')
-                        self:set('Mana', { points = mana.points + 10 })
+                        local mana = self:get(Mana)
+                        mana.points = mana.points + 10
                     end",
                 ),
             ))
@@ -286,13 +286,11 @@ mod tests {
         let entity = app.world_mut().spawn(Mana { points: 0 }).id();
 
         app.world_mut().commands().lua_execute(format!(
-            "Entity({bits}):set('Mana', {{ points = 1 }})",
+            "local m = Entity({bits}):get(Mana) m.points = 1",
             bits = entity.to_bits()
         ));
         app.world_mut().commands().lua_execute(format!(
-            "local e = Entity({bits})
-             local m = e:get('Mana')
-             e:set('Mana', {{ points = m.points + 10 }})",
+            "local m = Entity({bits}):get(Mana) m.points = m.points + 10",
             bits = entity.to_bits()
         ));
         app.world_mut().flush();
@@ -359,9 +357,9 @@ mod tests {
     }
 
     #[test]
-    fn change_detection_fires_after_lua_set() {
-        // Verifies that entity:set() triggers Bevy's change detection by checking
-        // the component's change tick after the Lua call.
+    fn change_detection_fires_after_proxy_write() {
+        // Verifies that a proxy field assignment triggers Bevy's change detection by
+        // checking the component's change tick after the Lua call.
         let mut world = World::new();
         world.init_resource::<ScriptRegistry>();
         world.insert_non_send_resource(LuaRuntime::new());
@@ -378,7 +376,7 @@ mod tests {
 
         let result = world.lua_runtime(|runtime, w| {
             runtime.scope(w).execute(&format!(
-                "Entity({}):set('Coins', {{ count = 5 }})",
+                "local coins = Entity({}):get(Coins) coins.count = 5",
                 entity.to_bits()
             ))
         });
@@ -394,7 +392,7 @@ mod tests {
 
         assert!(
             ticks.is_changed(world.last_change_tick(), world.change_tick()),
-            "Coins should be detected as changed after Lua entity:set()"
+            "Coins should be detected as changed after Lua proxy write"
         );
     }
 
@@ -411,8 +409,8 @@ mod tests {
                 Mana { points: 0 },
                 LuaScript::new(
                     "function Entity:onTick()
-                        local m = self:get('Mana')
-                        self:set('Mana', { points = m.points + 1 })
+                        local m = self:get(Mana)
+                        m.points = m.points + 1
                     end",
                 ),
             ))
@@ -438,6 +436,28 @@ mod tests {
     }
 
     #[test]
+    fn lua_query_accepts_component_globals_without_quotes() {
+        let mut app = App::new();
+        app.add_plugins(LuaPlugin);
+
+        app.world_mut().spawn(Mana { points: 42 });
+
+        // After spawning, Mana is registered and its global should be created before
+        // the script runs, so `Query(Mana)` works without quotes.
+        run_lua(
+            &mut app,
+            "
+            local count = 0
+            for id, mana in Query(Mana):iter() do
+                count = count + 1
+                assert(mana.points == 42)
+            end
+            assert(count == 1, 'expected 1, got ' .. count)
+        ",
+        );
+    }
+
+    #[test]
     fn lua_query_filters_entities_that_have_all_components() {
         #[derive(LuaComponent, Serialize, Deserialize, Clone)]
         struct Stamina {
@@ -456,7 +476,7 @@ mod tests {
             &mut app,
             "
             local count = 0
-            for id, mana, stamina in Query('Mana', 'Stamina'):iter() do
+            for id, mana, stamina in Query(Mana, Stamina):iter() do
                 count = count + 1
                 assert(mana.points == 3)
                 assert(stamina.value == 4)

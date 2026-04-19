@@ -282,7 +282,7 @@ mod tests {
             .execute(
                 "
             local count = 0
-            for id, health in Query('Health'):iter() do
+            for id, health in Query(Health):iter() do
                 count = count + 1
             end
             assert(count == 2, 'expected 2, got ' .. count)
@@ -307,7 +307,7 @@ mod tests {
             .execute(
                 "
             local count = 0
-            for id, health in Query('Health'):iter() do
+            for id, health in Query(Health):iter() do
                 count = count + 1
             end
             assert(count == 2, 'expected 2, got ' .. count)
@@ -329,7 +329,7 @@ mod tests {
             .scope(&mut world)
             .execute(
                 "
-            for id, health in Query('Health'):iter() do
+            for id, health in Query(Health):iter() do
                 assert(health.value == 77, 'expected 77, got ' .. tostring(health.value))
             end
         ",
@@ -344,14 +344,16 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<ScriptRegistry>();
 
-        world.spawn_empty();
+        // Spawn then despawn to register the Health global without leaving any entity.
+        let entity = world.spawn(Health { value: 0 }).id();
+        world.despawn(entity);
 
         runtime
             .scope(&mut world)
             .execute(
                 "
             local count = 0
-            for id, health in Query('Health'):iter() do
+            for id, health in Query(Health):iter() do
                 count = count + 1
             end
             assert(count == 0)
@@ -376,7 +378,7 @@ mod tests {
             .execute(
                 "
             local count = 0
-            for id, health, pos in Query('Health', 'Position'):iter() do
+            for id, health, pos in Query(Health, Position):iter() do
                 count = count + 1
             end
             assert(count == 1, 'expected 1, got ' .. count)
@@ -399,58 +401,12 @@ mod tests {
             .execute(&format!(
                 "
             local expected_id = {expected}
-            for id, health in Query('Health'):iter() do
+            for id, health in Query(Health):iter() do
                 assert(id == expected_id, 'expected ' .. expected_id .. ', got ' .. id)
             end
         ",
                 expected = entity.to_bits() as i64
             ))
-            .expect("lua exec should succeed");
-    }
-
-    #[test]
-    fn iter_is_empty_for_unknown_component_name() {
-        let runtime = LuaRuntime::new();
-
-        let mut world = World::new();
-        world.init_resource::<ScriptRegistry>();
-
-        world.spawn(Health { value: 1 });
-
-        runtime
-            .scope(&mut world)
-            .execute(
-                "
-            local count = 0
-            for id in Query('Nonexistent'):iter() do
-                count = count + 1
-            end
-            assert(count == 0)
-        ",
-            )
-            .expect("lua exec should succeed");
-    }
-
-    #[test]
-    fn iter_is_empty_when_unknown_component_name_appears_in_the_middle() {
-        let runtime = LuaRuntime::new();
-
-        let mut world = World::new();
-        world.init_resource::<ScriptRegistry>();
-
-        world.spawn((Health { value: 7 }, Position { x: 3, y: 4 }));
-
-        runtime
-            .scope(&mut world)
-            .execute(
-                "
-            local count = 0
-            for id in Query('Health', 'Missing', 'Position'):iter() do
-                count = count + 1
-            end
-            assert(count == 0, 'expected 0, got ' .. count)
-        ",
-            )
             .expect("lua exec should succeed");
     }
 
@@ -468,7 +424,7 @@ mod tests {
             .execute(
                 "
             local count = 0
-            for id, health_a, health_b in Query('Health', 'Health'):iter() do
+            for id, health_a, health_b in Query(Health, Health):iter() do
                 count = count + 1
                 assert(health_a.value == 33)
                 assert(health_b.value == 33)
@@ -492,7 +448,7 @@ mod tests {
             .scope(&mut world)
             .execute(
                 "
-            for id, health, pos in Query('Health', 'Position'):iter() do
+            for id, health, pos in Query(Health, Position):iter() do
                 assert(health.value == 7,  'health.value expected 7, got '  .. \
                  tostring(health.value))
                 assert(pos.x      == 3,   'pos.x expected 3, got '          .. tostring(pos.x))
@@ -504,7 +460,7 @@ mod tests {
     }
 
     #[test]
-    fn iter_reflects_values_after_lua_set() {
+    fn iter_reflects_values_after_proxy_write() {
         let runtime = LuaRuntime::new();
 
         let mut world = World::new();
@@ -516,34 +472,10 @@ mod tests {
             .scope(&mut world)
             .execute(
                 "
-            for id, health in Query('Health'):iter() do
-                Entity(id):set('Health', { value = health.value + 10 })
+            for id, health in Query(Health):iter() do
+                health.value = health.value + 10
             end
-            for id, health in Query('Health'):iter() do
-                assert(health.value == 11, 'expected 11, got ' .. tostring(health.value))
-            end
-        ",
-            )
-            .expect("lua exec should succeed");
-    }
-
-    #[test]
-    fn query_constructor_works_with_entity_constructor_for_updates() {
-        let runtime = LuaRuntime::new();
-
-        let mut world = World::new();
-        world.init_resource::<ScriptRegistry>();
-
-        world.spawn(Health { value: 1 });
-
-        runtime
-            .scope(&mut world)
-            .execute(
-                "
-            for id, health in Query('Health'):iter() do
-                Entity(id):set('Health', { value = health.value + 10 })
-            end
-            for id, health in Query('Health'):iter() do
+            for id, health in Query(Health):iter() do
                 assert(health.value == 11, 'expected 11, got ' .. tostring(health.value))
             end
         ",
@@ -564,7 +496,7 @@ mod tests {
             .scope(&mut world)
             .execute(
                 "
-            for id, health in Query('Health'):iter() do
+            for id, health in Query(Health):iter() do
                 health.value = health.value + 10
             end
         ",
@@ -612,7 +544,7 @@ mod tests {
             .scope(&mut world)
             .execute(
                 "
-            for id, pos in Query('Position'):iter() do
+            for id, pos in Query(Position):iter() do
                 pos.x = 10
                 pos.y = 20
             end
@@ -648,10 +580,10 @@ mod tests {
             .scope(&mut world)
             .execute(
                 "
-            for id, health in Query('Health'):iter() do
+            for id, health in Query(Health):iter() do
                 health.value = health.value + 100
             end
-            for id, health in Query('Health'):iter() do
+            for id, health in Query(Health):iter() do
                 assert(health.value == 101, 'expected 101, got ' .. tostring(health.value))
             end
         ",
@@ -687,7 +619,7 @@ mod tests {
             .scope(&mut world)
             .execute(
                 "
-            for id, health in Query('Health'):iter() do
+            for id, health in Query(Health):iter() do
                 local _ = health.value  -- read only, no assignment
             end
         ",

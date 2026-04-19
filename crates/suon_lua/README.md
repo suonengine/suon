@@ -10,21 +10,10 @@ Bridge between Bevy ECS and Lua 5.4 via `mlua`.
 - iterate entities with `Query(...)`
 - fire Rust-registered triggers from Lua
 
-The current Lua API is centered around:
-
-- `Entity(id)` for direct entity access
-- `Query("A", "B", ...)` for ECS iteration
-
-The Lua surface is intentionally small: use `Entity(...)` and `Query(...)`.
-
 ## Installation
 
-Add the plugin and register the components you want to expose to Lua.
-
-`suon_lua` depends on `mlua` with vendored Lua enabled, so the crate embeds the
-Lua VM and does not require a separate Lua installation.
-
-Example dependencies:
+`suon_lua` depends on `mlua` with vendored Lua enabled — the VM is embedded and
+requires no separate Lua installation.
 
 ```toml
 [dependencies]
@@ -42,27 +31,26 @@ use serde::{Deserialize, Serialize};
 use suon_lua::{LuaCommands, LuaPlugin, LuaScript};
 use suon_macros::{LuaComponent, LuaHook};
 
-#[derive(Serialize, LuaHook)]
-#[lua(name = "onTick")]
-struct Tick;
-
-#[derive(Component, LuaComponent, Serialize, Deserialize, Clone)]
+// LuaComponent already derives Component — do not add #[derive(Component)].
+#[derive(LuaComponent, Serialize, Deserialize)]
 struct Health {
     value: i32,
 }
+
+#[derive(Serialize, LuaHook)]
+#[lua(name = "onTick")]
+struct Tick;
 
 fn spawn_actor(mut commands: Commands) {
     commands.spawn((
         Health { value: 100 },
         LuaScript::new(
-            r#"
-            function Entity:onTick()
-                local health = self:get("Health")
-                if health ~= nil then
-                    self:set("Health", { value = health.value - 1 })
+            "function Entity:onTick()
+                local hp = self:get(Health)
+                if hp ~= nil then
+                    hp.value = hp.value - 1
                 end
-            end
-            "#,
+            end",
         ),
     ));
 }
@@ -88,54 +76,51 @@ fn main() {
 - `LuaScript` stores Lua source attached to an entity.
 - `LuaCommands::lua_hook` schedules a typed hook call on an entity.
 - `LuaCommands::lua_execute` schedules execution of an arbitrary Lua snippet.
-- `ScriptRegistry` maps Lua-visible names like `"Health"` to typed Rust accessors.
+- `ScriptRegistry` maps component type globals to typed Rust accessors.
 
-Components derived with `#[derive(LuaComponent)]` can be registered
-automatically the first time they appear in the world, or manually through
+Components derived with `#[derive(LuaComponent)]` register automatically the
+first time they appear in the world, or manually via
 `AppLuaExt::register_lua_component::<T>()`.
 
 ## Lua API
 
 ### `Entity(id)`
 
-Returns an `EntityProxy` for the entity.
-
-Example:
+Returns an `EntityProxy` for the entity. The same global is where hook methods
+are defined.
 
 ```lua
 local entity = Entity(123)
-local health = entity:get("Health")
-if health ~= nil then
-    entity:set("Health", { value = health.value - 10 })
-end
-```
-
-The `Entity` global is also the table where hook methods are defined:
-
-```lua
-function Entity:onHit()
-    local health = self:get("Health")
-    if health ~= nil then
-        self:set("Health", { value = health.value - 10 })
-    end
+local hp = entity:get(Health)
+if hp ~= nil then
+    hp.value = hp.value - 10   -- written back to ECS immediately
 end
 ```
 
 Available proxy methods:
 
-- `entity:get("Name")`
-- `entity:set("Name", { ... })`
-- `entity:trigger("Name", { ... })`
-- `entity:id()`
+- `entity:get(ComponentType)` — returns a mutable proxy or `nil`
+- `entity:trigger("Name", { ... })` — fires a registered Rust trigger
+- `entity:id()` — returns the entity's raw bit representation
 
-### `Query("A", "B", ...)`
-
-Returns a `QueryProxy` with an `:iter()` method.
-
-Example:
+Mutations are applied by assigning to fields on the proxy:
 
 ```lua
-for id, health, position in Query("Health", "Position"):iter() do
+function Entity:onHit()
+    local hp = self:get(Health)
+    if hp ~= nil then
+        hp.value = hp.value - 10
+    end
+end
+```
+
+### `Query(A, B, ...)`
+
+Returns a `QueryProxy` with an `:iter()` method that yields `id, a, b, ...`
+for every entity that has all the requested components.
+
+```lua
+for id, health, position in Query(Health, Position):iter() do
     if health.value <= 0 then
         position.x = 0
         position.y = 0
@@ -143,18 +128,14 @@ for id, health, position in Query("Health", "Position"):iter() do
 end
 ```
 
-The iterator yields:
-
-- the entity id first
-- then one value per requested component, in order
+Component variables yielded by the iterator are mutable proxies — assigning to
+their fields batches a write that is applied before the next iteration step.
 
 ## Running Lua From Rust
 
 ### Calling a hook
 
 ```rust,ignore
-use suon_macros::LuaHook;
-
 fn tick_scripts(mut commands: Commands, query: Query<Entity, With<LuaScript>>) {
     for entity in &query {
         assert!(commands.lua_hook(entity, Tick).is_ok());
@@ -165,8 +146,6 @@ fn tick_scripts(mut commands: Commands, query: Query<Entity, With<LuaScript>>) {
 ### Calling a hook with arguments
 
 ```rust,ignore
-use serde::Serialize;
-
 #[derive(Serialize, LuaHook)]
 struct Move {
     from: (i32, i32),
@@ -175,22 +154,20 @@ struct Move {
 
 fn move_entity(mut commands: Commands, entity: Entity) {
     commands
-        .lua_hook(
-            entity,
-            Move {
-                from: (0, 0),
-                to: (10, 20),
-            },
-        )
-        .unwrap_or_else(|error| panic!("hook args should serialize: {error}"));
+        .lua_hook(entity, Move { from: (0, 0), to: (10, 20) })
+        .is_ok();
 }
 ```
 
-This matches a Lua hook like:
+Matches this Lua hook:
 
 ```lua
 function Entity:onMove(from, to)
-    self:set("Position", { x = to[1], y = to[2] })
+    local pos = self:get(Position)
+    if pos ~= nil then
+        pos.x = to[1]
+        pos.y = to[2]
+    end
 end
 ```
 
@@ -199,41 +176,28 @@ end
 ```rust,ignore
 fn heal_low_health(mut commands: Commands) {
     commands.lua_execute(
-        r#"
-        for id, health in Query("Health"):iter() do
-            if health.value < 10 then
-                local entity = Entity(id)
-                entity:set("Health", { value = 100 })
+        "for id, hp in Query(Health):iter() do
+            if hp.value < 10 then
+                hp.value = 100
             end
-        end
-        "#,
+        end",
     );
 }
 ```
 
 ## Component Registration
 
-All Lua component access goes through names registered in `ScriptRegistry`.
+All component access goes through `ScriptRegistry`. `#[derive(LuaComponent)]`
+handles registration automatically — it generates the `Component` impl (do not
+add `#[derive(Component)]` alongside it) and registers a get/set accessor the
+first time the component is inserted into any entity.
 
-If a component implements `LuaComponent`, its accessor needs to:
+## Semantics
 
-- serialize the component into Lua in `get`
-- deserialize a Lua value back into the component in `set`
-- expose a stable Lua-visible name with `lua_name()`
-
-In practice, the simplest path is to use `#[derive(LuaComponent)]`.
-
-## Important Semantics
-
-- `entity:get("Name")` returns `nil` if the component does not exist or is not registered.
-- `entity:set("Name", value)` is a no-op if the component is not registered.
-- `Query(...)` only returns entities that contain all requested components.
-- If any component name in the query is not registered, the iteration is empty.
-- Writes made through component proxies returned by `Query(...):iter()` are batched and applied on the next iteration step.
-- Lua hooks are method-only and should be defined as `Entity:onEvent()`.
-- Rust passes hooks through typed values implementing `Hook`.
-- Hook structs are serialized into positional Lua arguments using their field values.
-
-## API Status
-
-`Entity(...)` and `Query(...)` are the public Lua entry points and are covered by tests.
+- `entity:get(C)` returns `nil` if the entity lacks the component or `C` is not registered.
+- Assigning to a proxy field calls the component's setter immediately.
+- `Query(...)` only yields entities that have **all** requested components. An
+  unregistered component makes the whole query empty.
+- Query proxy writes are batched and flushed before each iteration step.
+- Hook functions must be defined as `Entity:onEvent()` — `self` is the entity proxy.
+- Hook struct fields are serialized into positional Lua arguments.

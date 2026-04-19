@@ -105,7 +105,7 @@ fn benchmark_lua(c: &mut Criterion) {
                                 .scope(world)
                                 .execute(black_box(
                                     "local n = 0
-                                     for id, hp in Query('Health'):iter() do
+                                     for id, hp in Query(Health):iter() do
                                          n = n + hp.value
                                      end
                                      black_box = n",
@@ -121,7 +121,7 @@ fn benchmark_lua(c: &mut Criterion) {
     let mut app_exec_cmd = app_with_health();
     let entity_exec_cmd = app_exec_cmd.world_mut().spawn(Health { value: 0 }).id();
     let exec_snippet = format!(
-        "local e = Entity({}) e:set('Health', {{ value = 1 }})",
+        "local h = Entity({}):get(Health) h.value = 1",
         entity_exec_cmd.to_bits()
     );
     group.bench_function("lua_exec_command_flush", |b| {
@@ -141,8 +141,8 @@ fn benchmark_lua(c: &mut Criterion) {
             Health { value: 0 },
             LuaScript::new(
                 "function Entity:onTick()
-                     local hp = self:get('Health')
-                     self:set('Health', { value = hp.value + 1 })
+                     local hp = self:get(Health)
+                     hp.value = hp.value + 1
                  end",
             ),
         ))

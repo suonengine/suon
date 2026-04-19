@@ -11,16 +11,16 @@ use std::sync::Arc;
 /// Hook functions defined in the source are invoked by [`crate::LuaCommands::lua_hook`].
 /// The conventional hook style is
 /// `function Entity:onTick() ... end`; the entity itself is passed as `self` so
-/// scripts can call `self:get(...)` and `self:set(...)`. Extra Rust-supplied
-/// arguments, when present, appear after `self`, e.g. `function Entity:onMove(position)`.
+/// scripts can call `self:get(...)`. Extra Rust-supplied arguments, when present,
+/// appear after `self`, e.g. `function Entity:onMove(position)`.
 ///
 /// # Examples
 ///
 /// ```rust,ignore
 /// commands.spawn(LuaScript::new(
 ///     "function Entity:onHeal()\
-///         local hp = self:get('Health')\
-///         self:set('Health', { value = hp.value + 10 })\
+///         local hp = self:get(Health)\
+///         hp.value = hp.value + 10\
 ///     end",
 /// ));
 ///

@@ -1,14 +1,15 @@
 //! [`EntityProxy`] — the Lua userdata object returned by `Entity(id)`.
 //!
-//! Exposes `get`, `set`, `trigger`, and `id` methods to Lua scripts.
+//! Exposes `get`, `trigger`, and `id` methods to Lua scripts.
 //! All ECS access goes through [`world_cell::with`] so the proxy never holds a
 //! borrow across a Lua call boundary.
 
 use bevy::prelude::*;
 use mlua::{UserData, UserDataMethods};
+use std::rc::Rc;
 
 use crate::{
-    api::{IntoJsonValueExt, IntoLuaValueExt},
+    api::{IntoJsonValueExt, query::LuaQueryExt},
     runtime::ScriptRegistry,
     world_cell,
 };
@@ -17,8 +18,10 @@ use crate::{
 ///
 /// ```lua
 /// local entity = Entity(id)
-/// local hp = entity:get("Health")
-/// entity:set("Health", { value = hp.value - 5 })
+/// local hp = entity:get(Health)
+/// if hp ~= nil then
+///     hp.value = hp.value - 5   -- written back to ECS immediately
+/// end
 /// entity:trigger("TeleportIntent", { to = { x = 0, y = 0 } })
 /// ```
 pub struct EntityProxy {
@@ -29,50 +32,61 @@ pub struct EntityProxy {
 impl UserData for EntityProxy {
     /// Registers the Lua-facing methods available on `Entity(id)` proxies.
     fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
-        methods.add_method("get", |lua, entity_proxy, component_name: String| {
-            let component_getter = world_cell::with(|world| {
+        methods.add_method("get", |lua, entity_proxy, component: mlua::Table| {
+            let Some(component_name) = component.get::<Option<String>>("__component")? else {
+                return Ok(mlua::Value::Nil);
+            };
+
+            let accessor = world_cell::with(|world| {
                 world
                     .resource::<ScriptRegistry>()
                     .components
                     .get(&component_name)
-                    .map(|accessor| accessor.get)
+                    .map(|a| (a.get, a.set))
             });
 
-            let Some(component_getter) = component_getter else {
+            let Some((component_getter, component_setter)) = accessor else {
                 return Ok(mlua::Value::Nil);
             };
 
             let component_snapshot =
                 world_cell::with(|world| component_getter(entity_proxy.id, world));
 
-            match component_snapshot {
-                Some(component_json) => component_json.into_lua_value(lua),
-                None => Ok(mlua::Value::Nil),
-            }
+            let Some(component_json) = component_snapshot else {
+                return Ok(mlua::Value::Nil);
+            };
+
+            let inner_table = Rc::new(lua.create_lua_component_table(component_json)?);
+            let entity_id = entity_proxy.id;
+
+            let proxy_table = lua.create_table()?;
+            let metatable = lua.create_table()?;
+
+            let index_table = inner_table.clone();
+            metatable.set(
+                "__index",
+                lua.create_function(move |_lua, (_proxy, key): (mlua::Table, String)| {
+                    index_table.raw_get::<mlua::Value>(key)
+                })?,
+            )?;
+
+            let newindex_table = inner_table.clone();
+            metatable.set(
+                "__newindex",
+                lua.create_function(
+                    move |_lua, (_proxy, key, value): (mlua::Table, String, mlua::Value)| {
+                        newindex_table.raw_set(key, value)?;
+                        let json =
+                            mlua::Value::Table((*newindex_table).clone()).into_json_value()?;
+                        world_cell::with(|world| component_setter(entity_id, world, json));
+                        Ok(())
+                    },
+                )?,
+            )?;
+
+            proxy_table.set_metatable(Some(metatable))?;
+            Ok(mlua::Value::Table(proxy_table))
         });
-
-        methods.add_method(
-            "set",
-            |_lua, entity_proxy, (component_name, lua_value): (String, mlua::Value)| {
-                let component_json = lua_value.into_json_value()?;
-
-                let component_setter = world_cell::with(|world| {
-                    world
-                        .resource::<ScriptRegistry>()
-                        .components
-                        .get(&component_name)
-                        .map(|accessor| accessor.set)
-                });
-
-                if let Some(component_setter) = component_setter {
-                    world_cell::with(|world| {
-                        component_setter(entity_proxy.id, world, component_json)
-                    });
-                }
-
-                Ok(())
-            },
-        );
 
         methods.add_method(
             "trigger",
@@ -124,16 +138,6 @@ mod tests {
 
         let mut world = World::new();
         world.init_resource::<ScriptRegistry>();
-        world.init_resource::<TriggerFired>();
-
-        world.resource_mut::<ScriptRegistry>().register_trigger(
-            "Heal",
-            TriggerAccessor {
-                fire: |_entity, world, _json| {
-                    world.resource_mut::<TriggerFired>().0 = true;
-                },
-            },
-        );
 
         let entity = world.spawn(Health { value: 42 }).id();
 
@@ -142,7 +146,7 @@ mod tests {
             .execute(&format!(
                 "
             local entity = Entity({})
-            local health = entity:get('Health')
+            local health = entity:get(Health)
             assert(health ~= nil)
             assert(health.value == 42, 'expected 42, got ' .. tostring(health.value))
         ",
@@ -152,54 +156,41 @@ mod tests {
     }
 
     #[test]
-    fn entity_constructor_gets_component_as_table() {
+    fn get_proxy_assignment_writes_component_back_to_ecs() {
         let runtime = LuaRuntime::new();
 
         let mut world = World::new();
         world.init_resource::<ScriptRegistry>();
-        world.init_resource::<TriggerFired>();
 
-        world.resource_mut::<ScriptRegistry>().register_trigger(
-            "Heal",
-            TriggerAccessor {
-                fire: |_entity, world, _json| {
-                    world.resource_mut::<TriggerFired>().0 = true;
-                },
-            },
-        );
-
-        let entity = world.spawn(Health { value: 42 }).id();
+        let entity = world.spawn(Health { value: 10 }).id();
 
         runtime
             .scope(&mut world)
             .execute(&format!(
                 "
             local entity = Entity({})
-            local health = entity:get('Health')
-            assert(health ~= nil)
-            assert(health.value == 42, 'expected 42, got ' .. tostring(health.value))
+            local health = entity:get(Health)
+            health.value = health.value - 3
         ",
                 entity.to_bits()
             ))
             .expect("lua exec should succeed");
+
+        assert_eq!(
+            world
+                .get::<Health>(entity)
+                .expect("Health should be present")
+                .value,
+            7
+        );
     }
 
     #[test]
-    fn get_returns_nil_for_unregistered_component_name() {
+    fn get_returns_nil_for_table_without_component_key() {
         let runtime = LuaRuntime::new();
 
         let mut world = World::new();
         world.init_resource::<ScriptRegistry>();
-        world.init_resource::<TriggerFired>();
-
-        world.resource_mut::<ScriptRegistry>().register_trigger(
-            "Heal",
-            TriggerAccessor {
-                fire: |_entity, world, _json| {
-                    world.resource_mut::<TriggerFired>().0 = true;
-                },
-            },
-        );
 
         let entity = world.spawn_empty().id();
 
@@ -208,7 +199,7 @@ mod tests {
             .execute(&format!(
                 "
             local entity = Entity({})
-            assert(entity:get('Nonexistent') == nil)
+            assert(entity:get({{}}) == nil)
         ",
                 entity.to_bits()
             ))
@@ -221,86 +212,10 @@ mod tests {
 
         let mut world = World::new();
         world.init_resource::<ScriptRegistry>();
-        world.init_resource::<TriggerFired>();
 
-        world.resource_mut::<ScriptRegistry>().register_trigger(
-            "Heal",
-            TriggerAccessor {
-                fire: |_entity, world, _json| {
-                    world.resource_mut::<TriggerFired>().0 = true;
-                },
-            },
-        );
-
-        let entity = world.spawn_empty().id();
-
-        runtime
-            .scope(&mut world)
-            .execute(&format!(
-                "
-            local entity = Entity({})
-            assert(entity:get('Health') == nil)
-        ",
-                entity.to_bits()
-            ))
-            .expect("lua exec should succeed");
-    }
-
-    #[test]
-    fn set_inserts_or_updates_component() {
-        let runtime = LuaRuntime::new();
-
-        let mut world = World::new();
-        world.init_resource::<ScriptRegistry>();
-        world.init_resource::<TriggerFired>();
-
-        world.resource_mut::<ScriptRegistry>().register_trigger(
-            "Heal",
-            TriggerAccessor {
-                fire: |_entity, world, _json| {
-                    world.resource_mut::<TriggerFired>().0 = true;
-                },
-            },
-        );
-
+        // Register Health global without spawning an entity that has it.
         let entity = world.spawn(Health { value: 0 }).id();
-
-        runtime
-            .scope(&mut world)
-            .execute(&format!(
-                "
-            local entity = Entity({})
-            entity:set('Health', {{ value = 99 }})
-        ",
-                entity.to_bits()
-            ))
-            .expect("lua exec should succeed");
-
-        assert_eq!(
-            world
-                .get::<Health>(entity)
-                .expect("Health should be present")
-                .value,
-            99
-        );
-    }
-
-    #[test]
-    fn set_is_noop_for_unregistered_component_name() {
-        let runtime = LuaRuntime::new();
-
-        let mut world = World::new();
-        world.init_resource::<ScriptRegistry>();
-        world.init_resource::<TriggerFired>();
-
-        world.resource_mut::<ScriptRegistry>().register_trigger(
-            "Heal",
-            TriggerAccessor {
-                fire: |_entity, world, _json| {
-                    world.resource_mut::<TriggerFired>().0 = true;
-                },
-            },
-        );
+        world.despawn(entity);
 
         let entity = world.spawn_empty().id();
 
@@ -309,7 +224,7 @@ mod tests {
             .execute(&format!(
                 "
             local entity = Entity({})
-            entity:set('Nonexistent', {{ value = 1 }})
+            assert(entity:get(Health) == nil)
         ",
                 entity.to_bits()
             ))
@@ -355,16 +270,6 @@ mod tests {
 
         let mut world = World::new();
         world.init_resource::<ScriptRegistry>();
-        world.init_resource::<TriggerFired>();
-
-        world.resource_mut::<ScriptRegistry>().register_trigger(
-            "Heal",
-            TriggerAccessor {
-                fire: |_entity, world, _json| {
-                    world.resource_mut::<TriggerFired>().0 = true;
-                },
-            },
-        );
 
         let entity = world.spawn_empty().id();
 
@@ -422,16 +327,6 @@ mod tests {
 
         let mut world = World::new();
         world.init_resource::<ScriptRegistry>();
-        world.init_resource::<TriggerFired>();
-
-        world.resource_mut::<ScriptRegistry>().register_trigger(
-            "Heal",
-            TriggerAccessor {
-                fire: |_entity, world, _json| {
-                    world.resource_mut::<TriggerFired>().0 = true;
-                },
-            },
-        );
 
         let entity = world.spawn_empty().id();
         let expected = entity.to_bits() as i64;
@@ -448,21 +343,11 @@ mod tests {
     }
 
     #[test]
-    fn get_then_modify_then_set_round_trip() {
+    fn get_proxy_mutation_round_trip() {
         let runtime = LuaRuntime::new();
 
         let mut world = World::new();
         world.init_resource::<ScriptRegistry>();
-        world.init_resource::<TriggerFired>();
-
-        world.resource_mut::<ScriptRegistry>().register_trigger(
-            "Heal",
-            TriggerAccessor {
-                fire: |_entity, world, _json| {
-                    world.resource_mut::<TriggerFired>().0 = true;
-                },
-            },
-        );
 
         let entity = world.spawn(Health { value: 10 }).id();
 
@@ -471,8 +356,8 @@ mod tests {
             .execute(&format!(
                 "
             local entity = Entity({})
-            local health = entity:get('Health')
-            entity:set('Health', {{ value = health.value + 5 }})
+            local health = entity:get(Health)
+            health.value = health.value + 5
         ",
                 entity.to_bits()
             ))
@@ -525,21 +410,11 @@ mod tests {
     }
 
     #[test]
-    fn set_with_unrecognised_field_shape_does_not_panic() {
+    fn get_proxy_write_with_unrecognised_field_does_not_panic() {
         let runtime = LuaRuntime::new();
 
         let mut world = World::new();
         world.init_resource::<ScriptRegistry>();
-        world.init_resource::<TriggerFired>();
-
-        world.resource_mut::<ScriptRegistry>().register_trigger(
-            "Heal",
-            TriggerAccessor {
-                fire: |_entity, world, _json| {
-                    world.resource_mut::<TriggerFired>().0 = true;
-                },
-            },
-        );
 
         let entity = world.spawn(Health { value: 0 }).id();
 
@@ -548,7 +423,8 @@ mod tests {
             .execute(&format!(
                 "
             local entity = Entity({})
-            entity:set('Health', {{ wrong_field = 'oops' }})
+            local health = entity:get(Health)
+            health.wrong_field = 'oops'
         ",
                 entity.to_bits()
             ))
@@ -564,21 +440,11 @@ mod tests {
     }
 
     #[test]
-    fn get_is_case_sensitive_for_component_name() {
+    fn get_returns_component_for_correct_component_table() {
         let runtime = LuaRuntime::new();
 
         let mut world = World::new();
         world.init_resource::<ScriptRegistry>();
-        world.init_resource::<TriggerFired>();
-
-        world.resource_mut::<ScriptRegistry>().register_trigger(
-            "Heal",
-            TriggerAccessor {
-                fire: |_entity, world, _json| {
-                    world.resource_mut::<TriggerFired>().0 = true;
-                },
-            },
-        );
 
         let entity = world.spawn(Health { value: 1 }).id();
 
@@ -587,9 +453,8 @@ mod tests {
             .execute(&format!(
                 "
             local entity = Entity({})
-            assert(entity:get('health') == nil, 'wrong-case name should return nil')
-            assert(entity:get('HEALTH') == nil, 'uppercase name should return nil')
-            assert(entity:get('Health') ~= nil, 'exact-case name should return the component')
+            assert(entity:get(Health) ~= nil, 'registered component table should return the \
+                 component')
         ",
                 entity.to_bits()
             ))
@@ -602,16 +467,6 @@ mod tests {
 
         let mut world = World::new();
         world.init_resource::<ScriptRegistry>();
-        world.init_resource::<TriggerFired>();
-
-        world.resource_mut::<ScriptRegistry>().register_trigger(
-            "Heal",
-            TriggerAccessor {
-                fire: |_entity, world, _json| {
-                    world.resource_mut::<TriggerFired>().0 = true;
-                },
-            },
-        );
 
         let entity = world.spawn(Health { value: 5 }).id();
         let bits = entity.to_bits() as i64;
@@ -623,7 +478,7 @@ mod tests {
             .execute(&format!(
                 "
             local entity = Entity({bits})
-            assert(entity:get('Health') == nil, 'dead entity should return nil')
+            assert(entity:get(Health) == nil, 'dead entity should return nil')
         "
             ))
             .expect("lua exec should succeed");
@@ -722,16 +577,6 @@ mod tests {
 
         let mut world = World::new();
         world.init_resource::<ScriptRegistry>();
-        world.init_resource::<TriggerFired>();
-
-        world.resource_mut::<ScriptRegistry>().register_trigger(
-            "Heal",
-            TriggerAccessor {
-                fire: |_entity, world, _json| {
-                    world.resource_mut::<TriggerFired>().0 = true;
-                },
-            },
-        );
 
         let a = world.spawn_empty().id();
         let b = world.spawn_empty().id();

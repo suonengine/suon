@@ -11,7 +11,7 @@ use std::{cell::RefCell, collections::HashMap};
 
 use crate::{
     api::{IntoLuaValueExt, entity::EntityProxy, world::LuaWorldApiExt},
-    world_cell::WorldContext,
+    world_cell::{self, WorldContext},
 };
 
 /// Non-send Bevy resource that owns the mlua Lua VM.
@@ -125,6 +125,28 @@ pub struct LuaScope<'runtime, 'world> {
 }
 
 impl LuaScope<'_, '_> {
+    /// Drains `ScriptRegistry::pending_globals` and creates a Lua global table for each name.
+    ///
+    /// Each global looks like `Health = { __component = "Health" }`, which lets scripts
+    /// pass the bare identifier to `Query`: `Query(Health, Position)`.
+    fn sync_pending_globals(&self) -> mlua::Result<()> {
+        let pending = world_cell::with(|world| {
+            std::mem::take(&mut world.resource_mut::<ScriptRegistry>().pending_globals)
+        });
+
+        if pending.is_empty() {
+            return Ok(());
+        }
+
+        let globals = self.lua.globals();
+        for name in pending {
+            let table = self.lua.create_table()?;
+            table.set("__component", name.clone())?;
+            globals.set(name, table)?;
+        }
+        Ok(())
+    }
+
     /// Returns a compiled function for `source`, using the cache when possible.
     fn compiled_chunk(&self, source: &str) -> mlua::Result<Function> {
         if let Some(cache_key) = self.script_cache.borrow().get(source) {
@@ -161,6 +183,7 @@ impl LuaScope<'_, '_> {
     /// # Ok::<(), mlua::Error>(())
     /// ```
     pub fn execute(&self, source: &str) -> mlua::Result<()> {
+        self.sync_pending_globals()?;
         self.compiled_chunk(source)?.call::<()>(())
     }
 
@@ -223,6 +246,7 @@ impl LuaScope<'_, '_> {
         hook: &str,
         args: Json,
     ) -> mlua::Result<()> {
+        self.sync_pending_globals()?;
         self.compiled_chunk(source)?.call::<()>(())?;
 
         let globals = self.lua.globals();
@@ -326,6 +350,10 @@ pub struct ScriptRegistry {
 
     /// Cached query plans keyed by the requested component name list.
     pub(crate) query_cache: HashMap<Vec<String>, Option<QueryPlan>>,
+
+    /// Names of components registered since the last Lua execution, waiting to be
+    /// promoted to Lua globals so scripts can write `Query(Health, Position)`.
+    pub(crate) pending_globals: Vec<String>,
 }
 
 impl ScriptRegistry {
@@ -336,7 +364,9 @@ impl ScriptRegistry {
 
     /// Registers a Lua-visible component accessor under `name`.
     pub fn register_component(&mut self, name: impl Into<String>, accessor: ComponentAccessor) {
-        self.components.insert(name.into(), accessor);
+        let name = name.into();
+        self.pending_globals.push(name.clone());
+        self.components.insert(name, accessor);
         self.query_cache.clear();
     }
 

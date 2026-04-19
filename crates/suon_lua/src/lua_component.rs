@@ -197,7 +197,7 @@ mod tests {
             .scope(&mut world)
             .execute(
                 "
-            for id, gold in Query('Gold'):iter() do
+            for id, gold in Query(Gold):iter() do
                 assert(gold.amount == 10, 'expected 10, got ' .. tostring(gold.amount))
             end
         ",
@@ -206,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    fn make_accessor_set_works_via_lua() {
+    fn make_accessor_write_via_proxy_works() {
         let runtime = LuaRuntime::new();
 
         let mut world = World::new();
@@ -219,7 +219,8 @@ mod tests {
             .execute(&format!(
                 "
             local entity = Entity({})
-            entity:set('Gold', {{ amount = 77 }})
+            local gold = entity:get(Gold)
+            gold.amount = 77
         ",
                 entity.to_bits()
             ))
@@ -385,7 +386,7 @@ mod tests {
             .execute(&format!(
                 "
             local entity = Entity({})
-            local gold = entity:get('Gold')
+            local gold = entity:get(Gold)
             assert(gold ~= nil)
             assert(gold.amount == 5)
         ",

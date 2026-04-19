@@ -31,9 +31,15 @@ impl LuaWorldApiExt for mlua::Lua {
         globals.set("Entity", entity_table)?;
         globals.set(
             "Query",
-            self.create_function(|_lua, component_names: mlua::Variadic<String>| {
+            self.create_function(|_lua, components: mlua::Variadic<mlua::Table>| {
+                let mut component_names = Vec::new();
+                for table in components {
+                    if let Ok(name) = table.get::<String>("__component") {
+                        component_names.push(name);
+                    }
+                }
                 Ok(QueryProxy {
-                    components: component_names.into_iter().collect(),
+                    components: component_names,
                 })
             })?,
         )?;
@@ -100,17 +106,27 @@ mod tests {
 
     #[test]
     fn query_constructor_with_no_match_iterates_zero_times() {
+        use serde::{Deserialize, Serialize};
+        use suon_macros::LuaComponent;
+
+        #[derive(LuaComponent, Serialize, Deserialize)]
+        struct Empty;
+
         let runtime = LuaRuntime::new();
 
         let mut world = World::new();
         world.init_resource::<ScriptRegistry>();
+
+        // Spawn then despawn to register the component global without leaving any entity.
+        let entity = world.spawn(Empty).id();
+        world.despawn(entity);
 
         runtime
             .scope(&mut world)
             .execute(
                 "
             local count = 0
-            for id in Query('Nonexistent'):iter() do
+            for id in Query(Empty):iter() do
                 count = count + 1
             end
             assert(count == 0)
@@ -121,16 +137,28 @@ mod tests {
 
     #[test]
     fn query_constructor_variadic_accepts_multiple_component_names() {
+        use crate::runtime::ComponentAccessor;
         let runtime = LuaRuntime::new();
 
         let mut world = World::new();
         world.init_resource::<ScriptRegistry>();
 
+        for name in ["A", "B", "C"] {
+            world.resource_mut::<ScriptRegistry>().register_component(
+                name,
+                ComponentAccessor {
+                    get: |_, _| None,
+                    set: |_, _, _| {},
+                    component_id: |_| unreachable!(),
+                },
+            );
+        }
+
         runtime
             .scope(&mut world)
             .execute(
                 "
-            local q = Query('A', 'B', 'C')
+            local q = Query(A, B, C)
             assert(q ~= nil)
         ",
             )
