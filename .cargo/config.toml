@@ -1,2 +1,8 @@
 [alias]
 build-artifacts = "run -p xtask -- build-artifacts"
+
+# Alternative Linkers
+# rust-lld ships with the Rust toolchain and links significantly faster than
+# the default MSVC linker on Windows with no extra installation required.
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"

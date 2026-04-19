@@ -2989,6 +2989,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bevy",
+ "log",
  "serde",
  "suon_checksum",
  "suon_chunk",

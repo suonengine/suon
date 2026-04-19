@@ -1,0 +1,4 @@
+[toolchain]
+# Nightly unlocks performance improvements not yet stabilized in the compiler,
+# such as faster codegen backends and sharing of generic instantiations.
+channel = "nightly"

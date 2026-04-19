@@ -1,0 +1,31 @@
+name: Deny
+
+on:
+  push:
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    # Run weekly to catch newly published advisories even without code changes.
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+jobs:
+  deny:
+    name: Check licenses, bans, and advisories
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Restore cargo registry and git cache
+        uses: actions/cache@v5.0.5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - uses: EmbarkStudios/cargo-deny-action@v2

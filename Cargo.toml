@@ -1,3 +1,6 @@
+# Unstable Cargo features used by this workspace.
+cargo-features = ["trim-paths"]
+
 # Package
 [package]
 # Crates.io entry point for the workspace.
@@ -33,6 +36,7 @@ winresource = "0.1"
 # External crates used directly by the root umbrella crate.
 anyhow.workspace = true
 bevy.workspace = true
+log.workspace = true
 serde = { workspace = true, features = ["derive"] }
 toml = { workspace = true, features = ["parse", "display", "serde"] }
 
@@ -78,6 +82,12 @@ unused_attributes = "warn"
 [workspace.dependencies]
 # Shared third-party dependencies.
 anyhow = { version = "1.0", default-features = false }
+# Compile-time log level caps: debug in dev builds, warn in release.
+# Prevents trace/debug calls from adding runtime overhead in shipped binaries.
+log = { version = "0.4", features = [
+  "max_level_debug",
+  "release_max_level_warn",
+] }
 bevy = { version = "0.18", default-features = false, features = [
   "multi_threaded",
   "sysinfo_plugin",
@@ -142,3 +152,6 @@ strip = true
 # Disable debug info and incremental compilation in release mode.
 debug = false
 incremental = false
+# Remove absolute source paths embedded by rustc (panic messages, debug info).
+# Keeps binaries reproducible and avoids leaking developer machine paths.
+trim-paths = "all"
