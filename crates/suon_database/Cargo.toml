@@ -4,9 +4,8 @@
 name = "suon_database"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 
-# Minimum supported Rust version for this crate.
-rust-version = "1.85"
 authors.workspace = true
 license.workspace = true
 repository.workspace = true

@@ -1,19 +1,25 @@
 <!-- Badges -->
-[![Build](https://github.com/suonengine/suon/actions/workflows/build.yml/badge.svg)](https://github.com/suonengine/suon/actions/workflows/build.yml)
-[![Test](https://github.com/suonengine/suon/actions/workflows/test.yml/badge.svg)](https://github.com/suonengine/suon/actions/workflows/test.yml)
-[![Format](https://github.com/suonengine/suon/actions/workflows/format.yml/badge.svg)](https://github.com/suonengine/suon/actions/workflows/format.yml)
-[![Lint](https://github.com/suonengine/suon/actions/workflows/lint.yml/badge.svg)](https://github.com/suonengine/suon/actions/workflows/lint.yml)
-[![Docs](https://img.shields.io/badge/docs-rustdoc-blue.svg)](https://docs.rs/suon)
-[![Benchmarks](https://github.com/suonengine/suon/actions/workflows/bench.yml/badge.svg)](https://github.com/suonengine/suon/actions/workflows/bench.yml)
-[![Typos](https://github.com/suonengine/suon/actions/workflows/typos.yml/badge.svg)](https://github.com/suonengine/suon/actions/workflows/typos.yml)
-[![Toml](https://github.com/suonengine/suon/actions/workflows/toml.yml/badge.svg)](https://github.com/suonengine/suon/actions/workflows/toml.yml)
-[![Rust](https://img.shields.io/badge/Rust-1.85%2B-000000?logo=rust)](https://www.rust-lang.org/)
-[![Bevy](https://img.shields.io/badge/Bevy-0.18-232326)](https://bevyengine.org/)
-[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](./LICENSE-MIT)
+[![Rust](https://img.shields.io/badge/Rust-nightly-DAA520?logo=rust)](https://www.rust-lang.org/)
+[![Bevy](https://img.shields.io/badge/Bevy-0.18-white?logo=Bevy)](https://bevyengine.org/)
+[![MIT](https://img.shields.io/badge/license-MIT%2FApache--2.0-white.svg)](https://github.com/suonengine/suon#license)
+
+
+[![Build](https://img.shields.io/github/actions/workflow/status/suonengine/suon/build.yml?label=build)](https://github.com/suonengine/suon/actions/workflows/build.yml)
+[![Test](https://img.shields.io/github/actions/workflow/status/suonengine/suon/test.yml?label=test)](https://github.com/suonengine/suon/actions/workflows/test.yml)
+[![Benchmarks](https://img.shields.io/github/actions/workflow/status/suonengine/suon/bench.yml?label=benchmarks)](https://github.com/suonengine/suon/actions/workflows/bench.yml)
+[![Docs](https://docs.rs/suon/badge.svg)](https://docs.rs/suon)
+[![Format](https://img.shields.io/github/actions/workflow/status/suonengine/suon/format.yml?label=format)](https://github.com/suonengine/suon/actions/workflows/format.yml)
+[![Lint](https://img.shields.io/github/actions/workflow/status/suonengine/suon/lint.yml?label=lint)](https://github.com/suonengine/suon/actions/workflows/lint.yml)
+[![Typos](https://img.shields.io/github/actions/workflow/status/suonengine/suon/typos.yml?label=typos)](https://github.com/suonengine/suon/actions/workflows/typos.yml)
+[![Toml](https://img.shields.io/github/actions/workflow/status/suonengine/suon/toml.yml?label=toml)](https://github.com/suonengine/suon/actions/workflows/toml.yml)
+
+[![Crates.io](https://img.shields.io/crates/v/suon.svg)](https://crates.io/crates/suon)
+[![Downloads](https://img.shields.io/crates/d/suon.svg)](https://crates.io/crates/suon)
+[![Discord](https://img.shields.io/discord/1417650719888248868.svg?label=&logo=discord&logoColor=white&color=DAA520&labelColor=DAA520)](https://discord.com/invite/EKhxe6gjQt)
 
 ## What is Suon?
 
-Suon is an MMORPG server framework in Rust.
+An MMORPG server framework in Rust.
 
 ## Getting Started
 
