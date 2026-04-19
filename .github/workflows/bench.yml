@@ -33,6 +33,17 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-bench-target-
 
+      - name: Ensure gh-pages branch exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! git ls-remote --exit-code origin gh-pages > /dev/null 2>&1; then
+            git switch --orphan gh-pages
+            git commit --allow-empty -m "chore: initialize gh-pages for benchmarks"
+            git push origin gh-pages
+            git switch -
+          fi
+
       - name: Build benchmarks
         run: cargo bench -p suon_benches --benches --no-run
 
