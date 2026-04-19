@@ -31,7 +31,7 @@ jobs:
             ${{ runner.os }}-cargo-registry-
 
       - name: Restore workspace target cache
-        uses: actions/cache@v4
+        uses: actions/cache@v4.3.0
         with:
           path: target
           key: ${{ runner.os }}-test-target-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}

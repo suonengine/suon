@@ -20,5 +20,24 @@ jobs:
         with:
           crate: cargo-udeps
 
+      - name: Restore cargo registry and git cache
+        uses: actions/cache@v4.3.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Restore workspace target cache
+        uses: actions/cache@v4.3.0
+        with:
+          path: target
+          key: ${{ runner.os }}-udeps-target-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-udeps-target-
+
       - name: Run udeps
         run: rustup run nightly cargo udeps --workspace --all-features --all-targets
