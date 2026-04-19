@@ -46,7 +46,7 @@ pub mod prelude {
 
 /// Main plugin that wires together the core Suon runtime crates.
 ///
-/// This plugin bootstraps the Bevy app from `SuonSettings.toml`, installs
+/// This plugin bootstraps the Bevy app from `Settings.toml`, installs
 /// headless runtime plugins, and wires together the main Suon domain plugins.
 pub struct SuonPlugin;
 

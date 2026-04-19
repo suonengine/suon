@@ -25,7 +25,7 @@ pub struct Settings {
 
 impl Settings {
     /// Path to the root Suon settings file.
-    pub const PATH: &'static str = "SuonSettings.toml";
+    pub const PATH: &'static str = "Settings.toml";
 
     /// Loads the settings file or creates it with defaults when it does not exist.
     pub fn load_or_default() -> anyhow::Result<Self> {
