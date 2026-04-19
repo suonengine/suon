@@ -10,12 +10,12 @@ targets = ["x86_64-pc-windows-msvc", "x86_64-unknown-linux-gnu"]
 version = 2
 # Acceptable licenses for all dependencies.
 allow = [
-    "MIT",
-    "Apache-2.0",
-    "Apache-2.0 WITH LLVM-exception",
-    "MPL-2.0",
-    "Unicode-3.0",
-    "Zlib",
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "MPL-2.0",
+  "Unicode-3.0",
+  "Zlib",
 ]
 # Confidence threshold for license text matching (0.0–1.0).
 confidence-threshold = 0.8
@@ -31,10 +31,10 @@ deny = []
 # These are transitive deps pulled in by bevy/toml at different versions
 # and cannot be resolved without upstream crate updates.
 skip = [
-    { name = "hashbrown", version = "0.16" },
-    { name = "toml_datetime", version = "0.7" },
-    { name = "windows-link", version = "0.1" },
-    { name = "winnow", version = "0.7" },
+  { name = "hashbrown", version = "0.16" },
+  { name = "toml_datetime", version = "0.7" },
+  { name = "windows-link", version = "0.1" },
+  { name = "winnow", version = "0.7" },
 ]
 skip-tree = []
 
