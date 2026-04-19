@@ -1,29 +1,37 @@
+# Package
 [package]
+# Networking layer and session management for the Suon MMORPG framework.
 name = "suon_network"
 version.workspace = true
 edition.workspace = true
+
+# Minimum supported Rust version for this crate.
+rust-version = "1.85"
+authors.workspace = true
+license.workspace = true
 repository.workspace = true
 
+# Short crates.io summary describing what the package is.
+description = "Networking layer and session management for the Suon MMORPG framework"
+
 [dependencies]
+# External crates used directly by this crate.
 anyhow.workspace = true
 bevy.workspace = true
 bytes.workspace = true
 crossbeam-channel.workspace = true
-humantime = { workspace = true, default-features = false }
+humantime.workspace = true
 serde.workspace = true
-serde_derive = { workspace = true, default-features = false }
+serde_derive.workspace = true
 smol.workspace = true
-smol-timeout = { workspace = true, default-features = false }
+smol-timeout.workspace = true
 thiserror.workspace = true
-tokio = { workspace = true, default-features = false, features = ["sync"] }
-toml = { workspace = true, default-features = false, features = [
-  "serde",
-  "parse",
-  "display",
-] }
+tokio = { workspace = true, features = ["sync"] }
+toml = { workspace = true, features = ["serde", "parse", "display"] }
 
-suon_checksum = { path = "../suon_checksum" }
-suon_position = { path = "../suon_position" }
-suon_protocol = { path = "../suon_protocol" }
-suon_serde = { path = "../suon_serde" }
-suon_xtea = { path = "../suon_xtea" }
+# Internal Suon crates used by this crate.
+suon_checksum.workspace = true
+suon_position.workspace = true
+suon_protocol.workspace = true
+suon_serde.workspace = true
+suon_xtea.workspace = true

@@ -1,7 +1,14 @@
+# Package
 [package]
+# Benchmark suite for all Suon MMORPG framework crates.
 name = "suon_benches"
 version.workspace = true
 edition.workspace = true
+
+# Minimum supported Rust version for this crate.
+rust-version = "1.85"
+authors.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 
@@ -9,6 +16,7 @@ publish = false
 bench = false
 
 [dependencies]
+# External crates used by the benchmarks.
 bevy.workspace = true
 bytes.workspace = true
 criterion.workspace = true
@@ -22,6 +30,7 @@ syn = { workspace = true, features = [
   "proc-macro",
 ] }
 
+# Internal Suon crates under benchmark.
 suon_checksum.workspace = true
 suon_chunk.workspace = true
 suon_database.workspace = true

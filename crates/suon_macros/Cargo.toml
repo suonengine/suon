@@ -1,10 +1,21 @@
+# Package
 [package]
+# Procedural macros for the Suon MMORPG framework.
 name = "suon_macros"
 version.workspace = true
 edition.workspace = true
+
+# Minimum supported Rust version for this crate.
+rust-version = "1.85"
+authors.workspace = true
+license.workspace = true
 repository.workspace = true
 
+# Short crates.io summary describing what the package is.
+description = "Procedural macros for the Suon MMORPG framework"
+
 [dependencies]
+# External crates used directly by this crate.
 proc-macro2.workspace = true
 quote.workspace = true
 syn = { workspace = true, features = [

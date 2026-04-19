@@ -1,11 +1,23 @@
+# Package
 [package]
+# World chunk and map-grid primitives for the Suon MMORPG framework.
 name = "suon_chunk"
 version.workspace = true
 edition.workspace = true
+
+# Minimum supported Rust version for this crate.
+rust-version = "1.85"
+authors.workspace = true
+license.workspace = true
 repository.workspace = true
 
+# Short crates.io summary describing what the package is.
+description = "World chunk and map-grid primitives for the Suon MMORPG framework"
+
 [dependencies]
+# External crates used directly by this crate.
 bevy.workspace = true
 enumflags2.workspace = true
 
+# Internal Suon crates used by this crate.
 suon_position.workspace = true

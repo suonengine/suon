@@ -1,8 +1,19 @@
+# Package
 [package]
+# Database abstraction layer for the Suon MMORPG framework.
 name = "suon_database"
 version.workspace = true
 edition.workspace = true
+
+# Minimum supported Rust version for this crate.
+rust-version = "1.85"
+authors.workspace = true
+license.workspace = true
 repository.workspace = true
 
+# Short crates.io summary describing what the package is.
+description = "Database abstraction layer for the Suon MMORPG framework"
+
 [dependencies]
+# External crates used directly by this crate.
 bevy.workspace = true
