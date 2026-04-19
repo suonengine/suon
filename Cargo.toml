@@ -50,7 +50,7 @@ suon_lua.workspace = true
 # Workspace
 [workspace]
 resolver = "2"
-members = ["crates/*"]
+members = ["crates/*", "xtask"]
 
 [workspace.package]
 # Shared package metadata inherited by workspace crates where applicable.

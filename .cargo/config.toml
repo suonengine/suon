@@ -1,0 +1,3 @@
+[alias]
+build-server = "run -p xtask -- build-server"
+build-artifacts = "run -p xtask -- build-artifacts"
