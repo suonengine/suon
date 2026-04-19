@@ -118,11 +118,11 @@ impl Default for ObservabilitySettings {
     fn default() -> Self {
         Self {
             log: true,
-            metrics: true,
-            log_metrics: true,
-            frame_time: true,
-            entity_count: true,
-            system_information: true,
+            metrics: false,
+            log_metrics: false,
+            frame_time: false,
+            entity_count: false,
+            system_information: false,
         }
     }
 }
