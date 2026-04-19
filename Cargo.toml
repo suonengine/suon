@@ -22,6 +22,9 @@ readme = "README.md"
 keywords = ["mmorpg", "server", "bevy", "game", "ecs"]
 categories = ["game-development", "network-programming"]
 
+[build-dependencies]
+winresource = "0.1"
+
 [dependencies]
 # External crates used directly by the root umbrella crate.
 anyhow.workspace = true
@@ -30,13 +33,19 @@ serde = { workspace = true, features = ["derive"] }
 toml = { workspace = true, features = ["parse", "display", "serde"] }
 
 # Internal Suon crates re-exported or composed by the root crate.
-suon_chunk.workspace = true
-suon_lua.workspace = true
+suon_checksum.workspace = true
+suon_database.workspace = true
+suon_macros.workspace = true
 suon_movement.workspace = true
 suon_network.workspace = true
 suon_observability.workspace = true
-suon_position.workspace = true
+suon_protocol.workspace = true
+suon_serde.workspace = true
 suon_task.workspace = true
+suon_chunk.workspace = true
+suon_position.workspace = true
+suon_xtea.workspace = true
+suon_lua.workspace = true
 
 # Workspace
 [workspace]
@@ -69,8 +78,8 @@ bevy = { version = "0.18", default-features = false, features = [
   "bevy_log",
   "async_executor",
 ] }
-bytes = { version = "1.10", default-features = false }
-criterion = "0.8.2"
+bytes = { version = "1.11", default-features = false }
+criterion = "0.8"
 crossbeam-channel = { version = "0.5", default-features = false }
 enumflags2 = { version = "0.7", default-features = false }
 humantime = { version = "2.3", default-features = false }
