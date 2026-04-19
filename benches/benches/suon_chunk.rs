@@ -1,3 +1,4 @@
+use ::benches::bench;
 use bevy::prelude::*;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
@@ -18,20 +19,24 @@ fn benchmark_chunk_lookup(c: &mut Criterion) {
             )
         }));
 
-        group.bench_with_input(BenchmarkId::new("get", positions), &positions, |b, _| {
-            let mut index = 0usize;
-            b.iter(|| {
-                let position = Position {
-                    x: (index % positions) as u16,
-                    y: (index % positions) as u16,
-                };
-                index = index.wrapping_add(1);
-                chunks.get(black_box(&position))
-            })
-        });
+        group.bench_with_input(
+            BenchmarkId::new(bench!("get"), positions),
+            &positions,
+            |b, _| {
+                let mut index = 0usize;
+                b.iter(|| {
+                    let position = Position {
+                        x: (index % positions) as u16,
+                        y: (index % positions) as u16,
+                    };
+                    index = index.wrapping_add(1);
+                    chunks.get(black_box(&position))
+                })
+            },
+        );
 
         group.bench_with_input(
-            BenchmarkId::new("contains", positions),
+            BenchmarkId::new(bench!("contains"), positions),
             &positions,
             |b, _| {
                 let mut index = 0usize;
@@ -47,7 +52,7 @@ fn benchmark_chunk_lookup(c: &mut Criterion) {
         );
 
         group.bench_with_input(
-            BenchmarkId::new("from_iter", positions),
+            BenchmarkId::new(bench!("from_iter"), positions),
             &positions,
             |b, &size| {
                 b.iter(|| {

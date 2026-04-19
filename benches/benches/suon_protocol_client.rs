@@ -1,3 +1,4 @@
+use ::benches::bench;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 use suon_protocol::prelude::*;
@@ -14,7 +15,7 @@ fn benchmark_protocol_client(c: &mut Criterion) {
             .finalize();
 
         group.bench_with_input(
-            BenchmarkId::new("decode_sequence", text.len()),
+            BenchmarkId::new(bench!("decode_sequence"), text.len()),
             &payload,
             |b, payload| {
                 b.iter(|| {
@@ -28,7 +29,7 @@ fn benchmark_protocol_client(c: &mut Criterion) {
         );
     }
 
-    group.bench_function("keep_alive_decode", |b| {
+    group.bench_function(bench!("keep_alive_decode"), |b| {
         b.iter(|| {
             let mut payload: &[u8] = black_box(&[]);
             KeepAlivePacket::decode(&mut payload)

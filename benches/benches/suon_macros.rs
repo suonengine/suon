@@ -1,3 +1,4 @@
+use ::benches::bench;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use quote::quote;
 use std::hint::black_box;
@@ -35,7 +36,7 @@ fn benchmark_derive_table(c: &mut Criterion) {
         ),
     ] {
         group.bench_with_input(
-            BenchmarkId::new("derive_table_like", name),
+            BenchmarkId::new(bench!("derive_table_like"), name),
             &source,
             |b, source| {
                 b.iter(|| {
@@ -48,7 +49,7 @@ fn benchmark_derive_table(c: &mut Criterion) {
         );
     }
 
-    group.bench_function("derive_table_like/parse_quote_input", |b| {
+    group.bench_function(bench!("derive_table_like/parse_quote_input"), |b| {
         b.iter(|| {
             let input: DeriveInput = parse_quote! {
                 struct Inventory<T, U>

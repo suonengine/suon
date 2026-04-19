@@ -11,7 +11,7 @@ permissions:
 jobs:
   bench:
     name: Run benchmarks
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, windows, x64, bench]
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6.0.2
@@ -39,11 +39,11 @@ jobs:
             ${{ runner.os }}-bench-target-
 
       - name: Build benchmarks
-        run: cargo bench -p suon_benches --benches --no-run
+        run: cargo bench -p benches --benches --no-run
 
       - name: Run benchmarks
         continue-on-error: true
-        run: cargo bench -p suon_benches --benches -- --output-format bencher 2>&1 | tee target/benchmarks.txt
+        run: cargo bench -p benches --benches -- --output-format bencher 2>&1 | tee target/benchmarks.txt
 
       - name: Upload criterion HTML reports
         uses: actions/upload-artifact@v7.0.1

@@ -1,3 +1,4 @@
+use ::benches::bench;
 use bevy::prelude::*;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
@@ -13,7 +14,7 @@ impl Table for BenchTable {}
 fn benchmark_database(c: &mut Criterion) {
     let mut group = c.benchmark_group("database");
 
-    group.bench_function("init_table", |b| {
+    group.bench_function(bench!("init_table"), |b| {
         b.iter(|| {
             let mut app = App::new();
             app.init_database_table::<BenchTable>();
@@ -26,7 +27,7 @@ fn benchmark_database(c: &mut Criterion) {
         })
     });
 
-    group.bench_function("insert_table", |b| {
+    group.bench_function(bench!("insert_table"), |b| {
         b.iter(|| {
             let mut app = App::new();
             app.insert_database_table(BenchTable {
@@ -42,7 +43,7 @@ fn benchmark_database(c: &mut Criterion) {
         })
     });
 
-    group.bench_function("system_param_read_write", |b| {
+    group.bench_function(bench!("system_param_read_write"), |b| {
         b.iter(|| {
             let mut app = App::new();
             app.add_plugins(MinimalPlugins);
@@ -59,7 +60,7 @@ fn benchmark_database(c: &mut Criterion) {
 
     for value in [1usize, 64usize, 4_096usize] {
         group.bench_with_input(
-            BenchmarkId::new("overwrite_existing", value),
+            BenchmarkId::new(bench!("overwrite_existing"), value),
             &value,
             |b, &value| {
                 b.iter(|| {

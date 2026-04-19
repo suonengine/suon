@@ -1,3 +1,4 @@
+use ::benches::bench;
 use bevy::prelude::*;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use serde::{Deserialize, Serialize};
@@ -28,7 +29,7 @@ fn benchmark_lua(c: &mut Criterion) {
     let mut group = c.benchmark_group("lua");
 
     let mut app_exec = app_with_health();
-    group.bench_function("exec_simple_snippet", |b| {
+    group.bench_function(bench!("exec_simple_snippet"), |b| {
         b.iter(|| {
             app_exec
                 .world_mut()
@@ -44,7 +45,7 @@ fn benchmark_lua(c: &mut Criterion) {
 
     let mut app_cget = app_with_health();
     let entity_cget = app_cget.world_mut().spawn(Health { value: 100 }).id();
-    group.bench_function("component_get", |b| {
+    group.bench_function(bench!("component_get"), |b| {
         b.iter(|| {
             let json = app_cget
                 .world_mut()
@@ -57,7 +58,7 @@ fn benchmark_lua(c: &mut Criterion) {
     let mut app_cset = app_with_health();
     let entity_cset = app_cset.world_mut().spawn(Health { value: 0 }).id();
     let json = serde_json::json!({ "value": 50 });
-    group.bench_function("component_set", |b| {
+    group.bench_function(bench!("component_set"), |b| {
         b.iter(|| {
             app_cset.world_mut().deserialize_lua_component::<Health>(
                 black_box(entity_cset),
@@ -69,7 +70,7 @@ fn benchmark_lua(c: &mut Criterion) {
     let mut app_hook = app_with_health();
     let entity_hook = app_hook.world_mut().spawn_empty().id();
     let hook_source = "function Entity:onTick() x = 1 end";
-    group.bench_function("call_hook", |b| {
+    group.bench_function(bench!("call_hook"), |b| {
         b.iter(|| {
             app_hook
                 .world_mut()
@@ -95,7 +96,7 @@ fn benchmark_lua(c: &mut Criterion) {
         }
 
         group.bench_with_input(
-            BenchmarkId::new("query_entities", entity_count),
+            BenchmarkId::new(bench!("query_entities"), entity_count),
             &entity_count,
             |b, _| {
                 b.iter(|| {
@@ -124,7 +125,7 @@ fn benchmark_lua(c: &mut Criterion) {
         "local h = Entity({}):get(Health) h.value = 1",
         entity_exec_cmd.to_bits()
     );
-    group.bench_function("lua_exec_command_flush", |b| {
+    group.bench_function(bench!("lua_exec_command_flush"), |b| {
         b.iter(|| {
             app_exec_cmd
                 .world_mut()
@@ -147,7 +148,7 @@ fn benchmark_lua(c: &mut Criterion) {
             ),
         ))
         .id();
-    group.bench_function("lua_hook_command_flush", |b| {
+    group.bench_function(bench!("lua_hook_command_flush"), |b| {
         b.iter(|| {
             app_hook_cmd
                 .world_mut()
@@ -158,7 +159,7 @@ fn benchmark_lua(c: &mut Criterion) {
         });
     });
 
-    group.bench_function("registry_register_component", |b| {
+    group.bench_function(bench!("registry_register_component"), |b| {
         b.iter(|| {
             let mut registry = ScriptRegistry::default();
             registry.register_component(

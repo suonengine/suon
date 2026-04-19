@@ -1,3 +1,4 @@
+use ::benches::bench;
 use bevy::prelude::*;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use suon_network::prelude::*;
@@ -5,7 +6,7 @@ use suon_network::prelude::*;
 fn benchmark_network(c: &mut Criterion) {
     let mut group = c.benchmark_group("network");
 
-    group.bench_function("plugin_setup", |b| {
+    group.bench_function(bench!("plugin_setup"), |b| {
         b.iter(|| {
             let mut app = App::new();
             app.add_plugins(MinimalPlugins);
@@ -14,7 +15,7 @@ fn benchmark_network(c: &mut Criterion) {
         })
     });
 
-    group.bench_function("runtime/limiter_acquire_release", |b| {
+    group.bench_function(bench!("runtime/limiter_acquire_release"), |b| {
         b.iter(|| {
             let mut limiter = Limiter::from(SessionQuota {
                 max_total: 64,
@@ -34,7 +35,7 @@ fn benchmark_network(c: &mut Criterion) {
 
     for payload_size in [1usize, 32usize, 256usize] {
         group.bench_with_input(
-            BenchmarkId::new("runtime/checksum_mode_display", payload_size),
+            BenchmarkId::new(bench!("runtime/checksum_mode_display"), payload_size),
             &payload_size,
             |b, &payload_size| {
                 b.iter(|| {
@@ -48,7 +49,7 @@ fn benchmark_network(c: &mut Criterion) {
         );
     }
 
-    group.bench_function("runtime/packet_policy_default", |b| {
+    group.bench_function(bench!("runtime/packet_policy_default"), |b| {
         b.iter(|| {
             let policy = PacketPolicy::default();
             (

@@ -1,3 +1,4 @@
+use ::benches::bench;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use serde::{Deserialize, Serialize};
 use std::{hint::black_box, time::Duration};
@@ -24,7 +25,7 @@ fn benchmark_duration_serialize(c: &mut Criterion) {
         };
 
         group.bench_with_input(
-            BenchmarkId::new("as_millis", millis),
+            BenchmarkId::new(bench!("as_millis"), millis),
             &millis_value,
             |b, value| {
                 b.iter(|| {
@@ -41,7 +42,7 @@ fn benchmark_duration_serialize(c: &mut Criterion) {
         };
 
         group.bench_with_input(
-            BenchmarkId::new("as_secs", secs),
+            BenchmarkId::new(bench!("as_secs"), secs),
             &secs_value,
             |b, value| {
                 b.iter(|| {
@@ -64,7 +65,7 @@ fn benchmark_duration_deserialize(c: &mut Criterion) {
         r#"{"duration":999999}"#,
     ] {
         group.bench_with_input(
-            BenchmarkId::new("as_millis", millis_json.len()),
+            BenchmarkId::new(bench!("as_millis"), millis_json.len()),
             &millis_json,
             |b, json| {
                 b.iter(|| {
@@ -81,7 +82,7 @@ fn benchmark_duration_deserialize(c: &mut Criterion) {
         r#"{"duration":3600}"#,
     ] {
         group.bench_with_input(
-            BenchmarkId::new("as_secs", secs_json.len()),
+            BenchmarkId::new(bench!("as_secs"), secs_json.len()),
             &secs_json,
             |b, json| {
                 b.iter(|| {

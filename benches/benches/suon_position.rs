@@ -1,3 +1,4 @@
+use ::benches::bench;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use std::{
     collections::{BTreeSet, HashSet},
@@ -10,7 +11,7 @@ fn benchmark_position_btree_insert(c: &mut Criterion) {
 
     for item_count in [128usize, 1_024usize, 4_096usize] {
         group.bench_with_input(
-            BenchmarkId::new("btree_insert", item_count),
+            BenchmarkId::new(bench!("btree_insert"), item_count),
             &item_count,
             |b, &item_count| {
                 b.iter(|| {
@@ -29,7 +30,7 @@ fn benchmark_position_btree_insert(c: &mut Criterion) {
         );
 
         group.bench_with_input(
-            BenchmarkId::new("hash_insert_previous_position", item_count),
+            BenchmarkId::new(bench!("hash_insert_previous_position"), item_count),
             &item_count,
             |b, &item_count| {
                 b.iter(|| {
@@ -48,7 +49,7 @@ fn benchmark_position_btree_insert(c: &mut Criterion) {
         );
     }
 
-    group.bench_function("floor_ord_sort", |b| {
+    group.bench_function(bench!("floor_ord_sort"), |b| {
         b.iter(|| {
             let mut floors = vec![
                 Floor { z: 7 },
@@ -62,7 +63,7 @@ fn benchmark_position_btree_insert(c: &mut Criterion) {
         })
     });
 
-    group.bench_function("previous_floor_hash", |b| {
+    group.bench_function(bench!("previous_floor_hash"), |b| {
         b.iter(|| {
             let mut set = HashSet::new();
             for z in 0..32u8 {

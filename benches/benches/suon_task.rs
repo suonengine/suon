@@ -1,3 +1,4 @@
+use ::benches::bench;
 use bevy::prelude::*;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use suon_task::prelude::*;
@@ -13,7 +14,7 @@ impl BackgroundTask for BenchTask {
 fn benchmark_task(c: &mut Criterion) {
     let mut group = c.benchmark_group("task");
 
-    group.bench_function("add_background_systems/update", |b| {
+    group.bench_function(bench!("add_background_systems/update"), |b| {
         b.iter(|| {
             let mut app = App::new();
             app.add_plugins(MinimalPlugins);
@@ -24,7 +25,7 @@ fn benchmark_task(c: &mut Criterion) {
 
     for schedule_name in ["update", "post_update"] {
         group.bench_with_input(
-            BenchmarkId::new("add_background_systems/schedule", schedule_name),
+            BenchmarkId::new(bench!("add_background_systems/schedule"), schedule_name),
             &schedule_name,
             |b, schedule_name| {
                 b.iter(|| {

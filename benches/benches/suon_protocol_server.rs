@@ -1,3 +1,4 @@
+use ::benches::bench;
 use bytes::Bytes;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use std::{
@@ -20,11 +21,11 @@ impl Encodable for BenchPacket {
 fn benchmark_protocol_server(c: &mut Criterion) {
     let mut group = c.benchmark_group("protocol_server");
 
-    group.bench_function("encode_with_kind", |b| {
+    group.bench_function(bench!("encode_with_kind"), |b| {
         b.iter(|| BenchPacket.encode_with_kind())
     });
 
-    group.bench_function("keep_alive_encode", |b| {
+    group.bench_function(bench!("keep_alive_encode"), |b| {
         b.iter(|| KeepAlivePacket.encode_with_kind())
     });
 
@@ -32,7 +33,7 @@ fn benchmark_protocol_server(c: &mut Criterion) {
         timestamp: UNIX_EPOCH + Duration::from_secs(1_234_567),
         random_number: 42,
     };
-    group.bench_function("challenge_encode", |b| {
+    group.bench_function(bench!("challenge_encode"), |b| {
         b.iter(|| {
             black_box(ChallengePacket {
                 timestamp: challenge.timestamp,
@@ -44,7 +45,7 @@ fn benchmark_protocol_server(c: &mut Criterion) {
 
     for payload_size in [8usize, 64usize, 512usize] {
         group.bench_with_input(
-            BenchmarkId::new("encoder_roundtrip", payload_size),
+            BenchmarkId::new(bench!("encoder_roundtrip"), payload_size),
             &payload_size,
             |b, &payload_size| {
                 let payload = vec![0xAB; payload_size];

@@ -285,6 +285,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
+name = "benches"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bytes",
+ "criterion",
+ "quote",
+ "serde",
+ "serde_json",
+ "suon_checksum",
+ "suon_chunk",
+ "suon_database",
+ "suon_lua",
+ "suon_macros",
+ "suon_movement",
+ "suon_network",
+ "suon_position",
+ "suon_protocol",
+ "suon_protocol_client",
+ "suon_protocol_server",
+ "suon_serde",
+ "suon_task",
+ "suon_xtea",
+ "syn",
+]
+
+[[package]]
 name = "bevy"
 version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3015,33 +3042,6 @@ dependencies = [
  "suon_xtea",
  "toml",
  "winresource",
-]
-
-[[package]]
-name = "suon_benches"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "bytes",
- "criterion",
- "quote",
- "serde",
- "serde_json",
- "suon_checksum",
- "suon_chunk",
- "suon_database",
- "suon_lua",
- "suon_macros",
- "suon_movement",
- "suon_network",
- "suon_position",
- "suon_protocol",
- "suon_protocol_client",
- "suon_protocol_server",
- "suon_serde",
- "suon_task",
- "suon_xtea",
- "syn",
 ]
 
 [[package]]

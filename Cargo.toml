@@ -20,6 +20,7 @@ documentation = "https://docs.rs/suon"
 # Short crates.io summary describing what the package is.
 description = "An MMORPG server framework in Rust"
 readme = "README.md"
+exclude = ["benches/**"]
 
 # Discovery metadata used by crates.io search and category pages.
 keywords = ["mmorpg", "server", "bevy", "game", "ecs"]
@@ -60,7 +61,7 @@ suon_lua.workspace = true
 # Workspace
 [workspace]
 resolver = "2"
-members = ["crates/*", "tools/*"]
+members = ["crates/*", "tools/*", "benches"]
 
 [workspace.package]
 # Shared package metadata inherited by workspace crates where applicable.

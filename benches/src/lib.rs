@@ -5,21 +5,22 @@
 //! isolation so performance regressions can be caught without publishing any
 //! runtime library API from this package.
 
-/// Returns the benchmark package name used across the workspace.
-pub const fn crate_name() -> &'static str {
-    env!("CARGO_PKG_NAME")
+/// Builds a benchmark identifier scoped by the calling module.
+#[macro_export]
+macro_rules! bench {
+    ($name:literal) => {
+        concat!(module_path!(), "::", $name)
+    };
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
-    fn should_expose_workspace_benchmark_crate_name() {
+    fn should_scope_benchmark_name_to_calling_module() {
         assert_eq!(
-            crate_name(),
-            "suon_benches",
-            "The benchmark support crate name should stay stable for workspace tooling"
+            crate::bench!("decode"),
+            "benches::tests::decode",
+            "The benchmark helper should prefix names with the calling module path"
         );
     }
 }

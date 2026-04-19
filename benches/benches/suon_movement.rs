@@ -1,3 +1,4 @@
+use ::benches::bench;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 use suon_movement::prelude::*;
@@ -13,7 +14,7 @@ fn benchmark_direction_math(c: &mut Criterion) {
         Direction::SouthWest,
     ] {
         group.bench_with_input(
-            BenchmarkId::new("add_then_sub", format!("{direction:?}")),
+            BenchmarkId::new(bench!("add_then_sub"), format!("{direction:?}")),
             &direction,
             |b, direction| {
                 b.iter(|| {
@@ -33,7 +34,7 @@ fn benchmark_path_push_pop(c: &mut Criterion) {
 
     for queued_steps in [2usize, 16usize, 128usize] {
         group.bench_with_input(
-            BenchmarkId::new("push_pop", queued_steps),
+            BenchmarkId::new(bench!("push_pop"), queued_steps),
             &queued_steps,
             |b, &queued_steps| {
                 b.iter(|| {
@@ -55,7 +56,7 @@ fn benchmark_path_push_pop(c: &mut Criterion) {
         );
 
         group.bench_with_input(
-            BenchmarkId::new("clear", queued_steps),
+            BenchmarkId::new(bench!("clear"), queued_steps),
             &queued_steps,
             |b, &queued_steps| {
                 b.iter(|| {

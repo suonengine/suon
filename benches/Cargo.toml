@@ -1,7 +1,7 @@
 # Package
 [package]
 # Benchmark suite for all Suon MMORPG framework crates.
-name = "suon_benches"
+name = "benches"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
