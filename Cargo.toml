@@ -22,6 +22,10 @@ readme = "README.md"
 keywords = ["mmorpg", "server", "bevy", "game", "ecs"]
 categories = ["game-development", "network-programming"]
 
+[package.metadata.cargo-udeps.ignore]
+# Re-exported in `prelude` — udeps cannot detect glob re-exports as usage.
+normal = ["suon_database", "suon_macros"]
+
 [build-dependencies]
 winresource = "0.1"
 
