@@ -5,6 +5,9 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   bench:
     name: Run benchmarks
@@ -12,6 +15,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
       - uses: dtolnay/rust-toolchain@nightly
 
       - name: Restore cargo registry and git cache
@@ -32,17 +37,6 @@ jobs:
           key: ${{ runner.os }}-bench-target-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-bench-target-
-
-      - name: Ensure gh-pages branch exists
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if ! git ls-remote --exit-code origin gh-pages > /dev/null 2>&1; then
-            git switch --orphan gh-pages
-            git commit --allow-empty -m "chore: initialize gh-pages for benchmarks"
-            git push origin gh-pages
-            git switch -
-          fi
 
       - name: Build benchmarks
         run: cargo bench -p suon_benches --benches --no-run
