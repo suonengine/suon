@@ -79,17 +79,22 @@ mod tests {
         app.update();
 
         assert!(
-            temp_dir.join("NetworkServerSettings.toml").exists(),
+            temp_dir
+                .join("settings/NetworkServerSettings.toml")
+                .exists(),
             "initialize_settings should create the default settings file when it is missing"
         );
+
         assert!(
             app.world().contains_resource::<Settings>(),
             "initialize_settings should insert the loaded settings resource"
         );
+
         assert!(
             app.world().contains_resource::<Throttle>(),
             "initialize_settings should insert the throttle resource derived from settings"
         );
+
         assert!(
             app.world().contains_resource::<Limiter>(),
             "initialize_settings should insert the limiter resource derived from settings"
