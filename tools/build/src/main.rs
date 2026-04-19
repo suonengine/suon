@@ -28,7 +28,7 @@ fn run() -> Result<(), String> {
 
     match command.as_str() {
         "build-artifacts" => build_artifacts(args.collect()),
-        _ => Err(format!("unknown xtask command: {command}")),
+        _ => Err(format!("unknown build command: {command}")),
     }
 }
 
@@ -133,8 +133,12 @@ fn build_artifacts(args: Vec<String>) -> Result<(), String> {
 }
 
 fn workspace_root() -> Result<PathBuf, String> {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+
+    manifest_dir
+        .ancestors()
+        .skip(1)
+        .find(|path| path.join("Cargo.toml").is_file())
         .map(Path::to_path_buf)
         .ok_or_else(|| "failed to resolve workspace root".to_string())
 }

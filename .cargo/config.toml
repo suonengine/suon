@@ -1,5 +1,5 @@
 [alias]
-build-artifacts = "run -p xtask -- build-artifacts"
+build-artifacts = "run -p build -- build-artifacts"
 
 # Alternative Linkers
 # rust-lld ships with the Rust toolchain and links significantly faster than

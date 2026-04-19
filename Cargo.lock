@@ -1007,6 +1007,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "build"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4207,13 +4214,6 @@ dependencies = [
  "serde_json",
  "unicode-xid",
  "wasmparser",
-]
-
-[[package]]
-name = "xtask"
-version = "0.1.0"
-dependencies = [
- "serde_json",
 ]
 
 [[package]]

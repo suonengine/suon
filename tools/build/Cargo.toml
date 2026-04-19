@@ -1,9 +1,14 @@
 [package]
-name = "xtask"
+name = "build"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 publish = false
+autobins = false
 
 [dependencies]
 serde_json = { workspace = true, features = ["std"] }
+
+[[bin]]
+name = "suon-build"
+path = "src/main.rs"
