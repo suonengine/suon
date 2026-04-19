@@ -130,19 +130,19 @@ impl LuaScope<'_, '_> {
     /// Each global looks like `Health = { __component = "Health" }`, which lets scripts
     /// pass the bare identifier to `Query`: `Query(Health, Position)`.
     fn sync_pending_globals(&self) -> mlua::Result<()> {
-        let pending = world_cell::with(|world| {
+        let pending_component_names = world_cell::with(|world| {
             std::mem::take(&mut world.resource_mut::<ScriptRegistry>().pending_globals)
         });
 
-        if pending.is_empty() {
+        if pending_component_names.is_empty() {
             return Ok(());
         }
 
         let globals = self.lua.globals();
-        for name in pending {
-            let table = self.lua.create_table()?;
-            table.set("__component", name.clone())?;
-            globals.set(name, table)?;
+        for component_name in pending_component_names {
+            let component_global_table = self.lua.create_table()?;
+            component_global_table.set("__component", component_name.clone())?;
+            globals.set(component_name, component_global_table)?;
         }
         Ok(())
     }
@@ -193,20 +193,20 @@ impl LuaScope<'_, '_> {
         entity_proxy: mlua::AnyUserData,
         args: Json,
     ) -> mlua::Result<mlua::MultiValue> {
-        let mut values = mlua::MultiValue::new();
-        values.push_back(mlua::Value::UserData(entity_proxy));
+        let mut lua_arguments = mlua::MultiValue::new();
+        lua_arguments.push_back(mlua::Value::UserData(entity_proxy));
 
         match args {
             Json::Null => {}
-            Json::Array(items) => {
-                for item in items {
-                    values.push_back(item.into_lua_value(self.lua)?);
+            Json::Array(array_items) => {
+                for array_item in array_items {
+                    lua_arguments.push_back(array_item.into_lua_value(self.lua)?);
                 }
             }
-            value => values.push_back(value.into_lua_value(self.lua)?),
+            scalar_value => lua_arguments.push_back(scalar_value.into_lua_value(self.lua)?),
         }
 
-        Ok(values)
+        Ok(lua_arguments)
     }
 
     /// Loads `source`, then calls `hook` as a method on the global `Entity` table.
@@ -251,14 +251,14 @@ impl LuaScope<'_, '_> {
 
         let globals = self.lua.globals();
         let entity_proxy = self.lua.create_userdata(EntityProxy { id: entity })?;
-        let arguments = self.hook_arguments(entity_proxy, args)?;
+        let lua_arguments = self.hook_arguments(entity_proxy, args)?;
 
         // Hooks are method-only so scripts have a single, predictable convention:
         // `function Entity:onTick() ... end`.
-        if let Ok(class) = globals.get::<mlua::Table>("Entity")
-            && let Ok(func) = class.get::<Function>(hook)
+        if let Ok(entity_class) = globals.get::<mlua::Table>("Entity")
+            && let Ok(hook_function) = entity_class.get::<Function>(hook)
         {
-            func.call::<()>(arguments)?;
+            hook_function.call::<()>(lua_arguments)?;
         }
 
         Ok(())

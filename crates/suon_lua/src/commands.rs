@@ -47,10 +47,13 @@ pub trait Hook: Serialize {
         Self: Sized,
     {
         Ok(match serde_json::to_value(self)? {
-            Json::Object(object) => {
-                Json::Array(object.into_iter().map(|(_, value)| value).collect())
-            }
-            value => value,
+            Json::Object(fields) => Json::Array(
+                fields
+                    .into_iter()
+                    .map(|(_field_name, field_value)| field_value)
+                    .collect(),
+            ),
+            other => other,
         })
     }
 }
@@ -141,7 +144,6 @@ pub trait LuaCommands {
 }
 
 impl LuaCommands for Commands<'_, '_> {
-    /// Queues a typed hook invocation to run on the next command flush.
     fn lua_hook<H: Hook>(&mut self, entity: Entity, hook: H) -> serde_json::Result<()> {
         self.queue(RunLuaHook {
             entity,
@@ -151,7 +153,6 @@ impl LuaCommands for Commands<'_, '_> {
         Ok(())
     }
 
-    /// Queues raw Lua source to run on the next command flush.
     fn lua_execute(&mut self, source: impl Into<Arc<str>>) {
         self.queue(RunLuaScript {
             source: source.into(),
