@@ -35,11 +35,6 @@ pub mod prelude {
     pub use suon_observability::prelude::*;
     pub use suon_position::prelude::*;
     pub use suon_protocol::prelude::*;
-    pub use suon_protocol_client::prelude::*;
-    pub use suon_protocol_server::prelude::{
-        ChallengePacket, Encodable, KeepAlivePacket as ServerKeepAlivePacket,
-        PacketKind as ServerPacketKind, PingLatencyPacket as ServerPingLatencyPacket,
-    };
     pub use suon_serde::prelude::*;
     pub use suon_task::prelude::*;
     pub use suon_xtea::prelude::*;
@@ -100,14 +95,11 @@ mod tests {
 
         let _ = std::mem::size_of::<Adler32Checksum>();
         let _ = std::mem::size_of::<App>();
-        let _ = std::mem::size_of::<PacketKind>();
         let _ = std::mem::size_of::<Chunks>();
         let _ = std::mem::size_of::<Commands<'static, 'static>>();
         let _ = std::mem::size_of::<DatabaseMut<'static, PreludeTable>>();
         let _ = std::mem::size_of::<Encoder>();
         let _ = std::mem::size_of::<Position>();
-        let _ = std::mem::size_of::<ServerKeepAlivePacket>();
-        let _ = std::mem::size_of::<ServerPacketKind>();
         let _ = std::mem::size_of::<SuonPlugin>();
         let _ = std::mem::size_of::<XTEAKey>();
     }
