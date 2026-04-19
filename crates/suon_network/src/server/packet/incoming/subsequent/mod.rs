@@ -172,7 +172,7 @@ mod tests {
     use super::*;
     use bevy::tasks::futures_lite::io::Cursor;
     use smol::block_on;
-    use suon_protocol::packets::client::PacketKind;
+    use suon_protocol_client::prelude::*;
 
     const XTEA_KEY: suon_xtea::XTEAKey = [0xA56BABCD, 0x00000000, 0xFFFFFFFF, 0x12345678];
 

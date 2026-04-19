@@ -25,7 +25,7 @@ impl Direction {
     ///
     /// # Examples
     /// ```
-    /// use suon_position::direction::Direction;
+    /// use suon_position::prelude::*;
     ///
     /// assert_eq!(Direction::North.offset(), (0, 1));
     /// assert_eq!(Direction::SouthWest.offset(), (-1, -1));

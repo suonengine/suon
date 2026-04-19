@@ -8,7 +8,7 @@
 //! ```
 //! use serde::{Deserialize, Serialize};
 //! use std::time::Duration;
-//! use suon_serde::duration::{as_millis, as_secs};
+//! use suon_serde::prelude::*;
 //!
 //! #[derive(Serialize, Deserialize)]
 //! struct Durations {
@@ -27,7 +27,11 @@
 //! assert_eq!(json, r#"{"retry_after":1500,"timeout":3}"#);
 //! ```
 
-pub mod duration;
+mod duration;
+
+pub mod prelude {
+    pub use crate::duration::{as_millis, as_secs};
+}
 
 #[cfg(test)]
 mod tests {
@@ -46,5 +50,19 @@ mod tests {
             serde_json::Value::from(5),
             "The crate root should expose the duration serde helpers"
         );
+    }
+
+    #[test]
+    fn should_expose_duration_helpers_through_prelude() {
+        use crate::prelude::*;
+
+        let millis =
+            as_millis::serialize(&Duration::from_millis(12), serde_json::value::Serializer)
+                .expect("Prelude should expose the millisecond serializer");
+        let secs = as_secs::serialize(&Duration::from_secs(3), serde_json::value::Serializer)
+            .expect("Prelude should expose the second serializer");
+
+        assert_eq!(millis, serde_json::Value::from(12));
+        assert_eq!(secs, serde_json::Value::from(3));
     }
 }

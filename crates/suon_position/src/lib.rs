@@ -6,21 +6,15 @@
 //!
 //! # Modules
 //!
-//! - [`direction`]: shared cardinal and diagonal facing/movement directions
-//! - [`position`]: current world-space tile coordinates
-//! - [`floor`]: current vertical layer
-//! - [`previous_position`]: previous world-space tile coordinates
-//! - [`previous_floor`]: previous vertical layer
+//! - [`crate::prelude::Direction`]: shared cardinal and diagonal facing/movement directions
+//! - [`crate::prelude::Position`]: current world-space tile coordinates
+//! - [`crate::prelude::Floor`]: current vertical layer
+//! - [`crate::prelude::PreviousPosition`]: previous world-space tile coordinates
+//! - [`crate::prelude::PreviousFloor`]: previous vertical layer
 //!
 //! # Examples
 //! ```
-//! use suon_position::{
-//!     direction::Direction,
-//!     floor::Floor,
-//!     position::Position,
-//!     previous_floor::PreviousFloor,
-//!     previous_position::PreviousPosition,
-//! };
+//! use suon_position::prelude::*;
 //!
 //! let position = Position { x: 12, y: 34 };
 //! let next_position = position + Direction::East;
@@ -35,11 +29,18 @@
 //! assert_eq!(*previous_floor, 6);
 //! ```
 
-pub mod direction;
-pub mod floor;
-pub mod position;
-pub mod previous_floor;
-pub mod previous_position;
+mod direction;
+mod floor;
+mod position;
+mod previous_floor;
+mod previous_position;
+
+pub mod prelude {
+    pub use crate::{
+        direction::Direction, floor::Floor, position::Position, previous_floor::PreviousFloor,
+        previous_position::PreviousPosition,
+    };
+}
 
 #[cfg(test)]
 mod tests {
@@ -72,5 +73,16 @@ mod tests {
             previous_floor_name.contains("previous_floor::PreviousFloor"),
             "The previous_floor module should stay publicly accessible from the crate root"
         );
+    }
+
+    #[test]
+    fn should_expose_position_types_through_prelude() {
+        use crate::prelude::*;
+
+        let _ = std::mem::size_of::<Direction>();
+        let _ = std::mem::size_of::<Floor>();
+        let _ = std::mem::size_of::<Position>();
+        let _ = std::mem::size_of::<PreviousFloor>();
+        let _ = std::mem::size_of::<PreviousPosition>();
     }
 }

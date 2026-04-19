@@ -4,7 +4,7 @@ use bevy::{
 };
 use bytes::BytesMut;
 use std::time::Instant;
-use suon_protocol::packets::client::PacketKind;
+use suon_protocol_client::prelude::*;
 
 use crate::server::packet::{PACKET_HEADER_SIZE, incoming::IncomingPacket};
 

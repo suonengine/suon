@@ -16,7 +16,25 @@ use bevy::{app::PluginGroupBuilder, prelude::*};
 
 use crate::server::NetworkServerPlugin;
 
-pub mod server;
+mod server;
+
+pub mod prelude {
+    pub use crate::{
+        NetworkPlugins,
+        server::{
+            connection::{
+                Connection, WriteError,
+                checksum_mode::ChecksumMode,
+                limiter::{AcquireError, Limiter},
+            },
+            packet::{DecodeError, Packet},
+            settings::{
+                IncomingPacketPolicy, OutgoingPacketPolicy, PacketPolicy, PacketPolicyPenalty,
+                SessionQuota, ThrottlePolicy,
+            },
+        },
+    };
+}
 
 /// Plugin group that installs the Suon networking server runtime.
 pub struct NetworkPlugins;

@@ -40,27 +40,35 @@
 
 extern crate self as suon_lua;
 
-pub(crate) mod api;
-pub mod commands;
-pub mod lua_component;
-pub mod runtime;
-pub mod script;
-pub(crate) mod world_cell;
+mod api;
+mod commands;
+mod lua_component;
+mod runtime;
+mod script;
+mod world_cell;
 
-pub use commands::{Hook, LuaCommands, RunLuaHook, RunLuaScript};
-pub use lua_component::{AppLuaExt, LuaComponent, WorldLuaComponentExt};
-pub use runtime::{
-    ComponentAccessor, LuaRuntime, LuaScope, ScriptRegistry, TriggerAccessor, WorldLuaRuntimeExt,
-};
-pub use script::LuaScript;
+pub mod prelude {
+    pub use crate::{
+        LuaPlugin,
+        commands::{Hook, LuaCommands, RunLuaHook, RunLuaScript},
+        lua_component::{AppLuaExt, LuaComponent, WorldLuaComponentExt},
+        runtime::{
+            ComponentAccessor, LuaRuntime, LuaScope, ScriptRegistry, TriggerAccessor,
+            WorldLuaRuntimeExt,
+        },
+        script::LuaScript,
+    };
+}
 
 use bevy::prelude::*;
 
 /// Bevy plugin that sets up the Lua scripting runtime.
 ///
-/// Inserts [`LuaRuntime`] as a non-send resource and initialises [`ScriptRegistry`].
-/// Register components with [`AppLuaExt::register_lua_component`] or rely on the
-/// automatic registration that fires on the first `insert` of a [`LuaComponent`].
+/// Inserts [`crate::prelude::LuaRuntime`] as a non-send resource and initialises
+/// [`crate::prelude::ScriptRegistry`]. Register components with
+/// [`crate::prelude::AppLuaExt::register_lua_component`] or rely on the automatic
+/// registration that fires on the first `insert` of a
+/// [`crate::prelude::LuaComponent`].
 ///
 /// # Examples
 ///
@@ -76,8 +84,8 @@ pub struct LuaPlugin;
 
 impl Plugin for LuaPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ScriptRegistry>()
-            .insert_non_send_resource(LuaRuntime::new());
+        app.init_resource::<runtime::ScriptRegistry>()
+            .insert_non_send_resource(runtime::LuaRuntime::new());
     }
 }
 
@@ -87,7 +95,11 @@ mod tests {
     use serde::{Deserialize, Serialize};
     use suon_macros::{LuaComponent, LuaHook};
 
-    use crate::runtime::{ComponentAccessor, LuaRuntime};
+    use crate::{
+        commands::LuaCommands,
+        prelude::{LuaScript, ScriptRegistry},
+        runtime::{ComponentAccessor, LuaRuntime, WorldLuaRuntimeExt},
+    };
 
     #[derive(LuaHook, Serialize)]
     #[lua(name = "onTick")]

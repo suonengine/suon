@@ -1,6 +1,6 @@
 //! Client face packet family.
 
-use suon_position::direction::Direction;
+use suon_position::prelude::*;
 
 use super::prelude::*;
 

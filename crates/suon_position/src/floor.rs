@@ -9,7 +9,7 @@ use std::{cmp::*, hash::*};
 ///
 /// # Examples
 /// ```
-/// use suon_position::floor::Floor;
+/// use suon_position::prelude::*;
 ///
 /// let floor = Floor { z: 4 };
 ///

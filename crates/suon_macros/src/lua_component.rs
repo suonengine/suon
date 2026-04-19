@@ -47,31 +47,31 @@ fn expand_derive_lua_component(derive_input: DeriveInput) -> TokenStream2 {
             fn on_add() -> Option<bevy::ecs::lifecycle::ComponentHook> {
                 Some(|mut world, _context| {
                     if !world
-                        .resource::<suon_lua::ScriptRegistry>()
-                        .has_component(<#struct_name as suon_lua::LuaComponent>::lua_name())
+                        .resource::<suon_lua::prelude::ScriptRegistry>()
+                        .has_component(<#struct_name as suon_lua::prelude::LuaComponent>::lua_name())
                     {
-                        world.resource_mut::<suon_lua::ScriptRegistry>().register_component(
-                            <#struct_name as suon_lua::LuaComponent>::lua_name(),
-                            <#struct_name as suon_lua::LuaComponent>::make_accessor(),
+                        world.resource_mut::<suon_lua::prelude::ScriptRegistry>().register_component(
+                            <#struct_name as suon_lua::prelude::LuaComponent>::lua_name(),
+                            <#struct_name as suon_lua::prelude::LuaComponent>::make_accessor(),
                         );
                     }
                 })
             }
         }
 
-        impl #impl_generics suon_lua::LuaComponent for #struct_name #type_generics #where_clause {
+        impl #impl_generics suon_lua::prelude::LuaComponent for #struct_name #type_generics #where_clause {
             fn lua_name() -> &'static str {
                 #lua_name
             }
 
-            fn make_accessor() -> suon_lua::ComponentAccessor {
-                suon_lua::ComponentAccessor {
+            fn make_accessor() -> suon_lua::prelude::ComponentAccessor {
+                suon_lua::prelude::ComponentAccessor {
                     get: |entity, world| {
-                        <bevy::prelude::World as suon_lua::WorldLuaComponentExt>
+                        <bevy::prelude::World as suon_lua::prelude::WorldLuaComponentExt>
                             ::serialize_lua_component::<Self>(world, entity)
                     },
                     set: |entity, world, json| {
-                        <bevy::prelude::World as suon_lua::WorldLuaComponentExt>
+                        <bevy::prelude::World as suon_lua::prelude::WorldLuaComponentExt>
                             ::deserialize_lua_component::<Self>(world, entity, json)
                     },
                     component_id: |world| world.register_component::<Self>(),
@@ -119,7 +119,7 @@ mod tests {
         );
 
         assert!(
-            output.contains("suon_lua :: ScriptRegistry"),
+            output.contains("suon_lua :: prelude :: ScriptRegistry"),
             "on_add hook should reference ScriptRegistry"
         );
 
@@ -146,7 +146,7 @@ mod tests {
         let output = expand_derive_lua_component(input).to_string();
 
         assert!(
-            output.contains("impl suon_lua :: LuaComponent for Health"),
+            output.contains("impl suon_lua :: prelude :: LuaComponent for Health"),
             "should generate LuaComponent impl for Health"
         );
 
@@ -209,7 +209,7 @@ mod tests {
         );
 
         assert!(
-            output.contains("impl < T > suon_lua :: LuaComponent for Container < T >"),
+            output.contains("impl < T > suon_lua :: prelude :: LuaComponent for Container < T >"),
             "LuaComponent generics should be forwarded"
         );
     }
@@ -247,7 +247,7 @@ mod tests {
         );
 
         assert!(
-            output.contains("impl suon_lua :: LuaComponent for Marker"),
+            output.contains("impl suon_lua :: prelude :: LuaComponent for Marker"),
             "LuaComponent impl should support unit structs"
         );
     }
@@ -263,7 +263,7 @@ mod tests {
         );
 
         assert!(
-            output.contains("impl suon_lua :: LuaComponent for Health"),
+            output.contains("impl suon_lua :: prelude :: LuaComponent for Health"),
             "LuaComponent impl should support tuple structs"
         );
     }

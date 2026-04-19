@@ -1,6 +1,6 @@
 //! Client request-trade packet.
 
-use suon_position::{floor::Floor, position::Position};
+use suon_position::prelude::*;
 
 use crate::packets::decoder::Decoder;
 

@@ -6,7 +6,6 @@
 //!
 //! # Quick start
 //! ```no_run
-//! use bevy::prelude::*;
 //! use suon::prelude::*;
 //!
 //! let mut app = App::new();
@@ -15,33 +14,35 @@
 
 use bevy::{app::ScheduleRunnerPlugin, prelude::*};
 use std::time::Duration;
-use suon_chunk::ChunkPlugin;
-use suon_lua::LuaPlugin;
-use suon_movement::prelude::MovementPlugins;
-use suon_network::NetworkPlugins;
-
-pub use settings::Settings;
-pub use suon_chunk;
-pub use suon_lua;
-pub use suon_movement;
-pub use suon_network;
-pub use suon_observability::{self, ObservabilityPlugin, ObservabilitySettings};
-pub use suon_position;
-pub use suon_task;
+use suon_chunk::prelude::*;
+use suon_lua::prelude::*;
+use suon_movement::prelude::*;
+use suon_network::prelude::*;
 
 mod settings;
 
 /// Common imports for apps that build on top of the umbrella `suon` crate.
 pub mod prelude {
-    pub use crate::{ObservabilityPlugin, ObservabilitySettings, Settings, SuonPlugin};
-    pub use suon_chunk::{Chunk, ChunkPlugin, chunks::Chunks, content::AtChunk};
-    pub use suon_lua::{AppLuaExt, LuaCommands, LuaComponent, LuaPlugin, LuaScript};
+    pub use crate::{SuonPlugin, settings::Settings};
+    pub use bevy::prelude::*;
+    pub use suon_checksum::prelude::*;
+    pub use suon_chunk::prelude::*;
+    pub use suon_database::prelude::*;
+    pub use suon_lua::prelude::*;
+    pub use suon_macros::{LuaComponent, LuaHook, Table};
     pub use suon_movement::prelude::*;
-    pub use suon_network::NetworkPlugins;
-    pub use suon_position::{
-        direction::Direction, floor::Floor, position::Position, previous_floor::PreviousFloor,
-        previous_position::PreviousPosition,
+    pub use suon_network::prelude::*;
+    pub use suon_observability::prelude::*;
+    pub use suon_position::prelude::*;
+    pub use suon_protocol::prelude::*;
+    pub use suon_protocol_client::prelude::*;
+    pub use suon_protocol_server::prelude::{
+        ChallengePacket, Encodable, KeepAlivePacket as ServerKeepAlivePacket,
+        PacketKind as ServerPacketKind, PingLatencyPacket as ServerPingLatencyPacket,
     };
+    pub use suon_serde::prelude::*;
+    pub use suon_task::prelude::*;
+    pub use suon_xtea::prelude::*;
 }
 
 /// Main plugin that wires together the core Suon runtime crates.
@@ -52,7 +53,8 @@ pub struct SuonPlugin;
 
 impl Plugin for SuonPlugin {
     fn build(&self, app: &mut App) {
-        let settings = Settings::load_or_default().expect("Failed to load Suon settings.");
+        let settings =
+            settings::Settings::load_or_default().expect("Failed to load Suon settings.");
 
         let minimal_plugins = MinimalPlugins.set(TaskPoolPlugin {
             task_pool_options: TaskPoolOptions::with_num_threads(settings.threads),
@@ -71,7 +73,7 @@ impl Plugin for SuonPlugin {
         app.insert_resource(Time::<Fixed>::from_seconds(settings.fixed_event_loop));
 
         app.add_plugins((
-            ObservabilityPlugin,
+            suon_observability::ObservabilityPlugin,
             ChunkPlugin,
             MovementPlugins,
             NetworkPlugins,
@@ -87,5 +89,26 @@ mod tests {
     #[test]
     fn should_keep_suon_plugin_zero_sized() {
         assert_eq!(std::mem::size_of::<SuonPlugin>(), 0);
+    }
+
+    #[test]
+    fn should_expose_bevy_and_suon_api_through_prelude() {
+        use crate::prelude::*;
+
+        struct PreludeTable;
+        impl Table for PreludeTable {}
+
+        let _ = std::mem::size_of::<Adler32Checksum>();
+        let _ = std::mem::size_of::<App>();
+        let _ = std::mem::size_of::<PacketKind>();
+        let _ = std::mem::size_of::<Chunks>();
+        let _ = std::mem::size_of::<Commands<'static, 'static>>();
+        let _ = std::mem::size_of::<DatabaseMut<'static, PreludeTable>>();
+        let _ = std::mem::size_of::<Encoder>();
+        let _ = std::mem::size_of::<Position>();
+        let _ = std::mem::size_of::<ServerKeepAlivePacket>();
+        let _ = std::mem::size_of::<ServerPacketKind>();
+        let _ = std::mem::size_of::<SuonPlugin>();
+        let _ = std::mem::size_of::<XTEAKey>();
     }
 }

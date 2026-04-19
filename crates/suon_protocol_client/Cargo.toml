@@ -1,0 +1,18 @@
+# Package
+[package]
+# Client-to-server packet definitions for the Suon MMORPG framework.
+name = "suon_protocol_client"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+description = "Client-to-server packet definitions for the Suon MMORPG framework"
+
+[dependencies]
+thiserror.workspace = true
+suon_position.workspace = true
+suon_protocol.workspace = true

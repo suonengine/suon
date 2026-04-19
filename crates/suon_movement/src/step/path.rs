@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 use std::collections::*;
-use suon_position::direction::Direction;
+use suon_position::prelude::*;
 
 #[derive(Component, Default, Debug)]
 /// FIFO queue of pending step directions for an entity.
@@ -13,8 +13,8 @@ impl StepPath {
     ///
     /// # Examples
     /// ```
-    /// use suon_movement::prelude::StepPath;
-    /// use suon_position::direction::Direction;
+    /// use suon_movement::prelude::*;
+    /// use suon_position::prelude::*;
     ///
     /// let mut path = StepPath::default();
     /// path.push(Direction::North);
@@ -29,8 +29,8 @@ impl StepPath {
     ///
     /// # Examples
     /// ```
-    /// use suon_movement::prelude::StepPath;
-    /// use suon_position::direction::Direction;
+    /// use suon_movement::prelude::*;
+    /// use suon_position::prelude::*;
     ///
     /// let mut path = StepPath::default();
     /// path.push(Direction::East);

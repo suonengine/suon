@@ -4,7 +4,7 @@
 //! [`crate::chunks::Chunks`] registry.
 
 use crate::CHUNK_EXP;
-use suon_position::position::Position;
+use suon_position::prelude::*;
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
 /// Compact key identifying the chunk that contains a world position.

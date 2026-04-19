@@ -7,7 +7,7 @@
 //! # Examples
 //! ```no_run
 //! use bevy::prelude::*;
-//! use suon_task::background::{AppWithBackgroundTasks, BackgroundTask};
+//! use suon_task::prelude::*;
 //!
 //! struct ExampleTask;
 //!
@@ -24,7 +24,15 @@
 //! assert_eq!(std::mem::size_of::<ExampleTask>(), 0);
 //! ```
 
-pub mod background;
+mod background;
+
+pub mod prelude {
+    pub use crate::background::{
+        AppWithBackgroundTasks, BackgroundTask,
+        entity::{EntityIn, EntityTaskCommands},
+        world::TaskCommands,
+    };
+}
 
 #[cfg(test)]
 mod tests {
@@ -53,5 +61,28 @@ mod tests {
                 .is_some(),
             "The crate root should expose the background module so apps can register its systems"
         );
+    }
+
+    #[test]
+    fn should_expose_background_api_through_prelude() {
+        use crate::prelude::*;
+
+        fn assert_app_trait<T: AppWithBackgroundTasks>() {}
+        fn assert_entity_trait<T: EntityTaskCommands>() {}
+        fn assert_world_trait<T: TaskCommands>() {}
+
+        let _ = std::mem::size_of::<EntityIn<usize>>();
+        assert_app_trait::<App>();
+        assert_entity_trait::<EntityWorldMut<'_>>();
+        assert_world_trait::<World>();
+
+        struct PreludeTask;
+        impl BackgroundTask for PreludeTask {
+            type Output = ();
+
+            async fn run(self) -> Self::Output {}
+        }
+
+        let _ = std::mem::size_of::<PreludeTask>();
     }
 }

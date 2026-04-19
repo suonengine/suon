@@ -9,7 +9,7 @@ use bevy::prelude::*;
 /// # Examples
 /// ```
 /// use bevy::prelude::*;
-/// use suon_chunk::occupancy::occupied::Occupied;
+/// use suon_chunk::prelude::*;
 ///
 /// let mut world = World::new();
 /// let entity = world.spawn(Occupied).id();

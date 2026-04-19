@@ -19,6 +19,10 @@ use std::{
     path::Path,
 };
 
+pub mod prelude {
+    pub use crate::{ObservabilityPlugin, ObservabilitySettings};
+}
+
 /// Configuration for Suon's logging and metrics bootstrap.
 #[derive(Resource, Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub struct ObservabilitySettings {

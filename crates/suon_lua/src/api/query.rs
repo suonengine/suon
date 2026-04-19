@@ -234,7 +234,7 @@ impl UserData for QueryProxy {
 #[cfg(test)]
 mod tests {
     use crate::{
-        LuaComponent,
+        lua_component::LuaComponent,
         runtime::{ComponentAccessor, LuaRuntime, ScriptRegistry},
     };
     use bevy::prelude::*;

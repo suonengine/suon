@@ -19,6 +19,10 @@ pub use adler32::Adler32Checksum;
 
 mod adler32;
 
+pub mod prelude {
+    pub use crate::Adler32Checksum;
+}
+
 #[cfg(test)]
 mod tests {
     use super::Adler32Checksum;

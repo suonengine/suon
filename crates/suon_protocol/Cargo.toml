@@ -17,6 +17,3 @@ description = "Binary protocol encoding and decoding for the Suon MMORPG framewo
 # External crates used directly by this crate.
 bytes.workspace = true
 thiserror.workspace = true
-
-# Internal Suon crates used by this crate.
-suon_position.workspace = true

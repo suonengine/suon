@@ -43,7 +43,7 @@ fn expand_derive_lua_hook(derive_input: DeriveInput) -> TokenStream2 {
     let hook_name = lua_name_from_attr(&derive_input).unwrap_or_else(|| format!("on{struct_name}"));
 
     quote! {
-        impl #impl_generics suon_lua::Hook for #struct_name #type_generics #where_clause {
+        impl #impl_generics suon_lua::prelude::Hook for #struct_name #type_generics #where_clause {
             fn name() -> &'static str {
                 #hook_name
             }
@@ -68,7 +68,7 @@ mod tests {
         let output = expand_derive_lua_hook(input).to_string();
 
         assert!(
-            output.contains("impl suon_lua :: Hook for Move"),
+            output.contains("impl suon_lua :: prelude :: Hook for Move"),
             "should generate Hook impl for Move"
         );
 
@@ -100,7 +100,8 @@ mod tests {
         let output = expand_derive_lua_hook(input).to_string();
 
         assert!(
-            output.contains("impl < T > suon_lua :: Hook for Event < T > where T : Clone"),
+            output
+                .contains("impl < T > suon_lua :: prelude :: Hook for Event < T > where T : Clone"),
             "generated impl should preserve generics and where clauses"
         );
     }

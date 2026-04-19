@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use std::time::Instant;
-use suon_protocol::packets::client::{Decodable, DecodableError};
+use suon_protocol_client::prelude::*;
 use thiserror::Error;
 
 pub mod incoming;
@@ -69,7 +69,7 @@ impl<P: Decodable + Send + Sync + 'static> Packet<P> {
 mod tests {
     use super::*;
     use bytes::Bytes;
-    use suon_protocol::packets::client::PacketKind;
+    use suon_protocol::prelude::DecoderError;
 
     #[derive(Debug, PartialEq, Eq)]
     struct PingLatencyPacket;
@@ -79,12 +79,10 @@ mod tests {
 
         fn decode(bytes: &mut &[u8]) -> Result<Self, DecodableError> {
             if bytes.is_empty() {
-                return Err(DecodableError::Decoder(
-                    suon_protocol::packets::decoder::DecoderError::Incomplete {
-                        expected: 1,
-                        available: 0,
-                    },
-                ));
+                return Err(DecodableError::Decoder(DecoderError::Incomplete {
+                    expected: 1,
+                    available: 0,
+                }));
             }
 
             *bytes = &bytes[1..];
@@ -122,12 +120,10 @@ mod tests {
 
         assert!(matches!(
             error,
-            DecodeError::Decodable(DecodableError::Decoder(
-                suon_protocol::packets::decoder::DecoderError::Incomplete {
-                    expected: 1,
-                    available: 0
-                }
-            ))
+            DecodeError::Decodable(DecodableError::Decoder(DecoderError::Incomplete {
+                expected: 1,
+                available: 0
+            }))
         ));
     }
 

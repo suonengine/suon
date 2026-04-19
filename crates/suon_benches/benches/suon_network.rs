@@ -1,12 +1,6 @@
 use bevy::prelude::*;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use suon_network::{
-    NetworkPlugins,
-    server::{
-        connection::{checksum_mode::ChecksumMode, limiter::Limiter},
-        settings::{PacketPolicy, SessionQuota},
-    },
-};
+use suon_network::prelude::*;
 
 fn benchmark_network(c: &mut Criterion) {
     let mut group = c.benchmark_group("network");

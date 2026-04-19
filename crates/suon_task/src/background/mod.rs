@@ -15,7 +15,7 @@ pub trait BackgroundTask: Send + Sync + 'static {
     ///
     /// # Examples
     /// ```
-    /// use suon_task::background::BackgroundTask;
+    /// use suon_task::prelude::*;
     ///
     /// struct SumTask(u32, u32);
     ///
@@ -41,7 +41,7 @@ pub trait AppWithBackgroundTasks {
     /// # Examples
     /// ```no_run
     /// use bevy::prelude::*;
-    /// use suon_task::background::{AppWithBackgroundTasks, BackgroundTask};
+    /// use suon_task::prelude::*;
     ///
     /// struct ExampleTask;
     ///

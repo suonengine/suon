@@ -31,7 +31,7 @@ mod tests {
     use super::*;
     use crate::server::{connection::Connection, settings::PacketPolicy};
     use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-    use suon_protocol::packets::server::{Encodable, PacketKind};
+    use suon_protocol_server::prelude::*;
 
     struct DummyPacket;
 

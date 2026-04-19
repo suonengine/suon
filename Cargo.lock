@@ -3000,6 +3000,8 @@ dependencies = [
  "suon_observability",
  "suon_position",
  "suon_protocol",
+ "suon_protocol_client",
+ "suon_protocol_server",
  "suon_serde",
  "suon_task",
  "suon_xtea",
@@ -3026,6 +3028,8 @@ dependencies = [
  "suon_network",
  "suon_position",
  "suon_protocol",
+ "suon_protocol_client",
+ "suon_protocol_server",
  "suon_serde",
  "suon_task",
  "suon_xtea",
@@ -3097,6 +3101,8 @@ dependencies = [
  "suon_checksum",
  "suon_position",
  "suon_protocol",
+ "suon_protocol_client",
+ "suon_protocol_server",
  "suon_serde",
  "suon_xtea",
  "thiserror 2.0.18",
@@ -3126,8 +3132,24 @@ name = "suon_protocol"
 version = "0.1.0"
 dependencies = [
  "bytes",
- "suon_position",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "suon_protocol_client"
+version = "0.1.0"
+dependencies = [
+ "suon_position",
+ "suon_protocol",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "suon_protocol_server"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "suon_protocol",
 ]
 
 [[package]]

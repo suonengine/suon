@@ -3,10 +3,7 @@ use std::{
     collections::{BTreeSet, HashSet},
     hint::black_box,
 };
-use suon_position::{
-    floor::Floor, position::Position, previous_floor::PreviousFloor,
-    previous_position::PreviousPosition,
-};
+use suon_position::prelude::*;
 
 fn benchmark_position_btree_insert(c: &mut Criterion) {
     let mut group = c.benchmark_group("position");

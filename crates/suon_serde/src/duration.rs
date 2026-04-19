@@ -10,8 +10,9 @@ pub mod as_millis {
     /// # Examples
     /// ```
     /// use std::time::Duration;
+    /// use suon_serde::prelude::*;
     ///
-    /// let value = suon_serde::duration::as_millis::serialize(
+    /// let value = as_millis::serialize(
     ///     &Duration::from_millis(1234),
     ///     serde_json::value::Serializer,
     /// )
@@ -31,7 +32,9 @@ pub mod as_millis {
     ///
     /// # Examples
     /// ```
-    /// let duration = suon_serde::duration::as_millis::deserialize(
+    /// use suon_serde::prelude::*;
+    ///
+    /// let duration = as_millis::deserialize(
     ///     serde_json::Value::from(4321),
     /// )
     /// .unwrap();
@@ -57,8 +60,9 @@ pub mod as_secs {
     /// # Examples
     /// ```
     /// use std::time::Duration;
+    /// use suon_serde::prelude::*;
     ///
-    /// let value = suon_serde::duration::as_secs::serialize(
+    /// let value = as_secs::serialize(
     ///     &Duration::from_secs(42),
     ///     serde_json::value::Serializer,
     /// )
@@ -78,7 +82,9 @@ pub mod as_secs {
     ///
     /// # Examples
     /// ```
-    /// let duration = suon_serde::duration::as_secs::deserialize(
+    /// use suon_serde::prelude::*;
+    ///
+    /// let duration = as_secs::deserialize(
     ///     serde_json::Value::from(9),
     /// )
     /// .unwrap();
@@ -102,7 +108,6 @@ mod tests {
     mod millis {
         use super::super::as_millis;
         use serde::{Deserialize, Serialize};
-        use serde_json;
         use std::time::Duration;
 
         #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -137,7 +142,6 @@ mod tests {
     mod secs {
         use super::super::as_secs;
         use serde::{Deserialize, Serialize};
-        use serde_json;
         use std::time::Duration;
 
         #[derive(Serialize, Deserialize, Debug, PartialEq)]

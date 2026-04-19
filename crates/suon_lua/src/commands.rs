@@ -163,7 +163,11 @@ impl LuaCommands for Commands<'_, '_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{LuaRuntime, runtime::ScriptRegistry, script::LuaScript};
+    use crate::{
+        commands::LuaCommands,
+        runtime::{LuaRuntime, ScriptRegistry},
+        script::LuaScript,
+    };
     use suon_macros::LuaHook;
 
     #[derive(LuaHook, Serialize)]

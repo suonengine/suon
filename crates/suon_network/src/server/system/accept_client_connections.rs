@@ -312,7 +312,7 @@ mod tests {
         thread,
         time::{Duration, Instant},
     };
-    use suon_protocol::packets::client::PacketKind;
+    use suon_protocol_client::prelude::*;
 
     const XTEA_KEY: XTEAKey = [0xA56BABCD, 0x00000000, 0xFFFFFFFF, 0x12345678];
 

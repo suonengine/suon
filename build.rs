@@ -2,8 +2,6 @@ fn main() {
     let build_target = format_build_target();
 
     println!("cargo:rustc-env=SUON_BUILD_TARGET={build_target}");
-    println!("cargo:warning=Building for target {build_target}");
-
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
         let mut resource = winresource::WindowsResource::new();
         resource.set_icon("assets/suon.ico");

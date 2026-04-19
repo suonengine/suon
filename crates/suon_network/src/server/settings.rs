@@ -8,7 +8,7 @@ use std::{
     path::Path,
     time::Duration,
 };
-use suon_serde::duration::as_millis;
+use suon_serde::prelude::*;
 
 /// Network server configuration.
 #[derive(Resource, Serialize, Deserialize, Clone, Copy, Debug)]

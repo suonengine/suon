@@ -9,7 +9,7 @@ use std::{cmp::*, hash::*};
 ///
 /// # Examples
 /// ```
-/// use suon_position::position::Position;
+/// use suon_position::prelude::*;
 ///
 /// let position = Position { x: 9, y: 3 };
 ///

@@ -3,7 +3,8 @@
 use bevy::prelude::*;
 use bytes::BytesMut;
 use std::time::Instant;
-use suon_protocol::packets::{PACKET_KIND_SIZE, client::PacketKind};
+use suon_protocol::prelude::*;
+use suon_protocol_client::prelude::*;
 
 use crate::server::packet::{
     PACKET_CHECKSUM_SIZE, PACKET_HEADER_SIZE,

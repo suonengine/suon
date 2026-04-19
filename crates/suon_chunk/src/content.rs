@@ -1,11 +1,11 @@
 //! Entity-to-chunk relationships.
 //!
 //! [`crate::content::AtChunk`] is derived from
-//! [`suon_position::position::Position`] by the crate runtime and mirrored back
+//! [`suon_position::prelude::Position`] by the crate runtime and mirrored back
 //! into [`crate::content::Content`] through Bevy relationships.
 
 use bevy::prelude::*;
-use suon_position::position::Position;
+use suon_position::prelude::*;
 
 #[derive(Component, Deref, Debug)]
 #[relationship_target(relationship = AtChunk, linked_spawn)]
@@ -22,7 +22,7 @@ impl AtChunk {
     /// Creates a chunk relationship pointing at the provided chunk entity.
     ///
     /// This constructor stays crate-visible so chunk ownership continues to be
-    /// derived from [`suon_position::position::Position`] rather than assigned
+    /// derived from [`suon_position::prelude::Position`] rather than assigned
     /// manually by other crates.
     pub(crate) fn new(entity: Entity) -> Self {
         Self(entity)
@@ -33,8 +33,8 @@ impl AtChunk {
     /// # Examples
     /// ```no_run
     /// use bevy::prelude::*;
-    /// use suon_chunk::{Chunk, ChunkPlugin, chunks::Chunks, content::AtChunk};
-    /// use suon_position::position::Position;
+    /// use suon_chunk::prelude::*;
+    /// use suon_position::prelude::*;
     ///
     /// let mut app = App::new();
     /// app.add_plugins(MinimalPlugins);
@@ -54,7 +54,7 @@ impl AtChunk {
     }
 }
 
-/// Derives [`AtChunk`] whenever [`suon_position::position::Position`] is inserted
+/// Derives [`AtChunk`] whenever [`suon_position::prelude::Position`] is inserted
 /// or replaced.
 ///
 /// If the entity's position no longer resolves to a registered chunk, the stale

@@ -164,7 +164,8 @@ mod tests {
     use super::*;
     use bevy::tasks::futures_lite::io::Cursor;
     use smol::block_on;
-    use suon_protocol::packets::{PACKET_KIND_SIZE, client::PacketKind};
+    use suon_protocol::prelude::*;
+    use suon_protocol_client::prelude::*;
 
     fn build_login_packet_bytes(payload: &[u8], checksum: u32) -> Vec<u8> {
         let mut bytes =

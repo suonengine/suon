@@ -1,14 +1,11 @@
 use bevy::prelude::*;
-use suon_protocol::packets::client::{
-    Decodable, PacketKind,
-    prelude::{
-        AcceptMarketOfferPacket, AcceptTradePacket, BrowseMarketPacket, CancelMarketOfferPacket,
-        CancelStepsPacket, ChangeSharedPartyExperiencePacket, CloseTradePacket, CreateBuddyPacket,
-        CreateMarketOfferPacket, DeleteBuddyPacket, FacePacket, InspectTradePacket,
-        InviteToPartyPacket, JoinPartyPacket, KeepAlivePacket, LeaveMarketPacket, LeavePartyPacket,
-        PassPartyLeadershipPacket, PingLatencyPacket, RequestTradePacket, RevokePartyInvitePacket,
-        StepPacket, StepsPacket, UpdateBuddyPacket,
-    },
+use suon_protocol_client::prelude::{
+    AcceptMarketOfferPacket, AcceptTradePacket, BrowseMarketPacket, CancelMarketOfferPacket,
+    CancelStepsPacket, ChangeSharedPartyExperiencePacket, CloseTradePacket, CreateBuddyPacket,
+    CreateMarketOfferPacket, Decodable, DeleteBuddyPacket, FacePacket, InspectTradePacket,
+    InviteToPartyPacket, JoinPartyPacket, KeepAlivePacket, LeaveMarketPacket, LeavePartyPacket,
+    PacketKind, PassPartyLeadershipPacket, PingLatencyPacket, RequestTradePacket,
+    RevokePartyInvitePacket, StepPacket, StepsPacket, UpdateBuddyPacket,
 };
 
 use crate::server::{
@@ -144,7 +141,8 @@ mod tests {
         time::Instant,
     };
     use suon_checksum::Adler32Checksum;
-    use suon_protocol::packets::client::DecodableError;
+    use suon_protocol::prelude::DecoderError;
+    use suon_protocol_client::prelude::DecodableError;
 
     #[derive(Resource, Default, Debug, PartialEq, Eq)]
     struct ObservedPackets(Vec<&'static str>);
@@ -153,7 +151,7 @@ mod tests {
     struct PingLatencyMeta(Option<(Entity, Instant, Option<Adler32Checksum>)>);
 
     #[derive(Resource, Default, Debug, PartialEq, Eq)]
-    struct MoveDirections(Vec<suon_position::direction::Direction>);
+    struct MoveDirections(Vec<suon_position::prelude::Direction>);
 
     #[derive(Debug)]
     struct FailingPacket;
@@ -162,12 +160,10 @@ mod tests {
         const KIND: PacketKind = PacketKind::PingLatency;
 
         fn decode(_: &mut &[u8]) -> Result<Self, DecodableError> {
-            Err(DecodableError::Decoder(
-                suon_protocol::packets::decoder::DecoderError::Incomplete {
-                    expected: 1,
-                    available: 0,
-                },
-            ))
+            Err(DecodableError::Decoder(DecoderError::Incomplete {
+                expected: 1,
+                available: 0,
+            }))
         }
     }
 

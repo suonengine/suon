@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use std::time::Instant;
 use suon_checksum::Adler32Checksum;
-use suon_protocol::packets::client::PacketKind;
+use suon_protocol_client::prelude::*;
 
 pub mod login;
 pub mod server_name;

@@ -127,7 +127,7 @@ mod tests {
     use super::*;
     use bevy::tasks::futures_lite::io::Cursor;
     use smol::block_on;
-    use suon_protocol::packets::client::PacketKind;
+    use suon_protocol_client::prelude::*;
 
     #[test]
     fn should_return_connection_closed_when_the_stream_is_empty() {

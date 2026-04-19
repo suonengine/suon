@@ -11,7 +11,7 @@ use bevy::prelude::*;
 /// # Examples
 /// ```
 /// use bevy::prelude::*;
-/// use suon_chunk::loader::ChunkLoader;
+/// use suon_chunk::prelude::*;
 ///
 /// let mut world = World::new();
 /// world.init_resource::<ChunkLoader>();

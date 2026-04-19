@@ -1,14 +1,15 @@
 //! [`LuaScript`] component — stores Lua source attached to an entity.
 //!
 //! Hook functions defined in the source (e.g. `function Entity:onTick()`) are
-//! invoked by [`crate::LuaCommands::lua_hook`] at command-flush time.
+//! invoked by [`crate::prelude::LuaCommands::lua_hook`] at command-flush time.
 
 use bevy::prelude::*;
 use std::sync::Arc;
 
 /// Lua source code attached to a Bevy entity.
 ///
-/// Hook functions defined in the source are invoked by [`crate::LuaCommands::lua_hook`].
+/// Hook functions defined in the source are invoked by
+/// [`crate::prelude::LuaCommands::lua_hook`].
 /// The conventional hook style is
 /// `function Entity:onTick() ... end`; the entity itself is passed as `self` so
 /// scripts can call `self:get(...)`. Extra Rust-supplied arguments, when present,

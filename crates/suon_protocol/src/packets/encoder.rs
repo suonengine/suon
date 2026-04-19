@@ -9,7 +9,7 @@ use bytes::{BufMut, Bytes, BytesMut};
 ///
 /// # Example
 /// ```
-/// use suon_protocol::packets::encoder::Encoder;
+/// use suon_protocol::prelude::*;
 ///
 /// let packet_bytes = Encoder::new()
 ///     .put_u8(42)
@@ -32,7 +32,7 @@ impl Encoder {
     ///
     /// # Examples
     /// ```
-    /// use suon_protocol::packets::encoder::Encoder;
+    /// use suon_protocol::prelude::*;
     ///
     /// let bytes = Encoder::new().put_bool(true).finalize();
     ///
@@ -48,7 +48,7 @@ impl Encoder {
     ///
     /// # Examples
     /// ```
-    /// use suon_protocol::packets::encoder::Encoder;
+    /// use suon_protocol::prelude::*;
     ///
     /// let bytes = Encoder::with_capacity(8).put_u16(0xABCD).finalize();
     ///

@@ -1,6 +1,6 @@
 //! Client multi-step packet.
 
-use suon_position::direction::Direction;
+use suon_position::prelude::*;
 
 use crate::packets::decoder::Decoder;
 

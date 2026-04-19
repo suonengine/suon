@@ -258,8 +258,11 @@ mod tests {
     fn should_extend_the_block_duration_for_repeated_blocked_attempts() {
         let throttle = test_throttle();
 
-        for _ in 0..=throttle.policy.max_attempts {
-            let _ = throttle.attempt_connection(&ADDRESS);
+        for _ in 0..throttle.policy.max_attempts {
+            assert!(
+                throttle.attempt_connection(&ADDRESS).is_ok(),
+                "Attempts within the configured limit should still succeed"
+            );
             std::thread::sleep(throttle.policy.fast_attempt_threshold + Duration::from_millis(1));
         }
 

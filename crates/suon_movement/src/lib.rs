@@ -1,8 +1,8 @@
 //! Movement systems for stepping and teleporting entities across the Suon world.
 //!
 //! This crate owns intent-driven movement behaviors that update
-//! [`suon_position::position::Position`] and record
-//! [`suon_position::previous_position::PreviousPosition`] so downstream crates can
+//! [`suon_position::prelude::Position`] and record
+//! [`suon_position::prelude::PreviousPosition`] so downstream crates can
 //! react consistently to movement.
 //!
 //! # Modules
@@ -14,9 +14,9 @@
 //! # Examples
 //! ```no_run
 //! use bevy::prelude::*;
-//! use suon_chunk::{Chunk, ChunkPlugin, chunks::Chunks};
-//! use suon_movement::prelude::{MovementPlugins, StepIntent};
-//! use suon_position::{direction::Direction, floor::Floor, position::Position};
+//! use suon_chunk::prelude::*;
+//! use suon_movement::prelude::*;
+//! use suon_position::prelude::*;
 //!
 //! let mut app = App::new();
 //! app.add_plugins(MinimalPlugins);
@@ -88,11 +88,8 @@ mod tests {
 
     #[test]
     fn should_allow_prelude_imports_for_public_movement_types() {
-        use crate::prelude::{
-            MovementPlugins, Step, StepAcrossChunk, StepIntent, StepPath, Teleport,
-            TeleportAcrossChunk, TeleportIntent,
-        };
-        use suon_position::direction::Direction;
+        use crate::prelude::*;
+        use suon_position::prelude::*;
 
         let _ = std::mem::size_of::<MovementPlugins>();
         let _ = std::mem::size_of::<Step>();

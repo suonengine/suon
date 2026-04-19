@@ -1,7 +1,7 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use serde::{Deserialize, Serialize};
 use std::{hint::black_box, time::Duration};
-use suon_serde::duration::{as_millis, as_secs};
+use suon_serde::prelude::*;
 
 #[derive(Serialize, Deserialize)]
 struct MillisContainer {

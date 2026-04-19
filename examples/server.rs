@@ -1,4 +1,3 @@
-use bevy::prelude::*;
 use suon::prelude::*;
 
 fn main() {

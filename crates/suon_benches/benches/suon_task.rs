@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use suon_task::background::{AppWithBackgroundTasks, BackgroundTask};
+use suon_task::prelude::*;
 
 struct BenchTask;
 

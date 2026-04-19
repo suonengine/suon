@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bytes::BytesMut;
 use std::{net::SocketAddr, sync::Mutex};
-use suon_protocol::packets::server::Encodable;
+use suon_protocol_server::prelude::*;
 use suon_xtea::XTEAKey;
 use thiserror::Error;
 
@@ -264,15 +264,11 @@ mod tests {
         net::{Ipv4Addr, SocketAddrV4},
         time::Instant,
     };
-    use suon_protocol::packets::{
-        client::PacketKind as ClientPacketKind,
-        server::{Encodable, PacketKind as ServerPacketKind},
-    };
 
     struct DummyPacket;
 
     impl Encodable for DummyPacket {
-        const KIND: ServerPacketKind = ServerPacketKind::KeepAlive;
+        const KIND: PacketKind = PacketKind::KeepAlive;
     }
 
     fn build_connection(
@@ -308,7 +304,7 @@ mod tests {
             .send(IncomingPacket {
                 timestamp: Instant::now(),
                 checksum: None,
-                kind: ClientPacketKind::KeepAlive,
+                kind: suon_protocol_client::prelude::PacketKind::KeepAlive,
                 buffer: Bytes::from_static(b""),
             })
             .expect("The incoming packet channel should accept packets during the test");
@@ -322,7 +318,7 @@ mod tests {
         );
         assert_eq!(
             packets[0].kind,
-            ClientPacketKind::KeepAlive,
+            suon_protocol_client::prelude::PacketKind::KeepAlive,
             "read should preserve the incoming packet kind"
         );
     }
@@ -384,7 +380,7 @@ mod tests {
         );
         assert_eq!(
             &encoded.as_ref()[6..],
-            &[1, 0, ServerPacketKind::KeepAlive as u8],
+            &[1, 0, PacketKind::KeepAlive as u8],
             "The flushed outgoing packet should preserve the encoded keep-alive payload"
         );
     }

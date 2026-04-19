@@ -6,8 +6,8 @@
 //! is not applied yet.
 
 use bevy::prelude::*;
-use suon_chunk::chunks::Chunks;
-use suon_position::{floor::Floor, position::Position, previous_position::PreviousPosition};
+use suon_chunk::prelude::*;
+use suon_position::prelude::*;
 
 pub struct TeleportPlugin;
 
@@ -97,7 +97,7 @@ fn on_teleport_intent(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use suon_chunk::{CHUNK_SIZE, Chunk, ChunkPlugin, content::AtChunk};
+    use suon_chunk::{self, CHUNK_SIZE};
 
     #[test]
     fn should_update_position_on_successful_teleport() {

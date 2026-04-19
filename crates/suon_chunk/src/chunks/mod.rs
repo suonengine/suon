@@ -1,12 +1,12 @@
 //! Chunk ownership registry.
 //!
 //! This module exposes [`Chunks`], the resource used to resolve which chunk entity
-//! owns a given world-space [`suon_position::position::Position`].
+//! owns a given world-space [`suon_position::prelude::Position`].
 
 use crate::chunks::key::ChunkKey;
 use bevy::prelude::*;
 use std::collections::*;
-use suon_position::position::Position;
+use suon_position::prelude::*;
 
 pub mod key;
 
@@ -22,8 +22,8 @@ impl Chunks {
     /// # Examples
     /// ```
     /// use bevy::prelude::Entity;
-    /// use suon_chunk::chunks::Chunks;
-    /// use suon_position::position::Position;
+    /// use suon_chunk::prelude::*;
+    /// use suon_position::prelude::*;
     ///
     /// let chunk = Entity::from_bits(7);
     /// let chunks = Chunks::from_iter([(Position { x: 12, y: 20 }, chunk)]);
@@ -50,8 +50,8 @@ impl Chunks {
     /// # Examples
     /// ```
     /// use bevy::prelude::Entity;
-    /// use suon_chunk::chunks::Chunks;
-    /// use suon_position::position::Position;
+    /// use suon_chunk::prelude::*;
+    /// use suon_position::prelude::*;
     ///
     /// let chunks = Chunks::from_iter([(Position { x: 8, y: 8 }, Entity::from_bits(1))]);
     ///
@@ -67,8 +67,8 @@ impl Chunks {
     /// # Examples
     /// ```
     /// use bevy::prelude::Entity;
-    /// use suon_chunk::chunks::Chunks;
-    /// use suon_position::position::Position;
+    /// use suon_chunk::prelude::*;
+    /// use suon_position::prelude::*;
     ///
     /// let chunks = Chunks::from_iter([
     ///     (Position { x: 0, y: 0 }, Entity::from_bits(1)),
@@ -86,8 +86,8 @@ impl Chunks {
     /// # Examples
     /// ```
     /// use bevy::prelude::Entity;
-    /// use suon_chunk::chunks::Chunks;
-    /// use suon_position::position::Position;
+    /// use suon_chunk::prelude::*;
+    /// use suon_position::prelude::*;
     ///
     /// let empty = Chunks::default();
     /// let filled = Chunks::from_iter([(Position { x: 0, y: 0 }, Entity::from_bits(1))]);
@@ -111,8 +111,8 @@ impl FromIterator<(Position, Entity)> for Chunks {
     /// # Examples
     /// ```
     /// use bevy::prelude::Entity;
-    /// use suon_chunk::chunks::Chunks;
-    /// use suon_position::position::Position;
+    /// use suon_chunk::prelude::*;
+    /// use suon_position::prelude::*;
     ///
     /// let chunk = Entity::from_bits(99);
     /// let chunks = Chunks::from_iter([(Position { x: 4, y: 4 }, chunk)]);

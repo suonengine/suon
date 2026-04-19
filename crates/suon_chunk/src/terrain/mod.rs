@@ -3,13 +3,13 @@
 //! [`Navigation`] mirrors occupied floor-position pairs into a passability map
 //! stored on each chunk. Known nodes are registered as they are seen by the
 //! runtime synchronization flow and are marked blocked while an
-//! [`crate::occupancy::occupied::Occupied`] entity is present on that tile.
+//! [`crate::prelude::Occupied`] entity is present on that tile.
 
 use crate::{chunks::Chunks, occupancy::occupied::Occupied};
 use bevy::prelude::*;
 use enumflags2::{BitFlags, bitflags};
 use std::collections::HashMap;
-use suon_position::{floor::Floor, position::Position, previous_position::PreviousPosition};
+use suon_position::prelude::*;
 
 #[bitflags]
 #[repr(u8)]
@@ -53,8 +53,8 @@ impl Navigation {
     /// # Examples
     /// ```no_run
     /// use bevy::prelude::*;
-    /// use suon_chunk::{Chunk, ChunkPlugin, chunks::Chunks, occupancy::occupied::Occupied, terrain::Navigation};
-    /// use suon_position::{floor::Floor, position::Position};
+    /// use suon_chunk::prelude::*;
+    /// use suon_position::prelude::*;
     ///
     /// let mut app = App::new();
     /// app.add_plugins(MinimalPlugins);

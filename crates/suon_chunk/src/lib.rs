@@ -3,55 +3,57 @@
 //! This crate groups world positions into chunk entities and provides the runtime
 //! data needed to answer three core spatial questions:
 //!
-//! - which chunk owns a given world-space
-//!   [`suon_position::position::Position`]
+//! - which chunk owns a given world-space [`suon_position::prelude::Position`]
 //! - which chunk currently contains a given entity
 //! - which floor-position pairs inside a chunk are occupied
 //!
 //! # Responsibilities
 //!
-//! [`Chunks`] is the global registry that maps world positions to chunk entities.
-//! [`Chunk`] marks entities that act as chunk containers and automatically carries
-//! an [`Occupancy`] store. [`content::AtChunk`] is the relationship component that
-//! links an entity back to the chunk that currently contains it.
+//! [`crate::prelude::Chunks`] is the global registry that maps world positions to
+//! chunk entities. [`Chunk`] marks entities that act as chunk containers and
+//! automatically carries an [`crate::prelude::Occupancy`] store.
+//! [`crate::prelude::AtChunk`] is the relationship component that links an entity
+//! back to the chunk that currently contains it.
 //!
-//! The crate treats [`suon_position::position::Position`] as the source of truth
+//! The crate treats [`suon_position::prelude::Position`] as the source of truth
 //! for chunk ownership. [`ChunkPlugin`] uses lifecycle observers on
-//! [`suon_position::position::Position`] to synchronize [`content::AtChunk`] and
-//! to resynchronize occupied tiles using
-//! [`suon_position::previous_position::PreviousPosition`].
+//! [`suon_position::prelude::Position`] to synchronize [`crate::prelude::AtChunk`]
+//! and to resynchronize occupied tiles using
+//! [`suon_position::prelude::PreviousPosition`].
 //!
 //! # Runtime flow
 //!
 //! A typical end-to-end flow looks like this:
 //!
 //! 1. Chunk entities are created with [`Chunk`].
-//! 2. The world populates [`Chunks`] with the positions owned by each chunk.
-//! 3. Game entities receive a [`suon_position::position::Position`] and optionally
+//! 2. The world populates [`crate::prelude::Chunks`] with the positions owned by
+//!    each chunk.
+//! 3. Game entities receive a [`suon_position::prelude::Position`] and optionally
 //!    an [`occupancy::occupied::Occupied`] marker.
-//! 4. [`ChunkPlugin`] derives [`content::AtChunk`] automatically from the current
-//!    [`suon_position::position::Position`].
+//! 4. [`ChunkPlugin`] derives [`crate::prelude::AtChunk`] automatically from the
+//!    current [`suon_position::prelude::Position`].
 //! 5. Occupied entities register their current tile in the destination chunk's
-//!    [`Occupancy`] map.
+//!    [`crate::prelude::Occupancy`] map.
 //! 6. When an occupied entity moves, the crate releases the previous tile and
 //!    registers the new one.
 //!
 //! # Modules
 //!
-//! - [`chunks`]: chunk registry and chunk-key derivation
-//! - [`content`]: entity-to-chunk relationship components
-//! - [`loader`]: placeholder resource for chunk loading orchestration
-//! - [`occupancy`]: per-chunk blocked-tile tracking and synchronization
-//! - [`terrain`]: per-chunk passability state synchronized from occupied tiles
+//! - `chunks`: chunk registry and chunk-key derivation
+//! - `content`: entity-to-chunk relationship components
+//! - `loader`: placeholder resource for chunk loading orchestration
+//! - `occupancy`: per-chunk blocked-tile tracking and synchronization
+//! - `terrain`: per-chunk passability state synchronized from occupied tiles
 //!
-//! At the moment, the end-to-end runtime flow is centered on [`Chunks`],
-//! [`content::AtChunk`], [`Occupancy`], and [`terrain::Navigation`].
+//! At the moment, the end-to-end runtime flow is centered on
+//! [`crate::prelude::Chunks`], [`crate::prelude::AtChunk`],
+//! [`crate::prelude::Occupancy`], and [`crate::prelude::Navigation`].
 //!
 //! # Examples
 //! ```no_run
 //! use bevy::prelude::*;
-//! use suon_chunk::{Chunk, ChunkPlugin, chunks::Chunks, content::AtChunk};
-//! use suon_position::position::Position;
+//! use suon_chunk::prelude::*;
+//! use suon_position::prelude::*;
 //!
 //! let mut app = App::new();
 //! app.add_plugins(MinimalPlugins);
@@ -68,29 +70,41 @@
 //! ```
 //!
 use crate::{
-    chunks::Chunks,
+    chunks::Chunks as ChunkRegistry,
     content::sync_at_chunk_from_position,
-    loader::ChunkLoader,
+    loader::ChunkLoader as ChunkLoaderResource,
     occupancy::{
-        Occupancy, resync_occupied_positions, sync_occupancy_register, sync_occupancy_unregister,
+        Occupancy as ChunkOccupancy, resync_occupied_positions, sync_occupancy_register,
+        sync_occupancy_unregister,
     },
     terrain::{
-        Navigation, resync_navigation_positions, sync_navigation_register,
+        Navigation as ChunkNavigation, resync_navigation_positions, sync_navigation_register,
         sync_navigation_unregister,
     },
 };
 use bevy::prelude::*;
 
 /// Chunk registry and chunk-key utilities.
-pub mod chunks;
+mod chunks;
 /// Entity relationship components that connect world content to chunks.
-pub mod content;
+mod content;
 /// Chunk loading resources and future loading orchestration.
-pub mod loader;
+mod loader;
 /// Occupancy state and synchronization systems for chunk-contained entities.
-pub mod occupancy;
+mod occupancy;
 /// Terrain navigation data structures synchronized from occupied tiles.
-pub mod terrain;
+mod terrain;
+
+pub mod prelude {
+    pub use crate::{
+        Active, CHUNK_AREA, CHUNK_EXP, CHUNK_MASK, CHUNK_SIZE, Chunk, ChunkPlugin, Inactive,
+        chunks::Chunks,
+        content::{AtChunk, Content},
+        loader::ChunkLoader,
+        occupancy::{Occupancy, occupied::Occupied},
+        terrain::Navigation,
+    };
+}
 /// The bit exponent used to define the power-of-two dimensions of a chunk.
 pub const CHUNK_EXP: usize = 3;
 
@@ -108,7 +122,8 @@ pub struct ChunkPlugin;
 
 impl Plugin for ChunkPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Chunks>().init_resource::<ChunkLoader>();
+        app.init_resource::<ChunkRegistry>()
+            .init_resource::<ChunkLoaderResource>();
 
         app.add_observer(sync_occupancy_register)
             .add_observer(sync_occupancy_unregister)
@@ -132,15 +147,18 @@ pub struct Inactive;
 
 #[derive(Component)]
 #[component(immutable)]
-#[require(Occupancy, Navigation)]
+#[require(ChunkOccupancy, ChunkNavigation)]
 /// Marker component identifying an entity as a chunk container.
 pub struct Chunk;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::content::{AtChunk, Content};
-    use suon_position::position::Position;
+    use crate::{
+        content::{AtChunk, Content},
+        prelude::*,
+    };
+    use suon_position::prelude::*;
 
     #[test]
     fn should_expose_consistent_chunk_constants() {
@@ -281,5 +299,27 @@ mod tests {
             chunk,
             "The derived chunk relationship should match the chunk registry"
         );
+    }
+
+    #[test]
+    fn should_expose_public_chunk_api_through_prelude() {
+        use crate::prelude::*;
+
+        let _ = std::mem::size_of::<Active>();
+        let _ = std::mem::size_of::<AtChunk>();
+        let _ = std::mem::size_of::<Chunk>();
+        let _ = std::mem::size_of::<ChunkLoader>();
+        let _ = std::mem::size_of::<ChunkPlugin>();
+        let _ = std::mem::size_of::<Chunks>();
+        let _ = std::mem::size_of::<Content>();
+        let _ = std::mem::size_of::<Inactive>();
+        let _ = std::mem::size_of::<Navigation>();
+        let _ = std::mem::size_of::<Occupancy>();
+        let _ = std::mem::size_of::<Occupied>();
+
+        assert_eq!(CHUNK_EXP, 3);
+        assert_eq!(CHUNK_SIZE, 1 << CHUNK_EXP);
+        assert_eq!(CHUNK_AREA, CHUNK_SIZE * CHUNK_SIZE);
+        assert_eq!(CHUNK_MASK, CHUNK_SIZE - 1);
     }
 }

@@ -6,7 +6,7 @@
 use crate::{chunks::Chunks, occupancy::occupied::Occupied};
 use bevy::prelude::*;
 use std::collections::*;
-use suon_position::{floor::Floor, position::Position, previous_position::PreviousPosition};
+use suon_position::prelude::*;
 
 pub mod occupied;
 
@@ -34,9 +34,9 @@ impl Occupancy {
     ///
     /// # Examples
     /// ```no_run
-    /// use suon_chunk::{Chunk, ChunkPlugin, chunks::Chunks, occupancy::{Occupancy, occupied::Occupied}};
     /// use bevy::prelude::*;
-    /// use suon_position::{floor::Floor, position::Position};
+    /// use suon_chunk::prelude::*;
+    /// use suon_position::prelude::*;
     ///
     /// let mut app = App::new();
     /// app.add_plugins(MinimalPlugins);

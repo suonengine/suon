@@ -1,8 +1,8 @@
 use bevy::prelude::Entity;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
-use suon_chunk::chunks::Chunks;
-use suon_position::position::Position;
+use suon_chunk::prelude::*;
+use suon_position::prelude::*;
 
 fn benchmark_chunk_lookup(c: &mut Criterion) {
     let mut group = c.benchmark_group("chunk");

@@ -30,6 +30,10 @@ pub use decrypt::{XTEADecryptError, decrypt};
 pub use encrypt::encrypt;
 pub use expand_key::expand_key;
 
+pub mod prelude {
+    pub use crate::{XTEADecryptError, XTEAKey, decrypt, encrypt, expand_key};
+}
+
 /// Represents a 128-bit XTEA key composed of four 32-bit words (4 x `u32` = 16 bytes).
 ///
 /// Each 32-bit word contributes to the overall 128-bit key used during

@@ -1,0 +1,157 @@
+use bytes::Bytes;
+
+use crate::packets::PACKET_KIND_SIZE;
+
+mod challenge;
+mod keep_alive;
+mod ping_latency;
+
+pub mod prelude {
+    pub use super::{
+        Encodable, PacketKind, challenge::ChallengePacket, keep_alive::KeepAlivePacket,
+        ping_latency::PingLatencyPacket,
+    };
+}
+
+/// Represents a packet type that can be serialized into a binary format.
+///
+/// This trait defines how a packet is transformed into raw bytes for transmission
+/// or storage. It provides a default encoding implementation that returns `None`,
+/// which can be overridden in concrete packet types. Typically, packets will also
+/// include a kind identifier via [`PacketKind`] when transmitted.
+///
+/// # Associated Constant
+/// - [`Self::KIND`]: The unique [`PacketKind`] that identifies this packet type.
+///
+/// # Methods
+/// - [`Self::encode`]: Encodes the packet payload into a [`Bytes`] buffer.
+///
+/// # Example
+/// ```
+/// use bytes::Bytes;
+/// use suon_protocol::prelude::*;
+/// use suon_protocol_server::prelude::*;
+///
+/// struct LoginPacket {
+///     username: String,
+/// }
+///
+/// impl Encodable for LoginPacket {
+///     const KIND: PacketKind = PacketKind::Challenge;
+///
+///     fn encode(self) -> Option<Bytes> {
+///         let mut encoder = Encoder::new();
+///         encoder.put_str(&self.username);
+///         Some(encoder.finalize())
+///     }
+/// }
+///
+/// let packet = LoginPacket { username: "Alice".into() };
+/// let encoded = packet.encode_with_kind();
+///
+/// assert_eq!(encoded.as_ref(), &[31, 5, 0, 65, 108, 105, 99, 101]);
+/// ```
+///
+/// This trait is typically paired with a corresponding `Decodable` trait to
+/// reconstruct the packet from a received byte stream.
+pub trait Encodable: Sized {
+    /// Unique kind identifier for this packet type.
+    const KIND: PacketKind;
+
+    /// Encodes the packet payload into a binary representation.
+    ///
+    /// This method can be overridden to provide custom encoding logic.
+    /// By default, it returns `None`, representing a packet with no payload.
+    fn encode(self) -> Option<Bytes> {
+        // No payload by default; only the packet kind is used
+        None
+    }
+
+    fn encode_with_kind(self) -> Bytes {
+        use crate::packets::encoder::Encoder;
+
+        if let Some(bytes) = self.encode() {
+            Encoder::with_capacity(PACKET_KIND_SIZE + bytes.len())
+                .put_u8(Self::KIND as u8)
+                .put_bytes(bytes)
+                .finalize()
+        } else {
+            Encoder::with_capacity(PACKET_KIND_SIZE)
+                .put_u8(Self::KIND as u8)
+                .finalize()
+        }
+    }
+}
+
+/// Defines the possible kinds or categories of network packets.
+///
+/// Each [`PacketKind`] corresponds to a specific packet type that implements
+/// the [`Encodable`] trait. This allows the system to determine how to serialize
+/// and distinguish different packet variants.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PacketKind {
+    /// Keeps the connection alive.
+    KeepAlive = 29,
+    /// Sent to measure latency between client and server.
+    PingLatency = 30,
+
+    /// Challenge during authentication
+    Challenge = 31,
+}
+
+impl std::fmt::Display for PacketKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?} (0x{:02X})", self, *self as u8)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const PAYLOAD: &[u8] = &[1, 2, 3, 4];
+
+    struct Packet;
+
+    impl Encodable for Packet {
+        const KIND: PacketKind = PacketKind::PingLatency;
+
+        fn encode(self) -> Option<Bytes> {
+            Some(Bytes::from_static(PAYLOAD))
+        }
+    }
+
+    #[test]
+    fn encode_packet_returns_expected_bytes() {
+        let packet = Packet;
+        let encoded = packet
+            .encode()
+            .expect("Encoding should produce a byte buffer");
+
+        assert_eq!(
+            encoded.as_ref(),
+            PAYLOAD,
+            "Encoded bytes should match the predefined payload"
+        );
+    }
+
+    #[test]
+    fn encode_with_kind_should_prefix_payload_with_packet_kind() {
+        let encoded = Packet.encode_with_kind();
+
+        assert_eq!(
+            encoded.as_ref(),
+            &[PacketKind::PingLatency as u8, 1, 2, 3, 4],
+            "encode_with_kind should prepend the server packet kind before the encoded payload"
+        );
+    }
+
+    #[test]
+    fn packet_kind_display_should_include_hex_identifier() {
+        assert_eq!(
+            PacketKind::Challenge.to_string(),
+            "Challenge (0x1F)",
+            "Display should include both the variant name and hexadecimal id"
+        );
+    }
+}

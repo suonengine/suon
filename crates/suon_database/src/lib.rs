@@ -310,7 +310,7 @@ mod tests {
 
     #[test]
     fn should_access_database_mut_through_prelude() {
-        use crate::prelude::{AppTablesExt, DatabaseMut, Table, Tables};
+        use crate::prelude::*;
 
         #[derive(Default)]
         struct PreludeTable {

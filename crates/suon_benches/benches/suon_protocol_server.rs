@@ -4,15 +4,8 @@ use std::{
     hint::black_box,
     time::{Duration, UNIX_EPOCH},
 };
-use suon_protocol::packets::{
-    client::{Decodable, prelude::KeepAlivePacket as ClientKeepAlivePacket},
-    decoder::Decoder,
-    encoder::Encoder,
-    server::{
-        Encodable, PacketKind,
-        prelude::{ChallengePacket, KeepAlivePacket as ServerKeepAlivePacket},
-    },
-};
+use suon_protocol::prelude::*;
+use suon_protocol_server::prelude::*;
 
 struct BenchPacket;
 
@@ -24,45 +17,15 @@ impl Encodable for BenchPacket {
     }
 }
 
-fn benchmark_protocol(c: &mut Criterion) {
-    let mut group = c.benchmark_group("protocol");
+fn benchmark_protocol_server(c: &mut Criterion) {
+    let mut group = c.benchmark_group("protocol_server");
 
     group.bench_function("encode_with_kind", |b| {
         b.iter(|| BenchPacket.encode_with_kind())
     });
 
-    for text in ["bench", "suon-protocol", "decode-benchmark-payload"] {
-        let payload = Encoder::new()
-            .put_bool(true)
-            .put_u32(42)
-            .put_str(text)
-            .finalize();
-
-        group.bench_with_input(
-            BenchmarkId::new("decode_sequence", text.len()),
-            &payload,
-            |b, payload| {
-                b.iter(|| {
-                    let mut slice = payload.as_ref();
-                    let flag = (&mut slice).get_bool().expect("bool should decode");
-                    let value = (&mut slice).get_u32().expect("u32 should decode");
-                    let text = (&mut slice).get_string().expect("string should decode");
-                    (flag, value, text)
-                })
-            },
-        );
-    }
-
-    group.bench_function("server_keep_alive_encode", |b| {
-        b.iter(|| ServerKeepAlivePacket.encode_with_kind())
-    });
-
-    group.bench_function("client_keep_alive_decode", |b| {
-        b.iter(|| {
-            let mut payload: &[u8] = black_box(&[]);
-            ClientKeepAlivePacket::decode(&mut payload)
-                .expect("Client keep-alive packets should decode without payload bytes")
-        })
+    group.bench_function("keep_alive_encode", |b| {
+        b.iter(|| KeepAlivePacket.encode_with_kind())
     });
 
     let challenge = ChallengePacket {
@@ -104,5 +67,5 @@ fn benchmark_protocol(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, benchmark_protocol);
+criterion_group!(benches, benchmark_protocol_server);
 criterion_main!(benches);

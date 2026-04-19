@@ -7,10 +7,8 @@
 use crate::prelude::*;
 use bevy::prelude::*;
 use std::time::*;
-use suon_chunk::{chunks::Chunks, occupancy::Occupancy};
-use suon_position::{
-    direction::Direction, floor::Floor, position::Position, previous_position::PreviousPosition,
-};
+use suon_chunk::prelude::*;
+use suon_position::prelude::*;
 
 pub mod path;
 pub mod timer;
@@ -134,9 +132,7 @@ fn on_step_intent(
 
 #[cfg(test)]
 mod tests {
-    use suon_chunk::{
-        CHUNK_SIZE, Chunk, ChunkPlugin, content::AtChunk, occupancy::occupied::Occupied,
-    };
+    use suon_chunk::{CHUNK_SIZE, prelude::*};
 
     use super::*;
     use std::time::Duration;

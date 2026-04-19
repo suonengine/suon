@@ -39,6 +39,8 @@ suon_movement.workspace = true
 suon_network.workspace = true
 suon_position.workspace = true
 suon_protocol.workspace = true
+suon_protocol_client.workspace = true
+suon_protocol_server.workspace = true
 suon_serde.workspace = true
 suon_task.workspace = true
 suon_xtea.workspace = true
@@ -76,7 +78,11 @@ name = "suon_position"
 harness = false
 
 [[bench]]
-name = "suon_protocol"
+name = "suon_protocol_client"
+harness = false
+
+[[bench]]
+name = "suon_protocol_server"
 harness = false
 
 [[bench]]

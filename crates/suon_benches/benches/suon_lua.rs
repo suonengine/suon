@@ -2,9 +2,9 @@ use bevy::prelude::*;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use serde::{Deserialize, Serialize};
 use std::hint::black_box;
-use suon_lua::{
-    AppLuaExt, LuaCommands, LuaPlugin, LuaScript, ScriptRegistry, WorldLuaComponentExt,
-    runtime::{ComponentAccessor, WorldLuaRuntimeExt},
+use suon_lua::prelude::{
+    AppLuaExt, ComponentAccessor, LuaCommands, LuaPlugin, LuaScript, ScriptRegistry,
+    WorldLuaComponentExt, WorldLuaRuntimeExt,
 };
 use suon_macros::{LuaComponent, LuaHook};
 

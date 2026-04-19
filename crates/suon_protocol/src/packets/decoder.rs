@@ -28,7 +28,7 @@ pub enum DecoderError {
 ///
 /// # Example
 /// ```
-/// use suon_protocol::packets::decoder::Decoder;
+/// use suon_protocol::prelude::*;
 ///
 /// let bytes = [7, 0, 1, 4, 0, b't', b'e', b's', b't'];
 /// let mut buffer: &[u8] = &bytes;
