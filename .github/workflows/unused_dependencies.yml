@@ -12,16 +12,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6.0.2
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
-      - uses: baptiste0928/cargo-install@v3.3.2
+      - uses: baptiste0928/cargo-install@v3.4.0
         with:
           crate: cargo-udeps
 
       - name: Restore cargo registry and git cache
-        uses: actions/cache@v4.3.0
+        uses: actions/cache@v5.0.5
         with:
           path: |
             ~/.cargo/registry/index/
@@ -32,7 +32,7 @@ jobs:
             ${{ runner.os }}-cargo-registry-
 
       - name: Restore workspace target cache
-        uses: actions/cache@v4.3.0
+        uses: actions/cache@v5.0.5
         with:
           path: target
           key: ${{ runner.os }}-udeps-target-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}

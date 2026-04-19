@@ -12,13 +12,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6.0.2
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: miri
 
       - name: Restore cargo registry and git cache
-        uses: actions/cache@v4.3.0
+        uses: actions/cache@v5.0.5
         with:
           path: |
             ~/.cargo/registry/index/
@@ -29,7 +29,7 @@ jobs:
             ${{ runner.os }}-cargo-registry-
 
       - name: Restore workspace target cache
-        uses: actions/cache@v4.3.0
+        uses: actions/cache@v5.0.5
         with:
           path: target
           key: ${{ runner.os }}-miri-target-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
