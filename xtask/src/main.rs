@@ -1,8 +1,10 @@
-use std::env;
-use std::ffi::OsString;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::{Command, ExitCode};
+use std::{
+    env,
+    ffi::OsString,
+    fs,
+    path::{Path, PathBuf},
+    process::{Command, ExitCode},
+};
 
 use serde_json::Value;
 
@@ -22,7 +24,8 @@ fn run() -> Result<(), String> {
     let mut args = env::args().skip(1);
     let Some(command) = args.next() else {
         return Err(
-            "usage: cargo build-artifacts [cargo build args]\n       cargo build-server [cargo build args]"
+            "usage: cargo build-artifacts [cargo build args]\n       cargo build-server [cargo \
+             build args]"
                 .to_string(),
         );
     };
@@ -59,22 +62,26 @@ fn build_artifacts(args: Vec<String>) -> Result<(), String> {
     let status = cargo
         .status()
         .map_err(|error| format!("failed to run cargo build: {error}"))?;
+
     if !status.success() {
         return Err(format!("cargo build failed with status {status}"));
     }
 
-    let target_triple = explicit_target.clone().or_else(|| host_target_triple(&workspace_root));
+    let target_triple = explicit_target
+        .clone()
+        .or_else(|| host_target_triple(&workspace_root));
+
     let platform = target_triple
         .as_deref()
         .map(normalize_platform)
         .unwrap_or_else(host_platform);
+
     let arch = target_triple
         .as_deref()
         .map(normalize_arch)
         .unwrap_or_else(host_arch);
-    let runtime = target_triple
-        .as_deref()
-        .and_then(runtime_variant);
+
+    let runtime = target_triple.as_deref().and_then(runtime_variant);
     let version = format!(
         "v{}",
         package
@@ -82,6 +89,7 @@ fn build_artifacts(args: Vec<String>) -> Result<(), String> {
             .and_then(Value::as_str)
             .ok_or_else(|| "failed to read package version from cargo metadata".to_string())?
     );
+
     let commit = git_short_commit(&workspace_root);
 
     if selected_targets.is_empty() {
@@ -96,8 +104,12 @@ fn build_artifacts(args: Vec<String>) -> Result<(), String> {
             &platform,
             &target,
         );
+
         if !source.exists() {
-            return Err(format!("built executable not found at {}", source.display()));
+            return Err(format!(
+                "built executable not found at {}",
+                source.display()
+            ));
         }
 
         let artifact_name = artifact_name(
@@ -109,6 +121,7 @@ fn build_artifacts(args: Vec<String>) -> Result<(), String> {
             commit.as_deref(),
             &channel,
         );
+
         let destination = source.with_file_name(executable_name(&artifact_name, &platform));
 
         if source.exists() {
@@ -122,7 +135,10 @@ fn build_artifacts(args: Vec<String>) -> Result<(), String> {
             continue;
         }
 
-        return Err(format!("built executable not found at {}", source.display()));
+        return Err(format!(
+            "built executable not found at {}",
+            source.display()
+        ));
     }
     Ok(())
 }
@@ -149,6 +165,7 @@ fn explicit_target(args: &[String]) -> Option<String> {
         if let Some(target) = arg.strip_prefix("--target=") {
             return Some(target.to_string());
         }
+
         if arg == "--target" {
             return args.get(index + 1).cloned();
         }
@@ -164,18 +181,19 @@ fn channel(args: &[String], profile: &str) -> String {
         if let Some(value) = arg.strip_prefix("--channel=") {
             return normalize_channel(value);
         }
-        if arg == "--channel" {
-            if let Some(value) = args.get(index + 1) {
-                return normalize_channel(value);
-            }
+
+        if arg == "--channel"
+            && let Some(value) = args.get(index + 1)
+        {
+            return normalize_channel(value);
         }
         index += 1;
     }
 
-    if let Ok(value) = env::var("SUON_RELEASE_CHANNEL") {
-        if !value.is_empty() {
-            return normalize_channel(&value);
-        }
+    if let Ok(value) = env::var("SUON_RELEASE_CHANNEL")
+        && !value.is_empty()
+    {
+        return normalize_channel(&value);
     }
 
     profile.to_string()
@@ -321,7 +339,10 @@ fn workspace_metadata(workspace_root: &Path) -> Result<Value, String> {
         .map_err(|error| format!("failed to run cargo metadata: {error}"))?;
 
     if !output.status.success() {
-        return Err(format!("cargo metadata failed with status {}", output.status));
+        return Err(format!(
+            "cargo metadata failed with status {}",
+            output.status
+        ));
     }
 
     serde_json::from_slice(&output.stdout)
@@ -394,8 +415,11 @@ fn selected_targets(package: &Value, args: &[String]) -> Vec<Target> {
         index += 1;
     }
 
-    let has_explicit_selection =
-        include_all_bins || include_all_examples || include_all_targets || !selected_bins.is_empty() || !selected_examples.is_empty();
+    let has_explicit_selection = include_all_bins
+        || include_all_examples
+        || include_all_targets
+        || !selected_bins.is_empty()
+        || !selected_examples.is_empty();
 
     available
         .into_iter()
@@ -412,7 +436,8 @@ fn selected_targets(package: &Value, args: &[String]) -> Vec<Target> {
             if target.kind == "bin" && selected_bins.iter().any(|name| name == &target.name) {
                 return true;
             }
-            if target.kind == "example" && selected_examples.iter().any(|name| name == &target.name) {
+            if target.kind == "example" && selected_examples.iter().any(|name| name == &target.name)
+            {
                 return true;
             }
 
