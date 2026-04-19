@@ -1,0 +1,59 @@
+name: Artifacts
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  artifacts:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            arch: x64
+            platform: windows
+          - os: ubuntu-latest
+            arch: x64
+            platform: linux
+          - os: macos-latest
+            arch: arm64
+            platform: macos
+    name: Build artifacts on ${{ matrix.platform }}-${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - name: Restore cargo registry and git cache
+        uses: actions/cache@v4.3.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Restore workspace target cache
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-artifacts-target-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-artifacts-target-
+
+      - name: Build named artifacts
+        run: cargo build-artifacts --release
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: suon-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            target/release/suon-*
+            target/release/examples/suon-*
+          if-no-files-found: error

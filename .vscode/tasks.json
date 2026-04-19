@@ -13,6 +13,27 @@
       "problemMatcher": "$rustc"
     },
     {
+      "label": "Build artifacts (debug)",
+      "type": "shell",
+      "command": "cargo build-artifacts",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": "$rustc"
+    },
+    {
+      "label": "Build artifacts (release)",
+      "type": "shell",
+      "command": "cargo build-artifacts --release",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": "$rustc"
+    },
+    {
       "label": "Check formatting (rustfmt)",
       "type": "shell",
       "command": "cargo fmt --all -- --check",
