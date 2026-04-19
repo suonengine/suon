@@ -23,24 +23,13 @@ fn main() -> ExitCode {
 fn run() -> Result<(), String> {
     let mut args = env::args().skip(1);
     let Some(command) = args.next() else {
-        return Err(
-            "usage: cargo build-artifacts [cargo build args]\n       cargo build-server [cargo \
-             build args]"
-                .to_string(),
-        );
+        return Err("usage: cargo build-artifacts [cargo build args]".to_string());
     };
 
     match command.as_str() {
         "build-artifacts" => build_artifacts(args.collect()),
-        "build-server" => build_server(args.collect()),
         _ => Err(format!("unknown xtask command: {command}")),
     }
-}
-
-fn build_server(args: Vec<String>) -> Result<(), String> {
-    let mut build_args = vec!["--example".to_string(), "server".to_string()];
-    build_args.extend(args);
-    build_artifacts(build_args)
 }
 
 fn build_artifacts(args: Vec<String>) -> Result<(), String> {
