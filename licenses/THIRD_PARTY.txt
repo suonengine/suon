@@ -1,0 +1,94 @@
+Third-Party Licenses
+====================
+
+This file lists all third-party crates used by the suon workspace and their
+respective licenses. License texts are available in this same directory.
+
+Some crates appear in more than one section because their SPDX expressions
+offer alternative licensing terms. In those cases, the repeated entries are
+intentional and document each available option.
+
+
+MIT OR Apache-2.0 (dual-licensed)
+----------------------------------
+These crates allow distribution under either MIT or Apache-2.0. See MIT.txt
+and Apache-2.0.txt in this directory.
+
+  anyhow, arrayvec, assert_type_match, async-channel, async-executor,
+  async-fs, async-io, async-lock, async-net, async-process, async-signal,
+  async-task, atomic-waker, autocfg, bevy, bevy_app, bevy_derive,
+  bevy_diagnostic, bevy_ecs, bevy_ecs_macros, bevy_input, bevy_internal,
+  bevy_log, bevy_macro_utils, bevy_math, bevy_platform, bevy_ptr,
+  bevy_reflect, bevy_reflect_derive, bevy_tasks, bevy_time, bevy_transform,
+  bevy_utils, bitflags, blocking, bstr, bumpalo, bytemuck, bytemuck_derive,
+  cc, cfg-if, concurrent-queue, crossbeam-channel, crossbeam-queue,
+  crossbeam-utils, ctrlc, disqualified, downcast-rs, either, enumflags2,
+  enumflags2_derive, equivalent, erased-serde, errno, event-listener,
+  event-listener-strategy, fastrand, find-msvc-tools, fixedbitset,
+  futures-core, futures-io, futures-lite, glam, hashbrown, humantime,
+  indexmap, itertools, itoa, lazy_static, libc, lock_api, log, nonmax,
+  ntapi, num-traits, once_cell, parking, parking_lot, parking_lot_core,
+  pin-project-lite, piper, pkg-config, polling, proc-macro2, quote,
+  regex-automata, regex-syntax, rustc-hash, rustc_version, rustversion,
+  scopeguard, semver, serde, serde_core, serde_derive, serde_json,
+  serde_spanned, shlex, signal-hook-registry, smallvec, smol, syn,
+  thiserror, thiserror-impl, thread_local, toml, toml_datetime, toml_edit,
+  toml_parser, toml_writer, typeid, unicode-ident, unicode-segmentation,
+  unicode-xid, variadics_please, version_check, winapi, windows,
+  windows-collections, windows-core, windows-future, windows-implement,
+  windows-interface, windows-link, windows-numerics, windows-result,
+  windows-strings, windows-sys, windows-threading, winnow, winresource
+
+
+MIT
+---
+These crates allow distribution under MIT. Some may also appear elsewhere when
+they offer additional alternative licenses. See MIT.txt in this directory.
+
+  bytes, cfg_aliases, const-fnv1a-hash, convert_case, derive_more,
+  derive_more-impl, libm, lua-src, luajit-src, matchers, memchr, mlua,
+  mlua-sys, nix, nu-ansi-term, rustix, sharded-slab, slab, spin, sysinfo,
+  tokio, tracing, tracing-core, tracing-log, tracing-subscriber, which,
+  zmij
+
+
+Apache-2.0 WITH LLVM-exception
+-------------------------------
+These crates allow distribution under Apache-2.0 WITH LLVM-exception. Some
+may also appear elsewhere when they offer additional alternative licenses. See
+Apache-2.0-WITH-LLVM-exception.txt in this directory.
+
+  linux-raw-sys, rustix
+
+
+MPL-2.0
+-------
+See MPL-2.0.txt in this directory.
+
+  smol-timeout
+
+
+Unicode-3.0
+-----------
+See Unicode-3.0.txt in this directory.
+
+  unicode-ident
+
+
+Unlicense
+---------
+These crates also permit distribution under the Unlicense. See Unlicense.txt
+in this directory.
+
+  memchr  (also available under MIT)
+
+
+Zlib
+----
+These crates also permit distribution under Zlib. See Zlib.txt in this
+directory.
+
+  bytemuck, bytemuck_derive, foldhash, slotmap
+
+
+Generated from: cargo deny list
