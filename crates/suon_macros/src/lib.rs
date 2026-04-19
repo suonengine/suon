@@ -11,6 +11,7 @@
 //! ```
 
 mod lua_component;
+mod lua_hook;
 mod resource;
 
 use proc_macro::TokenStream;
@@ -58,4 +59,25 @@ pub fn derive_table(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(LuaComponent, attributes(lua))]
 pub fn derive_lua_component(input: TokenStream) -> TokenStream {
     lua_component::derive_lua_component(input)
+}
+
+/// Derives `suon_lua::Hook` for a serializable hook payload.
+///
+/// The Lua-visible hook name defaults to `on{StructName}`. Override with
+/// `#[lua(name = "onCustom")]`.
+///
+/// # Usage
+/// ```ignore
+/// use serde::Serialize;
+/// use suon_macros::LuaHook;
+///
+/// #[derive(Serialize, LuaHook)]
+/// struct Move {
+///     from: (i32, i32),
+///     to: (i32, i32),
+/// }
+/// ```
+#[proc_macro_derive(LuaHook, attributes(lua))]
+pub fn derive_lua_hook(input: TokenStream) -> TokenStream {
+    lua_hook::derive_lua_hook(input)
 }

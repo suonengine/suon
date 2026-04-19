@@ -15,10 +15,12 @@ thread_local! {
 ///
 /// Automatically clears the pointer on drop, so panics inside hooks are safe.
 pub(crate) struct WorldContext<'world> {
+    /// Lifetime marker tying the guard to the borrowed world reference.
     _world: PhantomData<&'world mut World>,
 }
 
 impl<'world> WorldContext<'world> {
+    /// Publishes `world` to the thread-local bridge for the lifetime of the guard.
     pub(crate) fn enter(world: &'world mut World) -> Self {
         WORLD.with(|world_cell| world_cell.set(world as *mut World));
         Self {
@@ -28,6 +30,7 @@ impl<'world> WorldContext<'world> {
 }
 
 impl Drop for WorldContext<'_> {
+    /// Clears the thread-local pointer when the guard goes out of scope.
     fn drop(&mut self) {
         WORLD.with(|world_cell| world_cell.set(std::ptr::null_mut()));
     }

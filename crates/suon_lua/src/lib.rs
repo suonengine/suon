@@ -38,6 +38,8 @@
 //! }
 //! ```
 
+extern crate self as suon_lua;
+
 pub(crate) mod api;
 pub mod commands;
 pub mod lua_component;
@@ -45,7 +47,7 @@ pub mod runtime;
 pub mod script;
 pub(crate) mod world_cell;
 
-pub use commands::{LuaCommands, RunLuaHook, RunLuaScript};
+pub use commands::{Hook, LuaCommands, RunLuaHook, RunLuaScript};
 pub use lua_component::{
     AppLuaExt, LuaComponent, deserialize_component, register_component_id, serialize_component,
 };
@@ -83,12 +85,21 @@ impl Plugin for LuaPlugin {
 mod tests {
     use super::*;
     use serde::{Deserialize, Serialize};
+    use suon_macros::LuaHook;
 
     use crate::{
         deserialize_component, register_component_id,
         runtime::{ComponentAccessor, LuaRuntime},
         serialize_component,
     };
+
+    #[derive(LuaHook, Serialize)]
+    #[lua(name = "onTick")]
+    struct TickHook;
+
+    #[derive(LuaHook, Serialize)]
+    #[lua(name = "onHeal")]
+    struct HealHook;
 
     #[derive(Serialize, Deserialize, Clone)]
     struct Mana {
@@ -136,11 +147,14 @@ mod tests {
     }
 
     fn run_lua(app: &mut App, source: &str) {
-        LuaRuntime::take_scope(app.world_mut(), |runtime, world| {
+        let result = LuaRuntime::take_scope(app.world_mut(), |runtime, world| {
             runtime.scope(world).execute(source)
-        })
-        .expect("LuaRuntime missing")
-        .expect("lua exec should succeed");
+        });
+        let result = match result {
+            Some(result) => result,
+            None => panic!("LuaRuntime missing"),
+        };
+        result.unwrap_or_else(|error| panic!("lua exec should succeed: {error}"));
     }
 
     #[test]
@@ -191,7 +205,7 @@ mod tests {
         assert_eq!(
             app.world()
                 .get::<Mana>(entity)
-                .expect("Mana should be present")
+                .unwrap_or_else(|| panic!("Mana should be present"))
                 .points,
             99
         );
@@ -215,7 +229,7 @@ mod tests {
         assert_eq!(
             app.world()
                 .get::<Mana>(entity)
-                .expect("Mana should be present")
+                .unwrap_or_else(|| panic!("Mana should be present"))
                 .points,
             7
         );
@@ -237,13 +251,16 @@ mod tests {
             ))
             .id();
 
-        app.world_mut().commands().lua_hook(entity, "onHeal");
+        app.world_mut()
+            .commands()
+            .lua_hook(entity, HealHook)
+            .unwrap_or_else(|error| panic!("hook args should serialize: {error}"));
         app.world_mut().flush();
 
         assert_eq!(
             app.world()
                 .get::<Mana>(entity)
-                .expect("Mana should be present")
+                .unwrap_or_else(|| panic!("Mana should be present"))
                 .points,
             10
         );
@@ -254,7 +271,10 @@ mod tests {
         let mut app = app_with_lua();
         let entity = app.world_mut().spawn_empty().id();
 
-        app.world_mut().commands().lua_hook(entity, "onTick");
+        app.world_mut()
+            .commands()
+            .lua_hook(entity, TickHook)
+            .unwrap_or_else(|error| panic!("hook args should serialize: {error}"));
         app.world_mut().flush();
     }
 
@@ -266,7 +286,10 @@ mod tests {
             .spawn(LuaScript::new("-- no hooks here"))
             .id();
 
-        app.world_mut().commands().lua_hook(entity, "onTick");
+        app.world_mut()
+            .commands()
+            .lua_hook(entity, TickHook)
+            .unwrap_or_else(|error| panic!("hook args should serialize: {error}"));
         app.world_mut().flush();
     }
 
@@ -278,7 +301,10 @@ mod tests {
             .spawn(LuaScript::new("function Entity:onTick() ran = true end"))
             .id();
 
-        app.world_mut().commands().lua_hook(entity, "onTick");
+        app.world_mut()
+            .commands()
+            .lua_hook(entity, TickHook)
+            .unwrap_or_else(|error| panic!("hook args should serialize: {error}"));
         app.world_mut().despawn(entity);
         app.world_mut().flush();
 
@@ -311,7 +337,7 @@ mod tests {
         assert_eq!(
             app.world()
                 .get::<Mana>(entity)
-                .expect("Mana should exist")
+                .unwrap_or_else(|| panic!("Mana should exist"))
                 .points,
             11
         );
@@ -355,7 +381,7 @@ mod tests {
             .resource::<ScriptRegistry>()
             .components
             .get("Mana")
-            .expect("Mana should still be in registry")
+            .unwrap_or_else(|| panic!("Mana should still be in registry"))
             .get;
 
         let mut dummy_world = World::new();
@@ -399,21 +425,24 @@ mod tests {
         world.clear_trackers();
         world.increment_change_tick();
 
-        LuaRuntime::take_scope(&mut world, |runtime, w| {
+        let result = LuaRuntime::take_scope(&mut world, |runtime, w| {
             runtime.scope(w).execute(&format!(
                 "Entity({}):set('Coins', {{ count = 5 }})",
                 entity.to_bits()
             ))
-        })
-        .expect("LuaRuntime missing")
-        .expect("lua exec should succeed");
+        });
+        let result = match result {
+            Some(result) => result,
+            None => panic!("LuaRuntime missing"),
+        };
+        result.unwrap_or_else(|error| panic!("lua exec should succeed: {error}"));
 
         // ComponentTicks::is_changed uses world.last_change_tick() as last_run, so
         // the insert that happened after increment_change_tick() must be detected.
         let ticks = world
             .entity(entity)
             .get_change_ticks::<Coins>()
-            .expect("Coins should have change ticks");
+            .unwrap_or_else(|| panic!("Coins should have change ticks"));
 
         assert!(
             ticks.is_changed(world.last_change_tick(), world.change_tick()),
@@ -441,7 +470,9 @@ mod tests {
             .id();
 
         app.add_systems(Update, move |mut commands: Commands| {
-            commands.lua_hook(entity, "onTick");
+            commands
+                .lua_hook(entity, TickHook)
+                .unwrap_or_else(|error| panic!("hook args should serialize: {error}"));
         });
 
         app.update();
@@ -450,7 +481,7 @@ mod tests {
         assert_eq!(
             app.world()
                 .get::<Mana>(entity)
-                .expect("Mana should exist")
+                .unwrap_or_else(|| panic!("Mana should exist"))
                 .points,
             2,
             "hook should have incremented Mana.points once per Update tick"

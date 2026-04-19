@@ -33,6 +33,7 @@ pub fn derive_table(input: TokenStream) -> TokenStream {
     TokenStream::from(expand_derive_table(derive_input))
 }
 
+/// Builds the generated implementation for `Table`.
 fn expand_derive_table(mut derive_input: DeriveInput) -> TokenStream2 {
     // Add a `where` clause to the impl to require that Self implements Send + Sync + 'static.
     derive_input
@@ -63,8 +64,10 @@ mod tests {
 
     #[test]
     fn derive_table_adds_impl_and_thread_safety_bounds() {
-        let input: DeriveInput =
-            syn::parse_str("struct Inventory<T>(T);").expect("Input should parse");
+        let input: DeriveInput = match syn::parse_str("struct Inventory<T>(T);") {
+            Ok(input) => input,
+            Err(error) => panic!("Input should parse: {error}"),
+        };
         let output = expand_derive_table(input).to_string();
 
         assert!(
@@ -80,8 +83,10 @@ mod tests {
 
     #[test]
     fn derive_table_preserves_existing_where_clause() {
-        let input: DeriveInput =
-            syn::parse_str("struct Inventory<T>(T) where T: Clone;").expect("Input should parse");
+        let input: DeriveInput = match syn::parse_str("struct Inventory<T>(T) where T: Clone;") {
+            Ok(input) => input,
+            Err(error) => panic!("Input should parse: {error}"),
+        };
         let output = expand_derive_table(input).to_string();
 
         assert!(
@@ -93,8 +98,10 @@ mod tests {
 
     #[test]
     fn derive_table_supports_named_structs() {
-        let input: DeriveInput =
-            syn::parse_str("struct Inventory { slots: usize }").expect("Input should parse");
+        let input: DeriveInput = match syn::parse_str("struct Inventory { slots: usize }") {
+            Ok(input) => input,
+            Err(error) => panic!("Input should parse: {error}"),
+        };
         let output = expand_derive_table(input).to_string();
 
         assert!(
@@ -105,8 +112,10 @@ mod tests {
 
     #[test]
     fn derive_table_supports_lifetime_and_type_generics() {
-        let input: DeriveInput =
-            syn::parse_str("struct Borrowed<'a, T>(&'a T);").expect("Input should parse");
+        let input: DeriveInput = match syn::parse_str("struct Borrowed<'a, T>(&'a T);") {
+            Ok(input) => input,
+            Err(error) => panic!("Input should parse: {error}"),
+        };
         let output = expand_derive_table(input).to_string();
 
         assert!(

@@ -96,6 +96,13 @@ mod tests {
     use crate::runtime::{LuaRuntime, ScriptRegistry};
     use serde::{Deserialize, Serialize};
 
+    fn assert_some<T>(value: Option<T>, context: &str) -> T {
+        match value {
+            Some(value) => value,
+            None => panic!("{context}"),
+        }
+    }
+
     #[derive(Component, Serialize, Deserialize)]
     struct Gold {
         amount: i32,
@@ -128,15 +135,17 @@ mod tests {
         runtime
             .scope(world)
             .execute(lua)
-            .expect("lua exec should succeed");
+            .unwrap_or_else(|error| panic!("lua exec should succeed: {error}"));
     }
 
     #[test]
     fn serialize_component_serializes_to_json() {
         let mut world = World::new();
         let entity = world.spawn(Gold { amount: 42 }).id();
-        let json = serialize_component::<Gold>(entity, &mut world)
-            .expect("Gold should be present on entity");
+        let json = assert_some(
+            serialize_component::<Gold>(entity, &mut world),
+            "Gold should be present on entity",
+        );
         assert_eq!(json["amount"], serde_json::json!(42));
     }
 
@@ -155,7 +164,7 @@ mod tests {
         assert_eq!(
             world
                 .get::<Gold>(entity)
-                .expect("Gold should be present")
+                .unwrap_or_else(|| panic!("Gold should be present"))
                 .amount,
             99
         );
@@ -169,7 +178,7 @@ mod tests {
         assert_eq!(
             world
                 .get::<Gold>(entity)
-                .expect("Gold should be present")
+                .unwrap_or_else(|| panic!("Gold should be present"))
                 .amount,
             50
         );
@@ -183,7 +192,7 @@ mod tests {
         assert_eq!(
             world
                 .get::<Gold>(entity)
-                .expect("Gold should be present")
+                .unwrap_or_else(|| panic!("Gold should be present"))
                 .amount,
             7
         );
@@ -238,7 +247,7 @@ mod tests {
         assert_eq!(
             world
                 .get::<Gold>(entity)
-                .expect("Gold should be present")
+                .unwrap_or_else(|| panic!("Gold should be present"))
                 .amount,
             77
         );
@@ -277,9 +286,18 @@ mod tests {
     fn component_roundtrip_via_get_then_set() {
         let mut world = World::new();
         let entity = world.spawn(Gold { amount: 33 }).id();
-        let json = serialize_component::<Gold>(entity, &mut world).expect("should serialize");
+        let json = assert_some(
+            serialize_component::<Gold>(entity, &mut world),
+            "should serialize",
+        );
         deserialize_component::<Gold>(entity, &mut world, json);
-        assert_eq!(world.get::<Gold>(entity).unwrap().amount, 33);
+        assert_eq!(
+            world
+                .get::<Gold>(entity)
+                .unwrap_or_else(|| panic!("Gold should be present after deserialize_component"))
+                .amount,
+            33
+        );
     }
 
     #[test]
@@ -296,7 +314,7 @@ mod tests {
         assert_eq!(
             world
                 .get::<Gold>(entity)
-                .expect("Gold should still be present")
+                .unwrap_or_else(|| panic!("Gold should still be present"))
                 .amount,
             7,
             "component should be unchanged after a type-mismatch deserialization failure"
@@ -322,8 +340,10 @@ mod tests {
                 stance: Stance::Combat,
             })
             .id();
-        let json =
-            serialize_component::<Fighter>(entity, &mut world).expect("Fighter should serialize");
+        let json = assert_some(
+            serialize_component::<Fighter>(entity, &mut world),
+            "Fighter should serialize",
+        );
         assert_eq!(
             json["stance"],
             serde_json::json!("Combat"),
@@ -336,15 +356,15 @@ mod tests {
         // serde_json's default behavior: last occurrence of a duplicate key wins.
         // Verify that deserialize_component handles this without panicking and produces
         // a valid component.
-        let json: serde_json::Value =
-            serde_json::from_str(r#"{"amount": 1, "amount": 99}"#).unwrap();
+        let json: serde_json::Value = serde_json::from_str(r#"{"amount": 1, "amount": 99}"#)
+            .unwrap_or_else(|error| panic!("duplicate-key JSON should parse: {error}"));
         let mut world = World::new();
         let entity = world.spawn(Gold { amount: 0 }).id();
         deserialize_component::<Gold>(entity, &mut world, json);
         assert_eq!(
             world
                 .get::<Gold>(entity)
-                .expect("Gold should be present")
+                .unwrap_or_else(|| panic!("Gold should be present"))
                 .amount,
             99,
             "last occurrence of a duplicate key should win"
@@ -371,6 +391,6 @@ mod tests {
         ",
                 entity.to_bits()
             ))
-            .expect("lua exec should succeed");
+            .unwrap_or_else(|error| panic!("lua exec should succeed: {error}"));
     }
 }

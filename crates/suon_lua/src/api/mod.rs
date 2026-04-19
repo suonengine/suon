@@ -81,28 +81,28 @@ mod tests {
     #[test]
     fn json_null_becomes_lua_nil() {
         let result = json_value_to_lua_value(&lua(), serde_json::Value::Null)
-            .expect("json_value_to_lua_value should succeed");
+            .unwrap_or_else(|error| panic!("json_value_to_lua_value should succeed: {error}"));
         assert_eq!(result, mlua::Value::Nil);
     }
 
     #[test]
     fn json_bool_true_becomes_lua_true() {
         let result = json_value_to_lua_value(&lua(), serde_json::json!(true))
-            .expect("json_value_to_lua_value should succeed");
+            .unwrap_or_else(|error| panic!("json_value_to_lua_value should succeed: {error}"));
         assert_eq!(result, mlua::Value::Boolean(true));
     }
 
     #[test]
     fn json_bool_false_becomes_lua_false() {
         let result = json_value_to_lua_value(&lua(), serde_json::json!(false))
-            .expect("json_value_to_lua_value should succeed");
+            .unwrap_or_else(|error| panic!("json_value_to_lua_value should succeed: {error}"));
         assert_eq!(result, mlua::Value::Boolean(false));
     }
 
     #[test]
     fn json_integer_becomes_lua_integer() {
         let result = json_value_to_lua_value(&lua(), serde_json::json!(42))
-            .expect("json_value_to_lua_value should succeed");
+            .unwrap_or_else(|error| panic!("json_value_to_lua_value should succeed: {error}"));
         assert_eq!(result, mlua::Value::Integer(42));
     }
 
@@ -110,7 +110,7 @@ mod tests {
     fn json_float_becomes_lua_number() {
         let value = 1.5_f64;
         let result = json_value_to_lua_value(&lua(), serde_json::json!(value))
-            .expect("json_value_to_lua_value should succeed");
+            .unwrap_or_else(|error| panic!("json_value_to_lua_value should succeed: {error}"));
         let mlua::Value::Number(number) = result else {
             panic!("expected Number")
         };
@@ -121,12 +121,14 @@ mod tests {
     fn json_string_becomes_lua_string() {
         let lua = lua();
         let result = json_value_to_lua_value(&lua, serde_json::json!("hello"))
-            .expect("json_value_to_lua_value should succeed");
+            .unwrap_or_else(|error| panic!("json_value_to_lua_value should succeed: {error}"));
         let mlua::Value::String(string) = result else {
             panic!("expected String")
         };
         assert_eq!(
-            string.to_str().expect("lua string should be valid utf-8"),
+            string
+                .to_str()
+                .unwrap_or_else(|error| panic!("lua string should be valid utf-8: {error}")),
             "hello"
         );
     }
@@ -135,31 +137,56 @@ mod tests {
     fn json_array_becomes_one_based_lua_table() {
         let lua = lua();
         let result = json_value_to_lua_value(&lua, serde_json::json!([10, 20, 30]))
-            .expect("json_value_to_lua_value should succeed");
+            .unwrap_or_else(|error| panic!("json_value_to_lua_value should succeed: {error}"));
         let mlua::Value::Table(table) = result else {
             panic!("expected Table")
         };
-        assert_eq!(table.get::<i64>(1).expect("index 1 should exist"), 10);
-        assert_eq!(table.get::<i64>(2).expect("index 2 should exist"), 20);
-        assert_eq!(table.get::<i64>(3).expect("index 3 should exist"), 30);
+        assert_eq!(
+            table
+                .get::<i64>(1)
+                .unwrap_or_else(|error| panic!("index 1 should exist: {error}")),
+            10
+        );
+        assert_eq!(
+            table
+                .get::<i64>(2)
+                .unwrap_or_else(|error| panic!("index 2 should exist: {error}")),
+            20
+        );
+        assert_eq!(
+            table
+                .get::<i64>(3)
+                .unwrap_or_else(|error| panic!("index 3 should exist: {error}")),
+            30
+        );
     }
 
     #[test]
     fn json_object_becomes_lua_table_with_string_keys() {
         let lua = lua();
         let result = json_value_to_lua_value(&lua, serde_json::json!({ "x": 1, "y": 2 }))
-            .expect("json_value_to_lua_value should succeed");
+            .unwrap_or_else(|error| panic!("json_value_to_lua_value should succeed: {error}"));
         let mlua::Value::Table(table) = result else {
             panic!("expected Table")
         };
-        assert_eq!(table.get::<i64>("x").expect("key 'x' should exist"), 1);
-        assert_eq!(table.get::<i64>("y").expect("key 'y' should exist"), 2);
+        assert_eq!(
+            table
+                .get::<i64>("x")
+                .unwrap_or_else(|error| panic!("key 'x' should exist: {error}")),
+            1
+        );
+        assert_eq!(
+            table
+                .get::<i64>("y")
+                .unwrap_or_else(|error| panic!("key 'y' should exist: {error}")),
+            2
+        );
     }
 
     #[test]
     fn lua_nil_becomes_json_null() {
         let result = lua_value_to_json_value(mlua::Value::Nil)
-            .expect("lua_value_to_json_value should succeed");
+            .unwrap_or_else(|error| panic!("lua_value_to_json_value should succeed: {error}"));
         assert_eq!(result, serde_json::Value::Null);
     }
 
@@ -167,13 +194,13 @@ mod tests {
     fn lua_bool_becomes_json_bool() {
         assert_eq!(
             lua_value_to_json_value(mlua::Value::Boolean(true))
-                .expect("lua_value_to_json_value should succeed"),
+                .unwrap_or_else(|error| panic!("lua_value_to_json_value should succeed: {error}")),
             serde_json::json!(true)
         );
 
         assert_eq!(
             lua_value_to_json_value(mlua::Value::Boolean(false))
-                .expect("lua_value_to_json_value should succeed"),
+                .unwrap_or_else(|error| panic!("lua_value_to_json_value should succeed: {error}")),
             serde_json::json!(false)
         );
     }
@@ -181,16 +208,21 @@ mod tests {
     #[test]
     fn lua_integer_becomes_json_number() {
         let result = lua_value_to_json_value(mlua::Value::Integer(99))
-            .expect("lua_value_to_json_value should succeed");
+            .unwrap_or_else(|error| panic!("lua_value_to_json_value should succeed: {error}"));
         assert_eq!(result, serde_json::json!(99));
     }
 
     #[test]
     fn lua_float_becomes_json_number() {
         let result = lua_value_to_json_value(mlua::Value::Number(2.5))
-            .expect("lua_value_to_json_value should succeed");
+            .unwrap_or_else(|error| panic!("lua_value_to_json_value should succeed: {error}"));
         assert!(
-            (result.as_f64().expect("json value should be a float") - 2.5).abs() < f64::EPSILON
+            (result
+                .as_f64()
+                .unwrap_or_else(|| panic!("json value should be a float"))
+                - 2.5)
+                .abs()
+                < f64::EPSILON
         );
     }
 
@@ -199,21 +231,23 @@ mod tests {
         let lua = lua();
         let string = lua
             .create_string("world")
-            .expect("should create lua string");
-
+            .unwrap_or_else(|error| panic!("should create lua string: {error}"));
         let result = lua_value_to_json_value(mlua::Value::String(string))
-            .expect("lua_value_to_json_value should succeed");
+            .unwrap_or_else(|error| panic!("lua_value_to_json_value should succeed: {error}"));
         assert_eq!(result, serde_json::json!("world"));
     }
 
     #[test]
     fn lua_table_becomes_json_object() {
         let lua = lua();
-        let table = lua.create_table().expect("should create lua table");
-        table.set("hp", 50_i64).expect("table set should succeed");
-
+        let table = lua
+            .create_table()
+            .unwrap_or_else(|error| panic!("should create lua table: {error}"));
+        table
+            .set("hp", 50_i64)
+            .unwrap_or_else(|error| panic!("table set should succeed: {error}"));
         let result = lua_value_to_json_value(mlua::Value::Table(table))
-            .expect("lua_value_to_json_value should succeed");
+            .unwrap_or_else(|error| panic!("lua_value_to_json_value should succeed: {error}"));
         assert_eq!(result["hp"], serde_json::json!(50));
     }
 
@@ -222,17 +256,16 @@ mod tests {
         let lua = lua();
         let function = lua
             .create_function(|_, ()| Ok(()))
-            .expect("should create lua function");
-
+            .unwrap_or_else(|error| panic!("should create lua function: {error}"));
         let result = lua_value_to_json_value(mlua::Value::Function(function))
-            .expect("lua_value_to_json_value should succeed");
+            .unwrap_or_else(|error| panic!("lua_value_to_json_value should succeed: {error}"));
         assert_eq!(result, serde_json::Value::Null);
     }
 
     #[test]
     fn json_negative_integer_becomes_lua_integer() {
         let result = json_value_to_lua_value(&lua(), serde_json::json!(-99))
-            .expect("json_value_to_lua_value should succeed");
+            .unwrap_or_else(|error| panic!("json_value_to_lua_value should succeed: {error}"));
         assert_eq!(result, mlua::Value::Integer(-99));
     }
 
@@ -240,11 +273,16 @@ mod tests {
     fn json_empty_array_becomes_empty_lua_table() {
         let lua = lua();
         let result = json_value_to_lua_value(&lua, serde_json::json!([]))
-            .expect("json_value_to_lua_value should succeed");
+            .unwrap_or_else(|error| panic!("json_value_to_lua_value should succeed: {error}"));
         let mlua::Value::Table(table) = result else {
             panic!("expected Table")
         };
-        assert_eq!(table.len().expect("should get table length"), 0);
+        assert_eq!(
+            table
+                .len()
+                .unwrap_or_else(|error| panic!("should get table length: {error}")),
+            0
+        );
     }
 
     #[test]
@@ -253,9 +291,9 @@ mod tests {
         let original = serde_json::json!({ "position": { "x": 1, "y": 2 } });
         let roundtrip = lua_value_to_json_value(
             json_value_to_lua_value(&lua, original)
-                .expect("json_value_to_lua_value should succeed"),
+                .unwrap_or_else(|error| panic!("json_value_to_lua_value should succeed: {error}")),
         )
-        .expect("lua_value_to_json_value should succeed");
+        .unwrap_or_else(|error| panic!("lua_value_to_json_value should succeed: {error}"));
         assert_eq!(roundtrip["position"]["x"], serde_json::json!(1));
         assert_eq!(roundtrip["position"]["y"], serde_json::json!(2));
     }
@@ -263,7 +301,7 @@ mod tests {
     #[test]
     fn lua_nan_float_becomes_zero_in_json() {
         let result = lua_value_to_json_value(mlua::Value::Number(f64::NAN))
-            .expect("lua_value_to_json_value should succeed");
+            .unwrap_or_else(|error| panic!("lua_value_to_json_value should succeed: {error}"));
         assert_eq!(result, serde_json::json!(0));
     }
 
@@ -273,9 +311,9 @@ mod tests {
         let original = serde_json::json!(123);
         let roundtrip = lua_value_to_json_value(
             json_value_to_lua_value(&lua, original.clone())
-                .expect("json_value_to_lua_value should succeed"),
+                .unwrap_or_else(|error| panic!("json_value_to_lua_value should succeed: {error}")),
         )
-        .expect("lua_value_to_json_value should succeed");
+        .unwrap_or_else(|error| panic!("lua_value_to_json_value should succeed: {error}"));
         assert_eq!(roundtrip, original);
     }
 
@@ -285,9 +323,9 @@ mod tests {
         let original = serde_json::json!({ "name": "test", "value": 42 });
         let roundtrip = lua_value_to_json_value(
             json_value_to_lua_value(&lua, original.clone())
-                .expect("json_value_to_lua_value should succeed"),
+                .unwrap_or_else(|error| panic!("json_value_to_lua_value should succeed: {error}")),
         )
-        .expect("lua_value_to_json_value should succeed");
+        .unwrap_or_else(|error| panic!("lua_value_to_json_value should succeed: {error}"));
         assert_eq!(roundtrip["name"], original["name"]);
         assert_eq!(roundtrip["value"], original["value"]);
     }
@@ -298,9 +336,9 @@ mod tests {
         let original = serde_json::json!(i64::MAX);
         let roundtrip = lua_value_to_json_value(
             json_value_to_lua_value(&lua, original.clone())
-                .expect("json_value_to_lua_value should succeed"),
+                .unwrap_or_else(|error| panic!("json_value_to_lua_value should succeed: {error}")),
         )
-        .expect("lua_value_to_json_value should succeed");
+        .unwrap_or_else(|error| panic!("lua_value_to_json_value should succeed: {error}"));
         assert_eq!(roundtrip, original);
     }
 
@@ -310,9 +348,9 @@ mod tests {
         let original = serde_json::json!(i64::MIN);
         let roundtrip = lua_value_to_json_value(
             json_value_to_lua_value(&lua, original.clone())
-                .expect("json_value_to_lua_value should succeed"),
+                .unwrap_or_else(|error| panic!("json_value_to_lua_value should succeed: {error}")),
         )
-        .expect("lua_value_to_json_value should succeed");
+        .unwrap_or_else(|error| panic!("lua_value_to_json_value should succeed: {error}"));
         assert_eq!(roundtrip, original);
     }
 
@@ -321,18 +359,31 @@ mod tests {
         let lua = lua();
         let original = serde_json::json!([1, "two", true, null]);
         let result = json_value_to_lua_value(&lua, original)
-            .expect("json_value_to_lua_value should succeed");
+            .unwrap_or_else(|error| panic!("json_value_to_lua_value should succeed: {error}"));
         let mlua::Value::Table(table) = result else {
             panic!("expected Table");
         };
-        assert_eq!(table.get::<i64>(1).expect("index 1 should be integer"), 1);
         assert_eq!(
-            table.get::<String>(2).expect("index 2 should be string"),
+            table
+                .get::<i64>(1)
+                .unwrap_or_else(|error| panic!("index 1 should be integer: {error}")),
+            1
+        );
+        assert_eq!(
+            table
+                .get::<String>(2)
+                .unwrap_or_else(|error| panic!("index 2 should be string: {error}")),
             "two"
         );
-        assert!(table.get::<bool>(3).expect("index 3 should be bool"));
+        assert!(
+            table
+                .get::<bool>(3)
+                .unwrap_or_else(|error| panic!("index 3 should be bool: {error}"))
+        );
         assert_eq!(
-            table.get::<mlua::Value>(4).expect("index 4 should exist"),
+            table
+                .get::<mlua::Value>(4)
+                .unwrap_or_else(|error| panic!("index 4 should exist: {error}")),
             mlua::Value::Nil
         );
     }
@@ -343,9 +394,9 @@ mod tests {
         let original = serde_json::json!("你好世界 🌍");
         let roundtrip = lua_value_to_json_value(
             json_value_to_lua_value(&lua, original.clone())
-                .expect("json_value_to_lua_value should succeed"),
+                .unwrap_or_else(|error| panic!("json_value_to_lua_value should succeed: {error}")),
         )
-        .expect("lua_value_to_json_value should succeed");
+        .unwrap_or_else(|error| panic!("lua_value_to_json_value should succeed: {error}"));
         assert_eq!(roundtrip, original);
     }
 
@@ -353,20 +404,29 @@ mod tests {
     fn json_empty_object_becomes_empty_lua_table() {
         let lua = lua();
         let result = json_value_to_lua_value(&lua, serde_json::json!({}))
-            .expect("json_value_to_lua_value should succeed");
+            .unwrap_or_else(|error| panic!("json_value_to_lua_value should succeed: {error}"));
         let mlua::Value::Table(table) = result else {
             panic!("expected Table");
         };
-        assert_eq!(table.len().expect("should get table length"), 0);
+        assert_eq!(
+            table
+                .len()
+                .unwrap_or_else(|error| panic!("should get table length: {error}")),
+            0
+        );
     }
 
     #[test]
     fn lua_table_with_integer_key_appears_in_json_as_string_key() {
         let lua = lua();
-        let table = lua.create_table().expect("should create lua table");
-        table.set(1_i64, "first").expect("table set should succeed");
+        let table = lua
+            .create_table()
+            .unwrap_or_else(|error| panic!("should create lua table: {error}"));
+        table
+            .set(1_i64, "first")
+            .unwrap_or_else(|error| panic!("table set should succeed: {error}"));
         let result = lua_value_to_json_value(mlua::Value::Table(table))
-            .expect("lua_value_to_json_value should succeed");
+            .unwrap_or_else(|error| panic!("lua_value_to_json_value should succeed: {error}"));
         assert!(result.is_object());
         assert_eq!(result["1"], serde_json::json!("first"));
     }
@@ -379,9 +439,9 @@ mod tests {
         });
         let roundtrip = lua_value_to_json_value(
             json_value_to_lua_value(&lua, original.clone())
-                .expect("json_value_to_lua_value should succeed"),
+                .unwrap_or_else(|error| panic!("json_value_to_lua_value should succeed: {error}")),
         )
-        .expect("lua_value_to_json_value should succeed");
+        .unwrap_or_else(|error| panic!("lua_value_to_json_value should succeed: {error}"));
         assert_eq!(
             roundtrip["a"]["b"]["c"]["d"]["e"]["value"],
             serde_json::json!(42)
@@ -393,13 +453,27 @@ mod tests {
         let lua = lua();
         let original = serde_json::json!([{ "x": 1 }, { "x": 2 }]);
         let result = json_value_to_lua_value(&lua, original)
-            .expect("json_value_to_lua_value should succeed");
+            .unwrap_or_else(|error| panic!("json_value_to_lua_value should succeed: {error}"));
         let mlua::Value::Table(table) = result else {
             panic!("expected Table");
         };
-        let first: mlua::Table = table.get(1).expect("index 1 should exist");
-        let second: mlua::Table = table.get(2).expect("index 2 should exist");
-        assert_eq!(first.get::<i64>("x").expect("x should exist"), 1);
-        assert_eq!(second.get::<i64>("x").expect("x should exist"), 2);
+        let first: mlua::Table = table
+            .get(1)
+            .unwrap_or_else(|error| panic!("index 1 should exist: {error}"));
+        let second: mlua::Table = table
+            .get(2)
+            .unwrap_or_else(|error| panic!("index 2 should exist: {error}"));
+        assert_eq!(
+            first
+                .get::<i64>("x")
+                .unwrap_or_else(|error| panic!("x should exist: {error}")),
+            1
+        );
+        assert_eq!(
+            second
+                .get::<i64>("x")
+                .unwrap_or_else(|error| panic!("x should exist: {error}")),
+            2
+        );
     }
 }

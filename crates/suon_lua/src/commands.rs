@@ -1,12 +1,59 @@
 //! Bevy [`Command`]s that queue Lua execution until the next command flush.
 //!
-//! Use [`LuaCommands`] on [`Commands`] to enqueue snippets or hook calls without
-//! taking direct ownership of [`LuaRuntime`].
+//! Use [`LuaCommands`] on [`Commands`] to enqueue snippets or typed hook calls
+//! without taking direct ownership of [`LuaRuntime`].
 
 use bevy::prelude::*;
+use serde::Serialize;
+use serde_json::Value as Json;
 use std::sync::Arc;
 
 use crate::{runtime::LuaRuntime, script::LuaScript};
+
+/// Typed hook description sent from Rust to Lua.
+///
+/// The hook name comes from [`Hook::name`]. The hook arguments come from the
+/// serialized value:
+/// - structs become positional arguments using their field values
+/// - tuples and arrays become positional arguments
+/// - a single scalar becomes one positional argument
+/// - unit/empty hooks become no extra arguments
+///
+/// This lets hooks be declared ergonomically on the Rust side:
+///
+/// ```rust,ignore
+/// use serde::Serialize;
+/// use suon_macros::LuaHook;
+///
+/// #[derive(LuaHook, Serialize)]
+/// struct Move {
+///     from: (i32, i32),
+///     to: (i32, i32),
+/// }
+/// ```
+pub trait Hook: Serialize {
+    /// Lua-visible method name, e.g. `onMove`.
+    fn name() -> &'static str;
+
+    /// Converts the hook payload into the JSON shape consumed by the Lua runtime.
+    ///
+    /// Default behavior:
+    /// - objects become arrays of their field values
+    /// - arrays stay arrays
+    /// - scalars stay scalars
+    /// - `null` stays `null`
+    fn into_args(self) -> serde_json::Result<Json>
+    where
+        Self: Sized,
+    {
+        Ok(match serde_json::to_value(self)? {
+            Json::Object(object) => {
+                Json::Array(object.into_iter().map(|(_, value)| value).collect())
+            }
+            value => value,
+        })
+    }
+}
 
 /// Bevy [`Command`] that calls a named hook on an entity's [`LuaScript`].
 ///
@@ -14,26 +61,17 @@ use crate::{runtime::LuaRuntime, script::LuaScript};
 /// If the entity has no [`LuaScript`], or the script does not define the named
 /// hook, the command is a silent no-op. Errors from the hook are logged and
 /// swallowed so one bad script cannot stall the command queue.
-///
-/// # Examples
-///
-/// ```rust,ignore
-/// use bevy::prelude::*;
-/// use suon_lua::{LuaCommands, LuaScript};
-///
-/// fn queue_hook(mut commands: Commands, entity: Entity) {
-///     commands.entity(entity).insert(LuaScript::new(
-///         "function Entity:onSpawned() print('spawned') end",
-///     ));
-///     commands.lua_hook(entity, "onSpawned");
-/// }
-/// ```
 pub struct RunLuaHook {
+    /// Target entity whose attached [`LuaScript`] should receive the hook call.
     pub(crate) entity: Entity,
+    /// Lua-visible hook name, such as `onMove`.
     pub(crate) hook: &'static str,
+    /// Serialized positional arguments passed after `self` in Lua.
+    pub(crate) args: Json,
 }
 
 impl Command for RunLuaHook {
+    /// Executes the queued hook call against the current Bevy world.
     fn apply(self, world: &mut World) {
         let Some(source) = world
             .get::<LuaScript>(self.entity)
@@ -45,7 +83,7 @@ impl Command for RunLuaHook {
         let result = LuaRuntime::take_scope(world, |runtime, world| {
             runtime
                 .scope(world)
-                .call_hook(self.entity, &source, self.hook)
+                .call_hook(self.entity, &source, self.hook, self.args)
         });
 
         if let Some(Err(error)) = result {
@@ -57,22 +95,13 @@ impl Command for RunLuaHook {
 /// Bevy [`Command`] that executes a Lua snippet at the next command flush.
 ///
 /// Enqueued by [`LuaCommands::lua_execute`]. Errors are logged and swallowed.
-///
-/// # Examples
-///
-/// ```rust,ignore
-/// use bevy::prelude::*;
-/// use suon_lua::LuaCommands;
-///
-/// fn queue_script(mut commands: Commands) {
-///     commands.lua_execute("counter = (counter or 0) + 1");
-/// }
-/// ```
 pub struct RunLuaScript {
+    /// Lua source code scheduled for execution.
     pub(crate) source: Arc<str>,
 }
 
 impl Command for RunLuaScript {
+    /// Executes the queued Lua source against the shared runtime.
     fn apply(self, world: &mut World) {
         let result = LuaRuntime::take_scope(world, |runtime, world| {
             runtime.scope(world).execute(&self.source)
@@ -86,45 +115,43 @@ impl Command for RunLuaScript {
 
 /// Extends [`Commands`] with Lua execution methods.
 pub trait LuaCommands {
-    /// Queues a [`RunLuaHook`] command that calls `hook` on `entity`'s [`LuaScript`].
-    ///
-    /// The hook runs at the next [`Commands`] flush, inside the shared Lua VM.
-    /// No-op if the entity has no script or the hook is not defined.
+    /// Queues a typed hook call on `entity`'s [`LuaScript`].
     ///
     /// # Examples
     ///
     /// ```rust,ignore
     /// # use bevy::prelude::*;
+    /// # use serde::Serialize;
     /// # use suon_lua::LuaCommands;
+    /// # use suon_macros::LuaHook;
+    /// #[derive(LuaHook, Serialize)]
+    /// struct Damage {
+    ///     amount: i32,
+    /// }
+    ///
     /// fn on_damage(mut commands: Commands, entity: Entity) {
-    ///     commands.lua_hook(entity, "onDamage");
+    ///     let result = commands.lua_hook(entity, Damage { amount: 10 });
+    ///     assert!(result.is_ok());
     /// }
     /// ```
-    fn lua_hook(&mut self, entity: Entity, hook: &'static str);
+    fn lua_hook<H: Hook>(&mut self, entity: Entity, hook: H) -> serde_json::Result<()>;
 
     /// Queues a [`RunLuaScript`] command that executes `source` at the next flush.
-    ///
-    /// The snippet runs inside the shared Lua VM and has access to the ECS globals.
-    ///
-    /// # Examples
-    ///
-    /// ```rust,ignore
-    /// # use bevy::prelude::*;
-    /// # use suon_lua::LuaCommands;
-    /// fn reset_all(mut commands: Commands) {
-    ///     commands.lua_execute(
-    ///         "for id, hp in Query('Health'):iter() do hp.value = 100 end",
-    ///     );
-    /// }
-    /// ```
     fn lua_execute(&mut self, source: impl Into<Arc<str>>);
 }
 
 impl LuaCommands for Commands<'_, '_> {
-    fn lua_hook(&mut self, entity: Entity, hook: &'static str) {
-        self.queue(RunLuaHook { entity, hook });
+    /// Queues a typed hook invocation to run on the next command flush.
+    fn lua_hook<H: Hook>(&mut self, entity: Entity, hook: H) -> serde_json::Result<()> {
+        self.queue(RunLuaHook {
+            entity,
+            hook: H::name(),
+            args: hook.into_args()?,
+        });
+        Ok(())
     }
 
+    /// Queues raw Lua source to run on the next command flush.
     fn lua_execute(&mut self, source: impl Into<Arc<str>>) {
         self.queue(RunLuaScript {
             source: source.into(),
@@ -136,6 +163,20 @@ impl LuaCommands for Commands<'_, '_> {
 mod tests {
     use super::*;
     use crate::{runtime::ScriptRegistry, script::LuaScript};
+    use suon_macros::LuaHook;
+
+    #[derive(LuaHook, Serialize)]
+    #[lua(name = "onTick")]
+    struct TickHook;
+
+    #[derive(LuaHook, Serialize)]
+    struct Move {
+        x: i32,
+        y: i32,
+    }
+
+    #[derive(LuaHook, Serialize)]
+    struct Damage(i32, &'static str);
 
     fn setup_world() -> World {
         let mut world = World::new();
@@ -153,15 +194,19 @@ mod tests {
 
         RunLuaHook {
             entity,
-            hook: "onTick",
+            hook: TickHook::name(),
+            args: Json::Null,
         }
         .apply(&mut world);
 
-        LuaRuntime::take_scope(&mut world, |runtime, world| {
+        let result = LuaRuntime::take_scope(&mut world, |runtime, world| {
             runtime.scope(world).execute("assert(ran == true)")
-        })
-        .expect("LuaRuntime missing")
-        .expect("lua assertion failed");
+        });
+        let result = match result {
+            Some(result) => result,
+            None => panic!("LuaRuntime missing"),
+        };
+        result.unwrap_or_else(|error| panic!("lua assertion failed: {error}"));
     }
 
     #[test]
@@ -171,7 +216,8 @@ mod tests {
 
         RunLuaHook {
             entity,
-            hook: "onTick",
+            hook: TickHook::name(),
+            args: Json::Null,
         }
         .apply(&mut world);
     }
@@ -183,7 +229,8 @@ mod tests {
 
         RunLuaHook {
             entity,
-            hook: "onTick",
+            hook: TickHook::name(),
+            args: Json::Null,
         }
         .apply(&mut world);
     }
@@ -197,7 +244,8 @@ mod tests {
 
         RunLuaHook {
             entity,
-            hook: "onTick",
+            hook: TickHook::name(),
+            args: Json::Null,
         }
         .apply(&mut world);
     }
@@ -211,11 +259,14 @@ mod tests {
         }
         .apply(&mut world);
 
-        LuaRuntime::take_scope(&mut world, |runtime, world| {
+        let result = LuaRuntime::take_scope(&mut world, |runtime, world| {
             runtime.scope(world).execute("assert(counter == 42)")
-        })
-        .expect("LuaRuntime missing")
-        .expect("lua assertion failed");
+        });
+        let result = match result {
+            Some(result) => result,
+            None => panic!("LuaRuntime missing"),
+        };
+        result.unwrap_or_else(|error| panic!("lua assertion failed: {error}"));
     }
 
     #[test]
@@ -251,13 +302,16 @@ mod tests {
         }
         .apply(&mut world);
 
-        LuaRuntime::take_scope(&mut world, |runtime, world| {
+        let result = LuaRuntime::take_scope(&mut world, |runtime, world| {
             runtime
                 .scope(world)
                 .execute("assert(order == 'first_second')")
-        })
-        .expect("LuaRuntime missing")
-        .expect("lua assertion failed");
+        });
+        let result = match result {
+            Some(result) => result,
+            None => panic!("LuaRuntime missing"),
+        };
+        result.unwrap_or_else(|error| panic!("lua assertion failed: {error}"));
     }
 
     #[test]
@@ -273,11 +327,14 @@ mod tests {
         }
         .apply(&mut world);
 
-        LuaRuntime::take_scope(&mut world, |runtime, world| {
+        let result = LuaRuntime::take_scope(&mut world, |runtime, world| {
             runtime.scope(world).execute("assert(after_error == true)")
-        })
-        .expect("LuaRuntime missing")
-        .expect("lua assertion failed");
+        });
+        let result = match result {
+            Some(result) => result,
+            None => panic!("LuaRuntime missing"),
+        };
+        result.unwrap_or_else(|error| panic!("lua assertion failed: {error}"));
     }
 
     #[test]
@@ -289,7 +346,8 @@ mod tests {
 
         RunLuaHook {
             entity,
-            hook: "onTick",
+            hook: TickHook::name(),
+            args: Json::Null,
         }
         .apply(&mut world);
         RunLuaScript {
@@ -297,12 +355,72 @@ mod tests {
         }
         .apply(&mut world);
 
-        LuaRuntime::take_scope(&mut world, |runtime, world| {
+        let result = LuaRuntime::take_scope(&mut world, |runtime, world| {
             runtime
                 .scope(world)
                 .execute("assert(after_hook_error == true)")
-        })
-        .expect("LuaRuntime missing")
-        .expect("lua assertion failed");
+        });
+        let result = match result {
+            Some(result) => result,
+            None => panic!("LuaRuntime missing"),
+        };
+        result.unwrap_or_else(|error| panic!("lua assertion failed: {error}"));
+    }
+
+    #[test]
+    fn run_lua_hook_passes_struct_fields_as_positional_arguments() {
+        let mut world = setup_world();
+        let entity = world
+            .spawn(LuaScript::new(
+                "function Entity:onMove(x, y) seen_x = x; seen_y = y end",
+            ))
+            .id();
+
+        RunLuaHook {
+            entity,
+            hook: Move::name(),
+            args: Move { x: 3, y: 7 }
+                .into_args()
+                .unwrap_or_else(|error| panic!("hook args should serialize: {error}")),
+        }
+        .apply(&mut world);
+
+        let result = LuaRuntime::take_scope(&mut world, |runtime, world| {
+            runtime
+                .scope(world)
+                .execute("assert(seen_x == 3 and seen_y == 7)")
+        });
+        let result = match result {
+            Some(result) => result,
+            None => panic!("LuaRuntime missing"),
+        };
+        result.unwrap_or_else(|error| panic!("lua assertion failed: {error}"));
+    }
+
+    #[test]
+    fn lua_hook_uses_typed_hook_name_and_arguments() {
+        let mut world = setup_world();
+        let entity = world
+            .spawn(LuaScript::new(
+                "function Entity:onDamage(amount, source) total = amount; who = source end",
+            ))
+            .id();
+
+        world
+            .commands()
+            .lua_hook(entity, Damage(12, "lava"))
+            .unwrap_or_else(|error| panic!("hook args should serialize: {error}"));
+        world.flush();
+
+        let result = LuaRuntime::take_scope(&mut world, |runtime, world| {
+            runtime
+                .scope(world)
+                .execute("assert(total == 12 and who == 'lava')")
+        });
+        let result = match result {
+            Some(result) => result,
+            None => panic!("LuaRuntime missing"),
+        };
+        result.unwrap_or_else(|error| panic!("lua assertion failed: {error}"));
     }
 }

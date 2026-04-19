@@ -9,8 +9,10 @@ use std::sync::Arc;
 /// Lua source code attached to a Bevy entity.
 ///
 /// Hook functions defined in the source are invoked by [`crate::LuaCommands::lua_hook`].
-/// The conventional hook style is `function Entity:onTick() ... end`; the entity
-/// itself is passed as `self` so scripts can call `self:get(...)` and `self:set(...)`.
+/// The conventional hook style is
+/// `function Entity:onTick() ... end`; the entity itself is passed as `self` so
+/// scripts can call `self:get(...)` and `self:set(...)`. Extra Rust-supplied
+/// arguments, when present, appear after `self`, e.g. `function Entity:onMove(position)`.
 ///
 /// # Examples
 ///
@@ -21,10 +23,13 @@ use std::sync::Arc;
 ///         self:set('Health', { value = hp.value + 10 })\
 ///     end",
 /// ));
-/// commands.lua_hook(entity, "onHeal");
+/// #[derive(serde::Serialize, suon_macros::LuaHook)]
+/// struct Heal;
+/// assert!(commands.lua_hook(entity, Heal).is_ok());
 /// ```
 #[derive(Component, Clone)]
 pub struct LuaScript {
+    /// Shared Lua source stored on the entity.
     source: Arc<str>,
 }
 
@@ -57,6 +62,7 @@ impl LuaScript {
         &self.source
     }
 
+    /// Returns a cloned handle to the underlying shared source buffer.
     pub(crate) fn shared_source(&self) -> Arc<str> {
         Arc::clone(&self.source)
     }

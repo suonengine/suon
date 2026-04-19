@@ -304,7 +304,7 @@ mod tests {
         runtime
             .scope(world)
             .execute(lua)
-            .expect("lua exec should succeed");
+            .unwrap_or_else(|error| panic!("lua exec should succeed: {error}"));
     }
 
     #[test]
@@ -503,7 +503,7 @@ mod tests {
             .resource_mut::<ScriptRegistry>()
             .components
             .get_mut("TestHealth")
-            .expect("TestHealth accessor should be registered")
+            .unwrap_or_else(|| panic!("TestHealth accessor should be registered"))
             .set = writable_health_accessor().set;
 
         world.spawn(TestHealth { value: 1 });
@@ -529,7 +529,7 @@ mod tests {
             .resource_mut::<ScriptRegistry>()
             .components
             .get_mut("TestHealth")
-            .expect("TestHealth accessor should be registered")
+            .unwrap_or_else(|| panic!("TestHealth accessor should be registered"))
             .set = writable_health_accessor().set;
 
         world.spawn(TestHealth { value: 1 });
@@ -571,7 +571,7 @@ mod tests {
         assert_eq!(
             world
                 .get::<TestHealth>(entity)
-                .expect("TestHealth should be present")
+                .unwrap_or_else(|| panic!("TestHealth should be present"))
                 .value,
             15
         );
@@ -621,7 +621,7 @@ mod tests {
 
         let pos = world
             .get::<TestPosition>(entity)
-            .expect("TestPosition should be present");
+            .unwrap_or_else(|| panic!("TestPosition should be present"));
         assert_eq!(pos.x, 10);
         assert_eq!(pos.y, 20);
         assert_eq!(
@@ -668,7 +668,7 @@ mod tests {
             .resource_mut::<ScriptRegistry>()
             .components
             .get_mut("TestHealth")
-            .expect("TestHealth should be registered")
+            .unwrap_or_else(|| panic!("TestHealth should be registered"))
             .set = |_entity, _world, _json| {
             SET_COUNT.with(|c| c.set(c.get() + 1));
         };

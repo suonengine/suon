@@ -3,11 +3,14 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{DeriveInput, LitStr, parse_macro_input};
 
+/// Expands `#[derive(LuaComponent)]` into the corresponding Bevy and `suon_lua`
+/// trait implementations.
 pub fn derive_lua_component(input: TokenStream) -> TokenStream {
     let derive_input = parse_macro_input!(input as DeriveInput);
     TokenStream::from(expand_derive_lua_component(derive_input))
 }
 
+/// Reads `#[lua(name = "...")]` from the derive input when present.
 fn lua_name_from_attr(derive_input: &DeriveInput) -> Option<String> {
     for attr in &derive_input.attrs {
         if !attr.path().is_ident("lua") {
@@ -26,6 +29,7 @@ fn lua_name_from_attr(derive_input: &DeriveInput) -> Option<String> {
     None
 }
 
+/// Builds the generated implementation for `LuaComponent`.
 fn expand_derive_lua_component(derive_input: DeriveInput) -> TokenStream2 {
     let struct_name = &derive_input.ident;
     let (impl_generics, type_generics, where_clause) = derive_input.generics.split_for_impl();
@@ -75,9 +79,16 @@ fn expand_derive_lua_component(derive_input: DeriveInput) -> TokenStream2 {
 mod tests {
     use super::*;
 
+    fn parse_input(source: &str) -> DeriveInput {
+        match syn::parse_str(source) {
+            Ok(input) => input,
+            Err(error) => panic!("input should parse: {error}"),
+        }
+    }
+
     #[test]
     fn generates_component_impl_with_table_storage() {
-        let input: DeriveInput = syn::parse_str("struct Health { value: i32 }").unwrap();
+        let input = parse_input("struct Health { value: i32 }");
         let output = expand_derive_lua_component(input).to_string();
 
         assert!(
@@ -93,7 +104,7 @@ mod tests {
 
     #[test]
     fn generates_on_add_hook_that_registers_in_script_registry() {
-        let input: DeriveInput = syn::parse_str("struct Health { value: i32 }").unwrap();
+        let input = parse_input("struct Health { value: i32 }");
         let output = expand_derive_lua_component(input).to_string();
 
         assert!(
@@ -114,7 +125,7 @@ mod tests {
 
     #[test]
     fn hook_checks_registry_before_registering() {
-        let input: DeriveInput = syn::parse_str("struct Health { value: i32 }").unwrap();
+        let input = parse_input("struct Health { value: i32 }");
         let output = expand_derive_lua_component(input).to_string();
 
         assert!(
@@ -125,7 +136,7 @@ mod tests {
 
     #[test]
     fn generates_lua_component_impl_with_struct_name_as_lua_name() {
-        let input: DeriveInput = syn::parse_str("struct Health { value: i32 }").unwrap();
+        let input = parse_input("struct Health { value: i32 }");
         let output = expand_derive_lua_component(input).to_string();
 
         assert!(
@@ -141,7 +152,7 @@ mod tests {
 
     #[test]
     fn generates_make_accessor_with_helper_fns() {
-        let input: DeriveInput = syn::parse_str("struct Health { value: i32 }").unwrap();
+        let input = parse_input("struct Health { value: i32 }");
         let output = expand_derive_lua_component(input).to_string();
 
         assert!(
@@ -162,8 +173,7 @@ mod tests {
 
     #[test]
     fn lua_attr_name_overrides_struct_name() {
-        let input: DeriveInput =
-            syn::parse_str(r#"#[lua(name = "HP")] struct Health { value: i32 }"#).unwrap();
+        let input = parse_input(r#"#[lua(name = "HP")] struct Health { value: i32 }"#);
         let output = expand_derive_lua_component(input).to_string();
 
         assert!(
@@ -179,7 +189,7 @@ mod tests {
 
     #[test]
     fn generates_correct_impl_for_generic_struct() {
-        let input: DeriveInput = syn::parse_str("struct Container<T>(T);").unwrap();
+        let input = parse_input("struct Container<T>(T);");
         let output = expand_derive_lua_component(input).to_string();
 
         assert!(
@@ -195,7 +205,7 @@ mod tests {
 
     #[test]
     fn generates_correct_impl_with_existing_where_clause() {
-        let input: DeriveInput = syn::parse_str("struct Container<T>(T) where T: Clone;").unwrap();
+        let input = parse_input("struct Container<T>(T) where T: Clone;");
         let output = expand_derive_lua_component(input).to_string();
 
         assert!(
@@ -206,7 +216,7 @@ mod tests {
 
     #[test]
     fn lua_name_fn_returns_static_str() {
-        let input: DeriveInput = syn::parse_str("struct Mana { points: f32 }").unwrap();
+        let input = parse_input("struct Mana { points: f32 }");
         let output = expand_derive_lua_component(input).to_string();
 
         assert!(
@@ -217,7 +227,7 @@ mod tests {
 
     #[test]
     fn generates_correct_impl_for_unit_struct() {
-        let input: DeriveInput = syn::parse_str("struct Marker;").unwrap();
+        let input = parse_input("struct Marker;");
         let output = expand_derive_lua_component(input).to_string();
 
         assert!(
@@ -233,7 +243,7 @@ mod tests {
 
     #[test]
     fn generates_correct_impl_for_tuple_struct() {
-        let input: DeriveInput = syn::parse_str("struct Health(i32);").unwrap();
+        let input = parse_input("struct Health(i32);");
         let output = expand_derive_lua_component(input).to_string();
 
         assert!(

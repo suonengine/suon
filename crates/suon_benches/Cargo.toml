@@ -26,6 +26,7 @@ suon_checksum.workspace = true
 suon_chunk.workspace = true
 suon_database.workspace = true
 suon_lua.workspace = true
+suon_macros.workspace = true
 suon_movement.workspace = true
 suon_network.workspace = true
 suon_position.workspace = true

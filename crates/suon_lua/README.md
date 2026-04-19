@@ -40,7 +40,11 @@ suon_macros = { path = "../suon_macros" }
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use suon_lua::{LuaCommands, LuaPlugin, LuaScript};
-use suon_macros::LuaComponent;
+use suon_macros::{LuaComponent, LuaHook};
+
+#[derive(Serialize, LuaHook)]
+#[lua(name = "onTick")]
+struct Tick;
 
 #[derive(Component, LuaComponent, Serialize, Deserialize, Clone)]
 struct Health {
@@ -65,7 +69,7 @@ fn spawn_actor(mut commands: Commands) {
 
 fn drive_scripts(mut commands: Commands, query: Query<Entity, With<LuaScript>>) {
     for entity in &query {
-        commands.lua_hook(entity, "onTick");
+        assert!(commands.lua_hook(entity, Tick).is_ok());
     }
 }
 
@@ -82,7 +86,7 @@ fn main() {
 
 - `LuaPlugin` inserts `LuaRuntime` as a non-send resource and initializes `ScriptRegistry`.
 - `LuaScript` stores Lua source attached to an entity.
-- `LuaCommands::lua_hook` schedules a hook call on an entity.
+- `LuaCommands::lua_hook` schedules a typed hook call on an entity.
 - `LuaCommands::lua_execute` schedules execution of an arbitrary Lua snippet.
 - `ScriptRegistry` maps Lua-visible names like `"Health"` to typed Rust accessors.
 
@@ -149,11 +153,45 @@ The iterator yields:
 ### Calling a hook
 
 ```rust,ignore
+use suon_macros::LuaHook;
+
 fn tick_scripts(mut commands: Commands, query: Query<Entity, With<LuaScript>>) {
     for entity in &query {
-        commands.lua_hook(entity, "onTick");
+        assert!(commands.lua_hook(entity, Tick).is_ok());
     }
 }
+```
+
+### Calling a hook with arguments
+
+```rust,ignore
+use serde::Serialize;
+
+#[derive(Serialize, LuaHook)]
+struct Move {
+    from: (i32, i32),
+    to: (i32, i32),
+}
+
+fn move_entity(mut commands: Commands, entity: Entity) {
+    commands
+        .lua_hook(
+            entity,
+            Move {
+                from: (0, 0),
+                to: (10, 20),
+            },
+        )
+        .unwrap_or_else(|error| panic!("hook args should serialize: {error}"));
+}
+```
+
+This matches a Lua hook like:
+
+```lua
+function Entity:onMove(from, to)
+    self:set("Position", { x = to[1], y = to[2] })
+end
 ```
 
 ### Executing an ad-hoc snippet
@@ -164,7 +202,8 @@ fn heal_low_health(mut commands: Commands) {
         r#"
         for id, health in Query("Health"):iter() do
             if health.value < 10 then
-                Entity(id):set("Health", { value = 100 })
+                local entity = Entity(id)
+                entity:set("Health", { value = 100 })
             end
         end
         "#,
@@ -192,6 +231,8 @@ In practice, the simplest path is to use `#[derive(LuaComponent)]`.
 - If any component name in the query is not registered, the iteration is empty.
 - Writes made through component proxies returned by `Query(...):iter()` are batched and applied on the next iteration step.
 - Lua hooks are method-only and should be defined as `Entity:onEvent()`.
+- Rust passes hooks through typed values implementing `Hook`.
+- Hook structs are serialized into positional Lua arguments using their field values.
 
 ## API Status
 

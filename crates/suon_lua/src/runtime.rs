@@ -9,7 +9,10 @@ use mlua::Function;
 use serde_json::Value as Json;
 use std::{cell::RefCell, collections::HashMap};
 
-use crate::{api::entity::EntityProxy, world_cell::WorldContext};
+use crate::{
+    api::{entity::EntityProxy, json_value_to_lua_value},
+    world_cell::WorldContext,
+};
 
 /// Non-send Bevy resource that owns the mlua Lua VM.
 ///
@@ -29,14 +32,19 @@ use crate::{api::entity::EntityProxy, world_cell::WorldContext};
 /// world.insert_non_send_resource(LuaRuntime::new());
 /// ```
 pub struct LuaRuntime {
+    /// Shared mlua state used by every script execution in the world.
     lua: mlua::Lua,
+    /// Cache of compiled chunks keyed by their exact source text.
     script_cache: RefCell<HashMap<Box<str>, mlua::RegistryKey>>,
 }
 
 impl LuaRuntime {
+    /// Creates a new runtime and registers the global Lua API surface.
     pub(crate) fn new() -> Self {
         let lua = mlua::Lua::new();
-        crate::api::world::register_world_api(&lua).expect("failed to register Lua globals");
+        if let Err(error) = crate::api::world::register_world_api(&lua) {
+            panic!("failed to register Lua globals: {error}");
+        }
         Self {
             lua,
             script_cache: RefCell::new(HashMap::new()),
@@ -119,12 +127,16 @@ impl LuaRuntime {
 /// # Ok::<(), mlua::Error>(())
 /// ```
 pub struct LuaScope<'runtime, 'world> {
+    /// Borrow of the shared Lua VM owned by [`LuaRuntime`].
     lua: &'runtime mlua::Lua,
+    /// Shared cache of compiled Lua chunks for this runtime.
     script_cache: &'runtime RefCell<HashMap<Box<str>, mlua::RegistryKey>>,
+    /// Guard that keeps the current Bevy world reachable from Lua callbacks.
     _context: WorldContext<'world>,
 }
 
 impl LuaScope<'_, '_> {
+    /// Returns a compiled function for `source`, using the cache when possible.
     fn compiled_chunk(&self, source: &str) -> mlua::Result<Function> {
         if let Some(cache_key) = self.script_cache.borrow().get(source) {
             return self.lua.registry_value(cache_key);
@@ -161,9 +173,31 @@ impl LuaScope<'_, '_> {
         self.compiled_chunk(source)?.call::<()>(())
     }
 
+    /// Converts serialized Rust hook arguments into the Lua argument list.
+    fn hook_arguments(
+        &self,
+        entity_proxy: mlua::AnyUserData,
+        args: Json,
+    ) -> mlua::Result<mlua::MultiValue> {
+        let mut values = mlua::MultiValue::new();
+        values.push_back(mlua::Value::UserData(entity_proxy));
+
+        match args {
+            Json::Null => {}
+            Json::Array(items) => {
+                for item in items {
+                    values.push_back(json_value_to_lua_value(self.lua, item)?);
+                }
+            }
+            value => values.push_back(json_value_to_lua_value(self.lua, value)?),
+        }
+
+        Ok(values)
+    }
+
     /// Loads `source`, then calls `hook` as a method on the global `Entity` table.
     ///
-    /// Resolution order (OOP-first so scripts can write `function Entity:onTick()`):
+    /// Scripts are expected to define hooks in method form, for example
     /// 1. `Entity.<hook>` — called as a method: `Entity:onTick(proxy)`
     /// 2. global `<hook>` — called as a plain function: `onTick(proxy)`
     ///
@@ -187,21 +221,29 @@ impl LuaScope<'_, '_> {
     ///     entity,
     ///     "function Entity:onTick() touched = true end",
     ///     "onTick",
+    ///     serde_json::Value::Null,
     /// )?;
     /// # Ok::<(), mlua::Error>(())
     /// ```
-    pub fn call_hook(&self, entity: Entity, source: &str, hook: &str) -> mlua::Result<()> {
+    pub fn call_hook(
+        &self,
+        entity: Entity,
+        source: &str,
+        hook: &str,
+        args: Json,
+    ) -> mlua::Result<()> {
         self.compiled_chunk(source)?.call::<()>(())?;
 
         let globals = self.lua.globals();
         let entity_proxy = self.lua.create_userdata(EntityProxy { id: entity })?;
+        let arguments = self.hook_arguments(entity_proxy, args)?;
 
         // Hooks are method-only so scripts have a single, predictable convention:
         // `function Entity:onTick() ... end`.
         if let Ok(class) = globals.get::<mlua::Table>("Entity")
             && let Ok(func) = class.get::<Function>(hook)
         {
-            func.call::<()>(entity_proxy)?;
+            func.call::<()>(arguments)?;
         }
 
         Ok(())
@@ -282,8 +324,11 @@ pub struct TriggerAccessor {
 /// ```
 #[derive(Resource, Default)]
 pub struct ScriptRegistry {
+    /// Component accessors keyed by their Lua-visible names.
     pub(crate) components: HashMap<String, ComponentAccessor>,
+    /// Trigger accessors keyed by their Lua-visible names.
     pub(crate) triggers: HashMap<String, TriggerAccessor>,
+    /// Cached query plans keyed by the requested component name list.
     pub(crate) query_cache: HashMap<Vec<String>, Option<QueryPlan>>,
 }
 
@@ -302,8 +347,11 @@ impl ScriptRegistry {
 
 #[derive(Clone)]
 pub(crate) struct QueryPlan {
+    /// Registered Bevy component ids used to build the dynamic query.
     pub(crate) component_ids: Vec<ComponentId>,
+    /// Component serializers used to materialize Lua-visible row values.
     pub(crate) get_fns: Vec<fn(Entity, &mut World) -> Option<Json>>,
+    /// Component deserializers used to flush proxy writes back into the ECS.
     pub(crate) set_fns: Vec<fn(Entity, &mut World, Json)>,
 }
 
@@ -324,7 +372,7 @@ mod tests {
         runtime
             .scope(&mut world)
             .execute("assert(Entity ~= nil)")
-            .expect("lua exec should succeed");
+            .unwrap_or_else(|error| panic!("lua exec should succeed: {error}"));
     }
 
     #[test]
@@ -334,10 +382,10 @@ mod tests {
         let scope = runtime.scope(&mut world);
         scope
             .execute("result = 1 + 2")
-            .expect("lua exec should succeed");
+            .unwrap_or_else(|error| panic!("lua exec should succeed: {error}"));
         scope
             .execute("assert(result == 3)")
-            .expect("lua assertion should succeed");
+            .unwrap_or_else(|error| panic!("lua assertion should succeed: {error}"));
     }
 
     #[test]
@@ -374,11 +422,16 @@ mod tests {
         let scope = runtime.scope(&mut world);
 
         scope
-            .call_hook(entity, "function Entity:onTick() ran = true end", "onTick")
-            .expect("hook should execute without error");
+            .call_hook(
+                entity,
+                "function Entity:onTick() ran = true end",
+                "onTick",
+                Json::Null,
+            )
+            .unwrap_or_else(|error| panic!("hook should execute without error: {error}"));
         scope
             .execute("assert(ran == true)")
-            .expect("lua assertion should succeed");
+            .unwrap_or_else(|error| panic!("lua assertion should succeed: {error}"));
     }
 
     #[test]
@@ -389,11 +442,16 @@ mod tests {
         let scope = runtime.scope(&mut world);
 
         scope
-            .call_hook(entity, "function onTick(entity) ran = true end", "onTick")
-            .expect("hook should execute without error");
+            .call_hook(
+                entity,
+                "function onTick(entity) ran = true end",
+                "onTick",
+                Json::Null,
+            )
+            .unwrap_or_else(|error| panic!("hook should execute without error: {error}"));
         scope
             .execute("assert(ran == nil)")
-            .expect("lua assertion should succeed");
+            .unwrap_or_else(|error| panic!("lua assertion should succeed: {error}"));
     }
 
     #[test]
@@ -404,8 +462,8 @@ mod tests {
 
         runtime
             .scope(&mut world)
-            .call_hook(entity, "", "nonexistent")
-            .expect("missing hook should be a noop, not an error");
+            .call_hook(entity, "", "nonexistent", Json::Null)
+            .unwrap_or_else(|error| panic!("missing hook should be a noop, not an error: {error}"));
     }
 
     #[test]
@@ -420,11 +478,11 @@ mod tests {
             function onTick(entity)  style = 'plain'  end
         ";
         scope
-            .call_hook(entity, source, "onTick")
-            .expect("hook should execute without error");
+            .call_hook(entity, source, "onTick", Json::Null)
+            .unwrap_or_else(|error| panic!("hook should execute without error: {error}"));
         scope
             .execute("assert(style == 'method')")
-            .expect("lua assertion should succeed");
+            .unwrap_or_else(|error| panic!("lua assertion should succeed: {error}"));
     }
 
     #[test]
@@ -439,12 +497,55 @@ mod tests {
                 entity,
                 "function Entity:onTick() received_id = self:id() end",
                 "onTick",
+                Json::Null,
             )
-            .expect("hook should execute without error");
+            .unwrap_or_else(|error| panic!("hook should execute without error: {error}"));
 
         scope
             .execute(&format!("assert(received_id == {})", entity.to_bits()))
-            .expect("lua assertion should succeed");
+            .unwrap_or_else(|error| panic!("lua assertion should succeed: {error}"));
+    }
+
+    #[test]
+    fn call_hook_passes_single_table_argument() {
+        let runtime = LuaRuntime::new();
+        let mut world = setup_world();
+        let entity = world.spawn_empty().id();
+        let scope = runtime.scope(&mut world);
+
+        scope
+            .call_hook(
+                entity,
+                "function Entity:onMove(position) moved_x = position.x; moved_y = position.y end",
+                "onMove",
+                serde_json::json!({ "x": 5, "y": 9 }),
+            )
+            .unwrap_or_else(|error| panic!("hook should execute without error: {error}"));
+
+        scope
+            .execute("assert(moved_x == 5 and moved_y == 9)")
+            .unwrap_or_else(|error| panic!("lua assertion should succeed: {error}"));
+    }
+
+    #[test]
+    fn call_hook_expands_array_into_multiple_arguments() {
+        let runtime = LuaRuntime::new();
+        let mut world = setup_world();
+        let entity = world.spawn_empty().id();
+        let scope = runtime.scope(&mut world);
+
+        scope
+            .call_hook(
+                entity,
+                "function Entity:onDamage(amount, source) damage = amount; dealer = source end",
+                "onDamage",
+                serde_json::json!([12, "lava"]),
+            )
+            .unwrap_or_else(|error| panic!("hook should execute without error: {error}"));
+
+        scope
+            .execute("assert(damage == 12 and dealer == 'lava')")
+            .unwrap_or_else(|error| panic!("lua assertion should succeed: {error}"));
     }
 
     #[test]
@@ -455,17 +556,17 @@ mod tests {
 
         scope
             .execute("counter = 0")
-            .expect("lua exec should succeed");
+            .unwrap_or_else(|error| panic!("lua exec should succeed: {error}"));
         scope
             .execute("counter = counter + 1")
-            .expect("lua exec should succeed");
+            .unwrap_or_else(|error| panic!("lua exec should succeed: {error}"));
         scope
             .execute("counter = counter + 1")
-            .expect("lua exec should succeed");
+            .unwrap_or_else(|error| panic!("lua exec should succeed: {error}"));
 
         scope
             .execute("assert(counter == 2)")
-            .expect("lua assertion should succeed");
+            .unwrap_or_else(|error| panic!("lua assertion should succeed: {error}"));
     }
 
     #[test]
@@ -480,6 +581,7 @@ mod tests {
                 entity,
                 "function Entity:onTick() error('hook failed') end",
                 "onTick",
+                Json::Null,
             )
             .unwrap_err();
 
@@ -493,7 +595,7 @@ mod tests {
         runtime
             .scope(&mut world)
             .execute("")
-            .expect("empty source should succeed");
+            .unwrap_or_else(|error| panic!("empty source should succeed: {error}"));
     }
 
     #[test]
@@ -501,11 +603,14 @@ mod tests {
         let runtime = LuaRuntime::new();
         let mut world = setup_world();
 
-        runtime.scope(&mut world).execute("x = 42").unwrap();
+        runtime
+            .scope(&mut world)
+            .execute("x = 42")
+            .unwrap_or_else(|error| panic!("lua execution should succeed: {error}"));
         runtime
             .scope(&mut world)
             .execute("assert(x == 42)")
-            .expect("lua assertion should succeed");
+            .unwrap_or_else(|error| panic!("lua assertion should succeed: {error}"));
     }
 
     #[test]
@@ -513,8 +618,14 @@ mod tests {
         let runtime = LuaRuntime::new();
         let mut world = setup_world();
 
-        runtime.scope(&mut world).execute("counter = 1").unwrap();
-        runtime.scope(&mut world).execute("counter = 1").unwrap();
+        runtime
+            .scope(&mut world)
+            .execute("counter = 1")
+            .unwrap_or_else(|error| panic!("first lua execution should succeed: {error}"));
+        runtime
+            .scope(&mut world)
+            .execute("counter = 1")
+            .unwrap_or_else(|error| panic!("second lua execution should succeed: {error}"));
 
         assert_eq!(runtime.script_cache.borrow().len(), 1);
     }
@@ -528,13 +639,13 @@ mod tests {
 
         runtime
             .scope(&mut world)
-            .call_hook(entity, source, "onTick")
-            .unwrap();
+            .call_hook(entity, source, "onTick", Json::Null)
+            .unwrap_or_else(|error| panic!("cached chunk should execute successfully: {error}"));
 
         runtime
             .scope(&mut world)
-            .call_hook(entity, source, "onTick")
-            .unwrap();
+            .call_hook(entity, source, "onTick", Json::Null)
+            .unwrap_or_else(|error| panic!("cached chunk should execute successfully: {error}"));
 
         assert_eq!(runtime.script_cache.borrow().len(), 1);
     }
@@ -547,8 +658,8 @@ mod tests {
 
         runtime
             .scope(&mut world)
-            .call_hook(entity, "", "onTick")
-            .expect("empty source with no hook should be a noop");
+            .call_hook(entity, "", "onTick", Json::Null)
+            .unwrap_or_else(|error| panic!("empty source with no hook should be a noop: {error}"));
     }
 
     #[test]
@@ -559,7 +670,7 @@ mod tests {
 
         let error = runtime
             .scope(&mut world)
-            .call_hook(entity, "!! invalid !!", "onTick")
+            .call_hook(entity, "!! invalid !!", "onTick", Json::Null)
             .unwrap_err();
 
         assert!(matches!(error, mlua::Error::SyntaxError { .. }));

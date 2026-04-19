@@ -3008,6 +3008,7 @@ dependencies = [
  "suon_chunk",
  "suon_database",
  "suon_lua",
+ "suon_macros",
  "suon_movement",
  "suon_network",
  "suon_position",
@@ -3046,6 +3047,7 @@ dependencies = [
  "mlua",
  "serde",
  "serde_json",
+ "suon_macros",
 ]
 
 [[package]]

@@ -60,18 +60,19 @@ mod tests {
         runtime
             .scope(world)
             .execute(lua)
-            .expect("lua exec should succeed");
+            .unwrap_or_else(|error| panic!("lua exec should succeed: {error}"));
     }
 
     #[test]
     fn register_world_api_injects_entity_table_global() {
         let lua = Lua::new();
-        register_world_api(&lua).expect("Lua globals registration should succeed");
+        register_world_api(&lua)
+            .unwrap_or_else(|error| panic!("Lua globals registration should succeed: {error}"));
 
         let entity_val: mlua::Value = lua
             .globals()
             .get("Entity")
-            .expect("Entity global should be set");
+            .unwrap_or_else(|error| panic!("Entity global should be set: {error}"));
 
         assert!(matches!(entity_val, mlua::Value::Table(_)));
     }
@@ -79,12 +80,13 @@ mod tests {
     #[test]
     fn register_world_api_injects_query_function_global() {
         let lua = Lua::new();
-        register_world_api(&lua).expect("Lua globals registration should succeed");
+        register_world_api(&lua)
+            .unwrap_or_else(|error| panic!("Lua globals registration should succeed: {error}"));
 
         let query_val: mlua::Value = lua
             .globals()
             .get("Query")
-            .expect("Query global should be set");
+            .unwrap_or_else(|error| panic!("Query global should be set: {error}"));
 
         assert!(matches!(query_val, mlua::Value::Function(_)));
     }

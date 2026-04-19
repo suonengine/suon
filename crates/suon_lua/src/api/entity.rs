@@ -22,10 +22,12 @@ use crate::{
 /// entity:trigger("TeleportIntent", { to = { x = 0, y = 0 } })
 /// ```
 pub struct EntityProxy {
+    /// Raw Bevy entity id represented by this Lua userdata instance.
     pub(crate) id: Entity,
 }
 
 impl UserData for EntityProxy {
+    /// Registers the Lua-facing methods available on `Entity(id)` proxies.
     fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
         methods.add_method("get", |lua, this, component_name: String| {
             let get_fn = world_cell::with(|world| {
@@ -146,7 +148,7 @@ mod tests {
         runtime
             .scope(world)
             .execute(lua)
-            .expect("lua exec should succeed");
+            .unwrap_or_else(|error| panic!("lua exec should succeed: {error}"));
     }
 
     #[test]
@@ -245,7 +247,7 @@ mod tests {
         assert_eq!(
             world
                 .get::<TestHealth>(entity)
-                .expect("TestHealth should be present")
+                .unwrap_or_else(|| panic!("TestHealth should be present"))
                 .value,
             99
         );
@@ -370,7 +372,7 @@ mod tests {
         assert_eq!(
             world
                 .get::<TestHealth>(entity)
-                .expect("TestHealth should be present")
+                .unwrap_or_else(|| panic!("TestHealth should be present"))
                 .value,
             15
         );
@@ -407,7 +409,7 @@ mod tests {
         ",
                 entity.to_bits()
             ))
-            .expect("lua exec should succeed");
+            .unwrap_or_else(|error| panic!("lua exec should succeed: {error}"));
 
         assert_eq!(world.resource::<LastAmount>().0, 25);
     }
@@ -432,7 +434,7 @@ mod tests {
         assert_eq!(
             world
                 .get::<TestHealth>(entity)
-                .expect("TestHealth should be present")
+                .unwrap_or_else(|| panic!("TestHealth should be present"))
                 .value,
             0
         );
@@ -499,7 +501,7 @@ mod tests {
                 "Entity({}):trigger('RemoveHealth', {{}})",
                 entity.to_bits()
             ))
-            .expect("lua exec should succeed");
+            .unwrap_or_else(|error| panic!("lua exec should succeed: {error}"));
 
         assert!(
             world.get::<TestHealth>(entity).is_none(),
@@ -552,7 +554,7 @@ mod tests {
                 "Entity({}):trigger('Outer', {{}})",
                 entity.to_bits()
             ))
-            .expect("lua exec should succeed");
+            .unwrap_or_else(|error| panic!("lua exec should succeed: {error}"));
 
         assert_eq!(
             world.resource::<FireLog>().0.as_slice(),
