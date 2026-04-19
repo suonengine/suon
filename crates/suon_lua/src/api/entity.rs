@@ -9,7 +9,7 @@ use mlua::{UserData, UserDataMethods};
 use std::rc::Rc;
 
 use crate::{
-    api::{IntoJsonValueExt, query::LuaQueryExt},
+    api::{IntoJsonValueExt, IntoLuaValueExt},
     runtime::ScriptRegistry,
     world_cell,
 };
@@ -30,9 +30,8 @@ pub struct EntityProxy {
 }
 
 impl UserData for EntityProxy {
-    /// Registers the Lua-facing methods available on `Entity(id)` proxies.
     fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
-        methods.add_method("get", |lua, entity_proxy, component: mlua::Table| {
+        methods.add_method("get", |lua, proxy, component: mlua::Table| {
             let Some(component_name) = component.get::<Option<String>>("__component")? else {
                 return Ok(mlua::Value::Nil);
             };
@@ -42,43 +41,44 @@ impl UserData for EntityProxy {
                     .resource::<ScriptRegistry>()
                     .components
                     .get(&component_name)
-                    .map(|a| (a.get, a.set))
+                    .map(|accessor| (accessor.get, accessor.set))
             });
 
-            let Some((component_getter, component_setter)) = accessor else {
+            let Some((getter, setter)) = accessor else {
                 return Ok(mlua::Value::Nil);
             };
 
-            let component_snapshot =
-                world_cell::with(|world| component_getter(entity_proxy.id, world));
+            let component_snapshot = world_cell::with(|world| getter(proxy.id, world));
 
             let Some(component_json) = component_snapshot else {
                 return Ok(mlua::Value::Nil);
             };
 
-            let inner_table = Rc::new(lua.create_lua_component_table(component_json)?);
-            let entity_id = entity_proxy.id;
+            let component_data = Rc::new(component_json.into_lua_table(lua)?);
+            let entity_id = proxy.id;
 
             let proxy_table = lua.create_table()?;
             let metatable = lua.create_table()?;
 
-            let index_table = inner_table.clone();
+            let index_component_data = component_data.clone();
             metatable.set(
                 "__index",
-                lua.create_function(move |_lua, (_proxy, key): (mlua::Table, String)| {
-                    index_table.raw_get::<mlua::Value>(key)
+                lua.create_function(move |_lua, (_proxy_table, key): (mlua::Table, String)| {
+                    index_component_data.raw_get::<mlua::Value>(key)
                 })?,
             )?;
 
-            let newindex_table = inner_table.clone();
+            let newindex_component_data = component_data.clone();
             metatable.set(
                 "__newindex",
                 lua.create_function(
-                    move |_lua, (_proxy, key, value): (mlua::Table, String, mlua::Value)| {
-                        newindex_table.raw_set(key, value)?;
-                        let json =
-                            mlua::Value::Table((*newindex_table).clone()).into_json_value()?;
-                        world_cell::with(|world| component_setter(entity_id, world, json));
+                    move |_lua,
+                          (_proxy_table, key, lua_value): (mlua::Table, String, mlua::Value)| {
+                        newindex_component_data.raw_set(key, lua_value)?;
+                        let updated_json =
+                            mlua::Value::Table((*newindex_component_data).clone())
+                                .into_json_value()?;
+                        world_cell::with(|world| setter(entity_id, world, updated_json));
                         Ok(())
                     },
                 )?,
@@ -90,8 +90,8 @@ impl UserData for EntityProxy {
 
         methods.add_method(
             "trigger",
-            |_lua, entity_proxy, (trigger_name, lua_args_table): (String, mlua::Table)| {
-                let trigger_args_json = mlua::Value::Table(lua_args_table).into_json_value()?;
+            |_lua, proxy, (trigger_name, trigger_args): (String, mlua::Table)| {
+                let trigger_args_json = mlua::Value::Table(trigger_args).into_json_value()?;
 
                 let trigger_handler = world_cell::with(|world| {
                     world
@@ -101,19 +101,15 @@ impl UserData for EntityProxy {
                         .map(|trigger| trigger.fire)
                 });
 
-                if let Some(trigger_handler) = trigger_handler {
-                    world_cell::with(|world| {
-                        trigger_handler(entity_proxy.id, world, trigger_args_json)
-                    });
+                if let Some(fire) = trigger_handler {
+                    world_cell::with(|world| fire(proxy.id, world, trigger_args_json));
                 }
 
                 Ok(())
             },
         );
 
-        methods.add_method("id", |_lua, entity_proxy, ()| {
-            Ok(entity_proxy.id.to_bits() as i64)
-        });
+        methods.add_method("id", |_lua, proxy, ()| Ok(proxy.id.to_bits() as i64));
     }
 }
 
@@ -213,7 +209,7 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<ScriptRegistry>();
 
-        // Register Health global without spawning an entity that has it.
+        // Register Health global without leaving a live entity.
         let entity = world.spawn(Health { value: 0 }).id();
         world.despawn(entity);
 
@@ -437,28 +433,6 @@ mod tests {
                 .value,
             0
         );
-    }
-
-    #[test]
-    fn get_returns_component_for_correct_component_table() {
-        let runtime = LuaRuntime::new();
-
-        let mut world = World::new();
-        world.init_resource::<ScriptRegistry>();
-
-        let entity = world.spawn(Health { value: 1 }).id();
-
-        runtime
-            .scope(&mut world)
-            .execute(&format!(
-                "
-            local entity = Entity({})
-            assert(entity:get(Health) ~= nil, 'registered component table should return the \
-                 component')
-        ",
-                entity.to_bits()
-            ))
-            .expect("lua exec should succeed");
     }
 
     #[test]

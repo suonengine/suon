@@ -1,8 +1,8 @@
-//! Lua value conversion helpers and sub-modules for the world/entity/query APIs.
+//! Lua value conversion utilities shared across the `entity`, `query`, and `world` sub-modules.
 //!
-//! [`IntoLuaValueExt`] and [`IntoJsonValueExt`] form the serialisation bridge used by
-//! every component accessor: ECS components travel as `serde_json::Value`
-//! between Rust and Lua.
+//! [`IntoLuaValueExt`] and [`IntoJsonValueExt`] bridge `serde_json::Value` ↔ `mlua::Value`.
+//! [`IntoLuaValueExt::into_lua_table`] is the specialised form used by entity and query proxies
+//! to convert a component snapshot directly into a Lua table.
 
 pub mod entity;
 pub mod query;
@@ -12,6 +12,13 @@ pub mod world;
 pub(crate) trait IntoLuaValueExt {
     /// Converts this JSON value into the equivalent Lua representation.
     fn into_lua_value(self, lua: &mlua::Lua) -> mlua::Result<mlua::Value>;
+
+    /// Converts this JSON value into a Lua table.
+    ///
+    /// Used by entity and query proxies to materialise component snapshots.
+    /// If the JSON does not deserialise to a table (e.g. `null`) an empty
+    /// table is returned so callers never need to handle that edge case.
+    fn into_lua_table(self, lua: &mlua::Lua) -> mlua::Result<mlua::Table>;
 }
 
 impl IntoLuaValueExt for serde_json::Value {
@@ -44,6 +51,13 @@ impl IntoLuaValueExt for serde_json::Value {
                 }
                 Ok(mlua::Value::Table(lua_table))
             }
+        }
+    }
+
+    fn into_lua_table(self, lua: &mlua::Lua) -> mlua::Result<mlua::Table> {
+        match self.into_lua_value(lua)? {
+            mlua::Value::Table(lua_table) => Ok(lua_table),
+            _ => lua.create_table(),
         }
     }
 }

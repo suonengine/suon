@@ -1,8 +1,8 @@
-//! [`QueryProxy`] — the Lua userdata returned by `Query("A", "B", ...)`.
+//! [`QueryProxy`] — the Lua userdata returned by `Query(A, B, ...)`.
 //!
-//! Iterating via `:iter()` yields entity id and one proxy table per component.
-//! Writes to those proxy tables are batched and flushed to the ECS at the start
-//! of the **next** iteration step rather than immediately (see comment in `iter_fn`).
+//! Iterating via `:iter()` yields the entity id and one proxy table per component.
+//! Writes to those proxy tables are batched and flushed to the ECS at the start of
+//! the **next** iteration step rather than immediately (see the comment in `iter_fn`).
 
 use bevy::{
     ecs::{component::ComponentId, query::QueryBuilder},
@@ -20,49 +20,38 @@ use crate::{
     world_cell,
 };
 
+/// `(component_id_fn, getter_fn, setter_fn)` — local alias used while building a `QueryPlan`.
 type ComponentEntry = (
     fn(&mut World) -> ComponentId,
     fn(Entity, &mut World) -> Option<serde_json::Value>,
     fn(Entity, &mut World, serde_json::Value),
 );
 
-type QueryRowComponent = (serde_json::Value, fn(Entity, &mut World, serde_json::Value));
-type PendingComponentWrite = (
+/// One component column in a query row: the snapshot JSON and its setter.
+type RowComponent = (serde_json::Value, fn(Entity, &mut World, serde_json::Value));
+
+/// Pending write held across iteration steps: data table, dirty flag, entity, setter.
+type PendingWrite = (
     Rc<mlua::Table>,
     Rc<Cell<bool>>,
     Entity,
     fn(Entity, &mut World, serde_json::Value),
 );
 
-/// Extension methods for building query result tables from the Lua side.
-pub(crate) trait LuaQueryExt {
-    /// Converts a serialized component snapshot into the Lua table used by query proxies.
-    fn create_lua_component_table(&self, value: serde_json::Value) -> mlua::Result<mlua::Table>;
-}
-
-impl LuaQueryExt for mlua::Lua {
-    fn create_lua_component_table(&self, value: serde_json::Value) -> mlua::Result<mlua::Table> {
-        match value.into_lua_value(self)? {
-            mlua::Value::Table(table) => Ok(table),
-            _ => self.create_table(),
-        }
-    }
-}
-
-/// Extension methods for collecting dynamic ECS queries used by `Query(...)`.
+/// Extension for running dynamic ECS queries from the Lua side.
 pub(crate) trait WorldLuaQueryExt {
-    /// Runs the dynamic query described by `component_names` and materializes all rows.
-    fn lua_query(&mut self, component_names: &[String]) -> Vec<(u64, Vec<QueryRowComponent>)>;
+    /// Runs the query described by `component_names` and materialises all matching rows.
+    fn lua_query(&mut self, component_names: &[String]) -> Vec<(u64, Vec<RowComponent>)>;
 }
 
 impl WorldLuaQueryExt for World {
-    fn lua_query(&mut self, component_names: &[String]) -> Vec<(u64, Vec<QueryRowComponent>)> {
-        let mut collected_rows = Vec::new();
+    fn lua_query(&mut self, component_names: &[String]) -> Vec<(u64, Vec<RowComponent>)> {
+        let mut query_rows = Vec::new();
 
         self.resource_scope(|world, mut registry: Mut<ScriptRegistry>| {
-            let component_name_key = component_names.to_vec();
-            let cached_query_plan = match registry.query_cache.get(&component_name_key) {
-                Some(query_plan) => query_plan.clone(),
+            let cache_key = component_names.to_vec();
+            let query_plan = match registry.query_cache.get(&cache_key) {
+                Some(cached_plan) => cached_plan.clone(),
                 None => {
                     let component_entries: Vec<ComponentEntry> = component_names
                         .iter()
@@ -74,12 +63,12 @@ impl WorldLuaQueryExt for World {
                         })
                         .collect();
 
-                    let resolved_query_plan = if component_entries.len() != component_names.len() {
+                    let resolved_plan = if component_entries.len() != component_names.len() {
                         None
                     } else {
                         let component_ids: Vec<ComponentId> = component_entries
                             .iter()
-                            .map(|(component_id_getter, _, _)| component_id_getter(world))
+                            .map(|(component_id_fn, _, _)| component_id_fn(world))
                             .collect();
 
                         if component_ids.is_empty() {
@@ -89,11 +78,11 @@ impl WorldLuaQueryExt for World {
                                 component_ids,
                                 get_fns: component_entries
                                     .iter()
-                                    .map(|(_, component_getter, _)| *component_getter)
+                                    .map(|(_, getter, _)| *getter)
                                     .collect(),
                                 set_fns: component_entries
                                     .iter()
-                                    .map(|(_, _, component_setter)| *component_setter)
+                                    .map(|(_, _, setter)| *setter)
                                     .collect(),
                             })
                         }
@@ -101,14 +90,12 @@ impl WorldLuaQueryExt for World {
 
                     registry
                         .query_cache
-                        .insert(component_name_key, resolved_query_plan.clone());
-                    resolved_query_plan
+                        .insert(cache_key, resolved_plan.clone());
+                    resolved_plan
                 }
             };
 
-            let Some(query_plan) = cached_query_plan else {
-                return;
-            };
+            let Some(query_plan) = query_plan else { return };
 
             let mut query_builder = QueryBuilder::<Entity>::new(world);
             for &component_id in &query_plan.component_ids {
@@ -119,33 +106,32 @@ impl WorldLuaQueryExt for World {
             let matching_entities: Vec<Entity> = query_state.iter(world).collect();
 
             for entity in matching_entities {
-                let row_components: Vec<QueryRowComponent> = query_plan
+                let row_components: Vec<RowComponent> = query_plan
                     .get_fns
                     .iter()
                     .zip(query_plan.set_fns.iter())
-                    .filter_map(|(component_getter, component_setter)| {
-                        component_getter(entity, world)
-                            .map(|component_json| (component_json, *component_setter))
+                    .filter_map(|(getter, setter)| {
+                        getter(entity, world).map(|component_json| (component_json, *setter))
                     })
                     .collect();
-                collected_rows.push((entity.to_bits(), row_components));
+                query_rows.push((entity.to_bits(), row_components));
             }
         });
 
-        collected_rows
+        query_rows
     }
 }
 
-/// Lua UserData returned by `Query(...)`.
+/// Lua UserData returned by `Query(A, B, ...)`.
 ///
 /// ```lua
-/// for id, hp in Query("Health"):iter() do
-///     hp.value = hp.value + 10   -- batched: written to ECS once per entity at end of each step
+/// for id, hp in Query(Health):iter() do
+///     hp.value = hp.value - 1   -- batched: written to ECS once per entity at the next step
 /// end
 ///
-/// for id, hp, pos in Query("Health", "Position"):iter() do
-///     hp.value = 0   -- both fields written in a single deserialize_component call at end of step
-///     pos.x = 0
+/// for id, hp, pos in Query(Health, Position):iter() do
+///     hp.value  = 0
+///     pos.x     = 0
 /// end
 /// ```
 pub struct QueryProxy {
@@ -159,9 +145,8 @@ impl UserData for QueryProxy {
             let query_rows = world_cell::with(|world| world.lua_query(&component_names));
 
             let query_rows = Rc::new(query_rows);
-            let cursor = Rc::new(Cell::new(0usize));
-            let pending_component_writes: Rc<RefCell<Vec<PendingComponentWrite>>> =
-                Rc::new(RefCell::new(Vec::new()));
+            let row_cursor = Rc::new(Cell::new(0usize));
+            let pending_writes: Rc<RefCell<Vec<PendingWrite>>> = Rc::new(RefCell::new(Vec::new()));
 
             let iterator_function = lua.create_function(move |lua, _: mlua::MultiValue| {
                 // Flush writes from the previous step before advancing the cursor.
@@ -169,25 +154,21 @@ impl UserData for QueryProxy {
                 // because Lua reads the __newindex result immediately after assignment —
                 // deferring until the next call lets the current step finish without
                 // a re-entrant world borrow.
-                for (component_table, is_dirty, entity, component_setter) in
-                    pending_component_writes.borrow().iter()
-                {
+                for (component_data, is_dirty, entity, setter) in pending_writes.borrow().iter() {
                     if is_dirty.get() {
                         is_dirty.set(false);
-                        let updated_component_json =
-                            mlua::Value::Table((**component_table).clone()).into_json_value()?;
-                        world_cell::with(|world| {
-                            component_setter(*entity, world, updated_component_json)
-                        });
+                        let updated_json =
+                            mlua::Value::Table((**component_data).clone()).into_json_value()?;
+                        world_cell::with(|world| setter(*entity, world, updated_json));
                     }
                 }
-                pending_component_writes.borrow_mut().clear();
+                pending_writes.borrow_mut().clear();
 
-                let row_index = cursor.get();
+                let row_index = row_cursor.get();
                 if row_index >= query_rows.len() {
                     return Ok(mlua::MultiValue::new());
                 }
-                cursor.set(row_index + 1);
+                row_cursor.set(row_index + 1);
 
                 let (entity_bits, ref row_components) = query_rows[row_index];
                 let entity = Entity::from_bits(entity_bits);
@@ -195,45 +176,50 @@ impl UserData for QueryProxy {
                 let mut iterator_values = mlua::MultiValue::new();
                 iterator_values.push_back(mlua::Value::Integer(entity_bits as i64));
 
-                for (component_json, component_setter) in row_components.iter() {
-                    let component_table =
-                        Rc::new(lua.create_lua_component_table(component_json.clone())?);
-                    let has_pending_write = Rc::new(Cell::new(false));
-                    let component_setter = *component_setter;
+                for (component_json, setter) in row_components.iter() {
+                    let component_data = Rc::new(component_json.clone().into_lua_table(lua)?);
+                    let is_dirty = Rc::new(Cell::new(false));
+                    let setter = *setter;
 
-                    pending_component_writes.borrow_mut().push((
-                        component_table.clone(),
-                        has_pending_write.clone(),
+                    pending_writes.borrow_mut().push((
+                        component_data.clone(),
+                        is_dirty.clone(),
                         entity,
-                        component_setter,
+                        setter,
                     ));
 
                     let proxy_table = lua.create_table()?;
                     let metatable = lua.create_table()?;
 
-                    let index_component_table = component_table.clone();
+                    let index_component_data = component_data.clone();
                     metatable.set(
                         "__index",
-                        lua.create_function(move |_lua, (_proxy, key): (mlua::Table, String)| {
-                            index_component_table.raw_get::<mlua::Value>(key)
-                        })?,
+                        lua.create_function(
+                            move |_lua, (_proxy_table, key): (mlua::Table, String)| {
+                                index_component_data.raw_get::<mlua::Value>(key)
+                            },
+                        )?,
                     )?;
 
-                    let newindex_component_table = component_table.clone();
-                    let newindex_dirty_flag = has_pending_write.clone();
+                    let newindex_component_data = component_data.clone();
+                    let newindex_is_dirty = is_dirty.clone();
                     metatable.set(
                         "__newindex",
                         lua.create_function(
                             move |_lua,
-                                  (_proxy, key, lua_value): (mlua::Table, String, mlua::Value)| {
-                                newindex_component_table.raw_set(key, lua_value)?;
-                                newindex_dirty_flag.set(true);
+                                  (_proxy_table, key, lua_value): (
+                                mlua::Table,
+                                String,
+                                mlua::Value,
+                            )| {
+                                newindex_component_data.raw_set(key, lua_value)?;
+                                newindex_is_dirty.set(true);
                                 Ok(())
                             },
                         )?,
                     )?;
 
-                    let _ = proxy_table.set_metatable(Some(metatable));
+                    proxy_table.set_metatable(Some(metatable))?;
                     iterator_values.push_back(mlua::Value::Table(proxy_table));
                 }
 
@@ -268,31 +254,6 @@ mod tests {
 
     #[test]
     fn iter_yields_all_entities_with_the_queried_component() {
-        let runtime = LuaRuntime::new();
-
-        let mut world = World::new();
-        world.init_resource::<ScriptRegistry>();
-
-        world.spawn(Health { value: 10 });
-        world.spawn(Health { value: 20 });
-        world.spawn_empty();
-
-        runtime
-            .scope(&mut world)
-            .execute(
-                "
-            local count = 0
-            for id, health in Query(Health):iter() do
-                count = count + 1
-            end
-            assert(count == 2, 'expected 2, got ' .. count)
-        ",
-            )
-            .expect("lua exec should succeed");
-    }
-
-    #[test]
-    fn query_constructor_yields_all_entities_with_the_queried_component() {
         let runtime = LuaRuntime::new();
 
         let mut world = World::new();

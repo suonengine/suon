@@ -1,7 +1,9 @@
 //! Registers the Lua-facing ECS globals.
 //!
-//! Called once from [`LuaRuntime::new`]. The runtime exposes `Entity(id)` for
-//! entity access and `Query(...)` for ECS iteration.
+//! Called once from [`LuaRuntime::new`]. Two globals are injected:
+//!
+//! - `Entity(id)` — callable table that returns an [`EntityProxy`] for the given entity bits.
+//! - `Query(A, B, ...)` — function accepting component type globals and returning a [`QueryProxy`].
 
 use crate::api::{entity::EntityProxy, query::QueryProxy};
 
@@ -15,9 +17,12 @@ impl LuaWorldApiExt for mlua::Lua {
     fn register_world_api(&self) -> mlua::Result<()> {
         let globals = self.globals();
 
-        let entity_table = self.create_table()?;
-        let entity_table_metatable = self.create_table()?;
-        entity_table_metatable.set(
+        // `Entity` is a table so that scripts can also attach methods to it
+        // (e.g. `function Entity:onTick()`). The `__call` metamethod makes
+        // `Entity(id)` return a fresh EntityProxy.
+        let entity_class = self.create_table()?;
+        let entity_metatable = self.create_table()?;
+        entity_metatable.set(
             "__call",
             self.create_function(|_lua, (_entity_class, entity_bits): (mlua::Table, i64)| {
                 Ok(EntityProxy {
@@ -25,24 +30,24 @@ impl LuaWorldApiExt for mlua::Lua {
                 })
             })?,
         )?;
+        entity_class.set_metatable(Some(entity_metatable))?;
+        globals.set("Entity", entity_class)?;
 
-        entity_table.set_metatable(Some(entity_table_metatable))?;
-
-        globals.set("Entity", entity_table)?;
+        // `Query(A, B, ...)` accepts component type globals (each a table with a
+        // `__component` key) and returns a QueryProxy whose `:iter()` yields rows.
         globals.set(
             "Query",
-            self.create_function(|_lua, components: mlua::Variadic<mlua::Table>| {
-                let mut component_names = Vec::new();
-                for table in components {
-                    if let Ok(name) = table.get::<String>("__component") {
-                        component_names.push(name);
-                    }
-                }
+            self.create_function(|_lua, component_tables: mlua::Variadic<mlua::Table>| {
+                let component_names = component_tables
+                    .iter()
+                    .filter_map(|component_table| component_table.get::<String>("__component").ok())
+                    .collect();
                 Ok(QueryProxy {
                     components: component_names,
                 })
             })?,
         )?;
+
         Ok(())
     }
 }
@@ -60,12 +65,12 @@ mod tests {
         lua.register_world_api()
             .expect("Lua globals registration should succeed");
 
-        let entity_val: mlua::Value = lua
+        let val: mlua::Value = lua
             .globals()
             .get("Entity")
             .expect("Entity global should be set");
 
-        assert!(matches!(entity_val, mlua::Value::Table(_)));
+        assert!(matches!(val, mlua::Value::Table(_)));
     }
 
     #[test]
@@ -75,12 +80,12 @@ mod tests {
         lua.register_world_api()
             .expect("Lua globals registration should succeed");
 
-        let query_val: mlua::Value = lua
+        let val: mlua::Value = lua
             .globals()
             .get("Query")
             .expect("Query global should be set");
 
-        assert!(matches!(query_val, mlua::Value::Function(_)));
+        assert!(matches!(val, mlua::Value::Function(_)));
     }
 
     #[test]
@@ -138,6 +143,7 @@ mod tests {
     #[test]
     fn query_constructor_variadic_accepts_multiple_component_names() {
         use crate::runtime::ComponentAccessor;
+
         let runtime = LuaRuntime::new();
 
         let mut world = World::new();
