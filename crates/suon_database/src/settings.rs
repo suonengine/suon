@@ -127,7 +127,7 @@ impl DatabaseSettings {
         let settings: Self =
             toml::from_str(&config).context("Failed to parse database settings as TOML")?;
 
-        settings.validate()?;
+        let settings = DatabaseSettingsBuilder::from(&settings).build()?;
 
         trace!("Loaded database settings: {:?}", settings);
 
@@ -178,32 +178,6 @@ impl DatabaseSettings {
         Self::load_at(path)
     }
 
-    /// Validates the raw database settings.
-    pub(crate) fn validate(&self) -> anyhow::Result<()> {
-        anyhow::ensure!(
-            !self.database_url.trim().is_empty(),
-            "DatabaseSettings.database_url must not be empty"
-        );
-
-        anyhow::ensure!(
-            self.max_connections > 0,
-            "DatabaseSettings.max_connections must be greater than zero"
-        );
-
-        anyhow::ensure!(
-            self.min_connections <= self.max_connections,
-            "DatabaseSettings.min_connections must not exceed DatabaseSettings.max_connections"
-        );
-
-        anyhow::ensure!(
-            self.acquire_timeout_secs > 0,
-            "DatabaseSettings.acquire_timeout_secs must be greater than zero"
-        );
-
-        debug!("Database settings validated successfully.");
-
-        Ok(())
-    }
 }
 
 #[derive(Debug)]
@@ -215,7 +189,7 @@ pub(crate) struct DatabaseConnectOptions {
 impl DatabaseConnectOptions {
     /// Creates validated connection options from raw database settings.
     pub(crate) fn from_settings(settings: &DatabaseSettings) -> anyhow::Result<Self> {
-        settings.validate()?;
+        let settings = DatabaseSettingsBuilder::from(settings).build()?;
 
         let pool_options = AnyPoolOptions::new()
             .min_connections(settings.min_connections)
@@ -254,18 +228,25 @@ impl Default for DatabaseSettings {
 pub struct DatabaseSettingsBuilder {
     /// URL used by the backing database driver, for example `sqlite://market.db`.
     pub database_url: String,
+
     /// Minimum number of connections kept ready by the backing pool.
     pub min_connections: u32,
+
     /// Maximum number of concurrent connections allowed by the backing pool.
     pub max_connections: u32,
+
     /// Maximum time, in seconds, spent waiting to acquire a connection.
     pub acquire_timeout_secs: u64,
+
     /// Maximum idle time, in seconds, before an unused connection is recycled.
     pub idle_timeout_secs: Option<u64>,
+
     /// Maximum lifetime, in seconds, before a connection is recycled.
     pub max_lifetime_secs: Option<u64>,
+
     /// Whether the pool should validate a connection before handing it out.
     pub test_before_acquire: bool,
+
     /// Whether mappers should initialize the schema during startup.
     pub auto_initialize_schema: bool,
 }
@@ -278,6 +259,23 @@ impl DatabaseSettingsBuilder {
 
     /// Builds validated database settings from the builder contents.
     pub fn build(self) -> anyhow::Result<DatabaseSettings> {
+        anyhow::ensure!(
+            !self.database_url.trim().is_empty(),
+            "DatabaseSettings.database_url must not be empty"
+        );
+        anyhow::ensure!(
+            self.max_connections > 0,
+            "DatabaseSettings.max_connections must be greater than zero"
+        );
+        anyhow::ensure!(
+            self.min_connections <= self.max_connections,
+            "DatabaseSettings.min_connections must not exceed DatabaseSettings.max_connections"
+        );
+        anyhow::ensure!(
+            self.acquire_timeout_secs > 0,
+            "DatabaseSettings.acquire_timeout_secs must be greater than zero"
+        );
+
         let settings = DatabaseSettings {
             database_url: self.database_url,
             min_connections: self.min_connections,
@@ -289,9 +287,23 @@ impl DatabaseSettingsBuilder {
             auto_initialize_schema: self.auto_initialize_schema,
         };
 
-        settings.validate()?;
-
+        debug!("Database settings validated successfully.");
         Ok(settings)
+    }
+}
+
+impl From<&DatabaseSettings> for DatabaseSettingsBuilder {
+    fn from(settings: &DatabaseSettings) -> Self {
+        Self {
+            database_url: settings.database_url.clone(),
+            min_connections: settings.min_connections,
+            max_connections: settings.max_connections,
+            acquire_timeout_secs: settings.acquire_timeout_secs,
+            idle_timeout_secs: settings.idle_timeout_secs,
+            max_lifetime_secs: settings.max_lifetime_secs,
+            test_before_acquire: settings.test_before_acquire,
+            auto_initialize_schema: settings.auto_initialize_schema,
+        }
     }
 }
 

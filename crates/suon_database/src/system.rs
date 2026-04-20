@@ -10,15 +10,15 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::settings::DatabaseSettings;
+use crate::settings::{DatabaseSettings, DatabaseSettingsBuilder};
 
 /// Loads database settings during startup and inserts them into the Bevy world.
 pub(crate) fn initialize_settings(mut commands: Commands, settings: Option<Res<DatabaseSettings>>) {
     if let Some(settings) = settings {
         debug!("Found a pre-existing DatabaseSettings resource.");
 
-        settings
-            .validate()
+        DatabaseSettingsBuilder::from(&*settings)
+            .build()
             .expect("Failed to validate database settings resource.");
 
         return;
