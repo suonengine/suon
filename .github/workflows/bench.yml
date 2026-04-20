@@ -11,6 +11,7 @@ permissions:
 jobs:
   bench:
     name: Run benchmarks
+    if: false
     runs-on: [self-hosted, windows, x64, bench]
     timeout-minutes: 60
     steps:
