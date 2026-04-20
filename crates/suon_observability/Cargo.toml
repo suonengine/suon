@@ -16,6 +16,11 @@ description = "Server observability and diagnostics for the Suon MMORPG framewor
 [dependencies]
 # External crates used directly by this crate.
 anyhow.workspace = true
-bevy.workspace = true
+bevy = { workspace = true, features = [
+  "multi_threaded",
+  "sysinfo_plugin",
+  "bevy_log",
+  "async_executor",
+] }
 serde = { workspace = true, features = ["derive"] }
 toml = { workspace = true, features = ["parse", "display", "serde"] }

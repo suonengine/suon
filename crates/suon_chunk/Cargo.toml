@@ -15,7 +15,12 @@ description = "World chunk and map-grid primitives for the Suon MMORPG framework
 
 [dependencies]
 # External crates used directly by this crate.
-bevy.workspace = true
+bevy = { workspace = true, features = [
+  "multi_threaded",
+  "sysinfo_plugin",
+  "bevy_log",
+  "async_executor",
+] }
 enumflags2.workspace = true
 
 # Internal Suon crates used by this crate.

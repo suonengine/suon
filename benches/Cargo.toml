@@ -16,7 +16,12 @@ bench = false
 
 [dependencies]
 # External crates used by the benchmarks.
-bevy.workspace = true
+bevy = { workspace = true, features = [
+  "multi_threaded",
+  "sysinfo_plugin",
+  "bevy_log",
+  "async_executor",
+] }
 bytes.workspace = true
 criterion.workspace = true
 quote.workspace = true

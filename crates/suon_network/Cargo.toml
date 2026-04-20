@@ -16,7 +16,12 @@ description = "Networking layer and session management for the Suon MMORPG frame
 [dependencies]
 # External crates used directly by this crate.
 anyhow.workspace = true
-bevy.workspace = true
+bevy = { workspace = true, features = [
+  "multi_threaded",
+  "sysinfo_plugin",
+  "bevy_log",
+  "async_executor",
+] }
 bytes.workspace = true
 crossbeam-channel.workspace = true
 humantime.workspace = true

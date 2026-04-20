@@ -36,8 +36,16 @@ winresource = "0.1"
 [dependencies]
 # External crates used directly by the root umbrella crate.
 anyhow.workspace = true
-bevy.workspace = true
-log.workspace = true
+bevy = { workspace = true, features = [
+  "multi_threaded",
+  "sysinfo_plugin",
+  "bevy_log",
+  "async_executor",
+] }
+log = { workspace = true, features = [
+  "max_level_debug",
+  "release_max_level_warn",
+] }
 serde = { workspace = true, features = ["derive"] }
 toml = { workspace = true, features = ["parse", "display", "serde"] }
 
@@ -83,18 +91,8 @@ unused_attributes = "warn"
 [workspace.dependencies]
 # Shared third-party dependencies.
 anyhow = { version = "1.0", default-features = false }
-# Compile-time log level caps: debug in dev builds, warn in release.
-# Prevents trace/debug calls from adding runtime overhead in shipped binaries.
-log = { version = "0.4", features = [
-  "max_level_debug",
-  "release_max_level_warn",
-] }
-bevy = { version = "0.18", default-features = false, features = [
-  "multi_threaded",
-  "sysinfo_plugin",
-  "bevy_log",
-  "async_executor",
-] }
+log = { version = "0.4" }
+bevy = { version = "0.18", default-features = false }
 bytes = { version = "1.11", default-features = false }
 criterion = "0.8"
 crossbeam-channel = { version = "0.5", default-features = false }
