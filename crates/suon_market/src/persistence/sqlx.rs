@@ -392,7 +392,7 @@ impl TryFrom<MarketPlayerRow> for PlayerName {
 
     fn try_from(row: MarketPlayerRow) -> Result<Self> {
         Ok(Self {
-            id: row.id.try_u32_field("market_players.id")?,
+            id: row.id.try_field("market_players.id")?,
             name: row.name,
         })
     }
@@ -418,7 +418,7 @@ impl TryFrom<MarketItemRow> for MarketItem {
 
     fn try_from(row: MarketItemRow) -> Result<Self> {
         Ok(Self {
-            id: row.id.try_u16_field("market_items.id")?,
+            id: row.id.try_field("market_items.id")?,
             name: row.name,
         })
     }
@@ -449,7 +449,7 @@ impl TryFrom<&MarketOffer> for MarketOfferRow {
             item_id: i64::from(offer.item_id),
             player_id: i64::from(offer.player_id),
             amount: i64::from(offer.amount),
-            price: offer.price.try_i64_field("market_offers.price")?,
+            price: offer.price.try_field("market_offers.price")?,
             side: offer.side.to_string(),
             is_anonymous: offer.is_anonymous,
         })
@@ -465,14 +465,14 @@ impl TryFrom<MarketOfferRow> for MarketOffer {
                 timestamp: std::time::UNIX_EPOCH
                     + std::time::Duration::from_secs(
                         row.timestamp_secs
-                            .try_u64_field("market_offers.timestamp_secs")?,
+                            .try_field("market_offers.timestamp_secs")?,
                     ),
-                counter: row.counter.try_u16_field("market_offers.counter")?,
+                counter: row.counter.try_field("market_offers.counter")?,
             },
-            item_id: row.item_id.try_u16_field("market_offers.item_id")?,
-            player_id: row.player_id.try_u32_field("market_offers.player_id")?,
-            amount: row.amount.try_u16_field("market_offers.amount")?,
-            price: row.price.try_u64_field("market_offers.price")?,
+            item_id: row.item_id.try_field("market_offers.item_id")?,
+            player_id: row.player_id.try_field("market_offers.player_id")?,
+            amount: row.amount.try_field("market_offers.amount")?,
+            price: row.price.try_field("market_offers.price")?,
             side: row.side.parse()?,
             is_anonymous: row.is_anonymous,
         })
@@ -500,7 +500,7 @@ impl TryFrom<&MarketHistoryEntry> for MarketHistoryRow {
 
     fn try_from(entry: &MarketHistoryEntry) -> Result<Self> {
         Ok(Self {
-            id: entry.id.try_i64_field("market_history.id")?,
+            id: entry.id.try_field("market_history.id")?,
             recorded_at_secs: entry
                 .recorded_at
                 .try_i64_secs_field("market_history.recorded_at_secs")?,
@@ -521,7 +521,7 @@ impl TryFrom<&MarketHistoryEntry> for MarketHistoryRow {
             remaining_amount: entry.remaining_amount.map(i64::from),
             price: entry
                 .price
-                .map(|price| price.try_i64_field("market_history.price"))
+                .map(|price| price.try_field("market_history.price"))
                 .transpose()?,
             side: entry.side.map(|side| side.to_string()),
         })
@@ -533,44 +533,44 @@ impl TryFrom<MarketHistoryRow> for MarketHistoryEntry {
 
     fn try_from(row: MarketHistoryRow) -> Result<Self> {
         Ok(Self {
-            id: row.id.try_u64_field("market_history.id")?,
+            id: row.id.try_field("market_history.id")?,
             recorded_at: std::time::UNIX_EPOCH
                 + std::time::Duration::from_secs(
                     row.recorded_at_secs
-                        .try_u64_field("market_history.recorded_at_secs")?,
+                        .try_field("market_history.recorded_at_secs")?,
                 ),
             action: row.action.parse::<MarketHistoryAction>()?,
             actor_player_id: row
                 .actor_player_id
-                .map(|value| value.try_u32_field("market_history.actor_player_id"))
+                .map(|value| value.try_field("market_history.actor_player_id"))
                 .transpose()?,
             offer_player_id: row
                 .offer_player_id
-                .map(|value| value.try_u32_field("market_history.offer_player_id"))
+                .map(|value| value.try_field("market_history.offer_player_id"))
                 .transpose()?,
             item_id: row
                 .item_id
-                .map(|value| value.try_u16_field("market_history.item_id"))
+                .map(|value| value.try_field("market_history.item_id"))
                 .transpose()?,
             offer_id: match (row.offer_timestamp_secs, row.offer_counter) {
                 (Some(timestamp_secs), Some(counter)) => Some(MarketOfferId {
                     timestamp: std::time::UNIX_EPOCH
                         + std::time::Duration::from_secs(
-                            timestamp_secs.try_u64_field("market_history.offer_timestamp_secs")?,
+                            timestamp_secs.try_field("market_history.offer_timestamp_secs")?,
                         ),
-                    counter: counter.try_u16_field("market_history.offer_counter")?,
+                    counter: counter.try_field("market_history.offer_counter")?,
                 }),
                 (None, None) => None,
                 _ => anyhow::bail!("market_history offer id columns must be both null or both set"),
             },
-            amount: row.amount.try_u16_field("market_history.amount")?,
+            amount: row.amount.try_field("market_history.amount")?,
             remaining_amount: row
                 .remaining_amount
-                .map(|value| value.try_u16_field("market_history.remaining_amount"))
+                .map(|value| value.try_field("market_history.remaining_amount"))
                 .transpose()?,
             price: row
                 .price
-                .map(|value| value.try_u64_field("market_history.price"))
+                .map(|value| value.try_field("market_history.price"))
                 .transpose()?,
             side: row.side.map(|value| value.parse()).transpose()?,
         })

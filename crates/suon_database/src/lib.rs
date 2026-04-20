@@ -14,9 +14,9 @@
 //!   [`prelude::TableMapper`] for table snapshot loading and saving contracts
 //! - [`prelude::DatabaseSettings`] and [`prelude::DatabaseSettingsBuilder`] for
 //!   generic connection settings
-//! - [`prelude::I64DatabaseConvertExt`],
+//! - [`prelude::FieldTryIntoExt`],
 //!   [`prelude::SystemTimeDatabaseConvertExt`], and
-//!   [`prelude::U64DatabaseConvertExt`] for loss-checked integer and time
+//!   integer conversion helpers for loss-checked integer and time
 //!   conversions used by mappers
 //!
 //! # Examples
@@ -53,7 +53,7 @@ pub mod prelude {
     pub use super::{
         AppTablesExt, Database, DatabaseMut, DatabasePlugin, Table, Tables,
         connection::{DatabaseConnection, DatabaseData, DatabasePool, PoolData},
-        convert::{I64DatabaseConvertExt, SystemTimeDatabaseConvertExt, U64DatabaseConvertExt},
+        convert::{FieldTryIntoExt, SystemTimeDatabaseConvertExt},
         settings::{DatabaseSettings, DatabaseSettingsBuilder},
         snapshot::{SnapshotTable, SnapshotTableExt, TableMapper},
     };

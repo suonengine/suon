@@ -177,7 +177,6 @@ impl DatabaseSettings {
 
         Self::load_at(path)
     }
-
 }
 
 #[derive(Debug)]
