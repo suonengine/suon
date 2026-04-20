@@ -1,0 +1,37 @@
+# Package
+[package]
+name = "suon_market"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+description = "Market domain plugin, cache tables, and packet observers for the Suon MMORPG framework"
+
+[dependencies]
+anyhow.workspace = true
+bevy = { workspace = true, features = [
+  "multi_threaded",
+  "sysinfo_plugin",
+  "bevy_log",
+  "async_executor",
+] }
+log = { workspace = true, features = [
+  "max_level_debug",
+  "release_max_level_warn",
+] }
+serde = { workspace = true, features = ["derive"] }
+sqlx = { workspace = true, features = [
+  "any",
+  "derive",
+  "runtime-async-std-rustls",
+] }
+toml = { workspace = true, features = ["parse", "display", "serde"] }
+
+suon_database.workspace = true
+suon_macros.workspace = true
+suon_network.workspace = true
+suon_protocol_client.workspace = true

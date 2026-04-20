@@ -57,6 +57,7 @@ suon_movement.workspace = true
 suon_network.workspace = true
 suon_observability.workspace = true
 suon_protocol.workspace = true
+suon_market.workspace = true
 suon_protocol_client.workspace = true
 suon_protocol_server.workspace = true
 suon_serde.workspace = true
@@ -130,6 +131,7 @@ suon_position = { version = "0.1.0", path = "crates/suon_position" }
 suon_xtea = { version = "0.1.0", path = "crates/suon_xtea" }
 suon_lua = { version = "0.1.0", path = "crates/suon_lua" }
 
+suon_market = { version = "0.1.0", path = "crates/suon_market" }
 [profile.dev]
 # Light optimization keeps debug builds responsive without being fully unoptimized.
 opt-level = 1

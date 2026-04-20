@@ -16,6 +16,7 @@ use bevy::{app::ScheduleRunnerPlugin, prelude::*};
 use std::time::Duration;
 use suon_chunk::prelude::*;
 use suon_lua::prelude::*;
+use suon_market::prelude::*;
 use suon_movement::prelude::*;
 use suon_network::prelude::*;
 
@@ -29,7 +30,8 @@ pub mod prelude {
     pub use suon_chunk::prelude::*;
     pub use suon_database::prelude::*;
     pub use suon_lua::prelude::*;
-    pub use suon_macros::{LuaComponent, LuaHook, Table};
+    pub use suon_macros::*;
+    pub use suon_market::prelude::*;
     pub use suon_movement::prelude::*;
     pub use suon_network::prelude::*;
     pub use suon_observability::prelude::*;
@@ -71,6 +73,7 @@ impl Plugin for SuonPlugin {
             suon_observability::ObservabilityPlugin,
             ChunkPlugin,
             MovementPlugins,
+            MarketPlugins,
             NetworkPlugins,
         ));
         app.add_plugins(LuaPlugin);
@@ -100,6 +103,7 @@ mod tests {
         let _ = std::mem::size_of::<DatabaseMut<'static, PreludeTable>>();
         let _ = std::mem::size_of::<Encoder>();
         let _ = std::mem::size_of::<Position>();
+        let _ = std::mem::size_of::<DatabaseSettings>();
         let _ = std::mem::size_of::<SuonPlugin>();
         let _ = std::mem::size_of::<XTEAKey>();
     }
