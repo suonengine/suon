@@ -13,11 +13,14 @@ allow = [
   "MIT",
   "Apache-2.0",
   "Apache-2.0 WITH LLVM-exception",
+  "BSD-3-Clause",
+  "CDLA-Permissive-2.0",
+  "ISC",
   "MPL-2.0",
   "Unicode-3.0",
   "Zlib",
 ]
-# Confidence threshold for license text matching (0.0–1.0).
+# Confidence threshold for license text matching (0.0-1.0).
 confidence-threshold = 0.8
 
 [bans]
@@ -41,9 +44,14 @@ skip-tree = []
 [advisories]
 # Deny crates with known security vulnerabilities from the RustSec advisory DB.
 version = 2
-ignore = []
+ignore = [
+  # `sqlx` currently pulls in the `async-std` runtime when we enable
+  # `runtime-async-std-rustls`. Track replacing that runtime before removing
+  # this temporary exception.
+  "RUSTSEC-2025-0052",
+]
 
-# ── Sources ───────────────────────────────────────────────────────────────────
+# Sources
 [sources]
 # Only allow crates from crates.io and this repository itself.
 unknown-registry = "deny"

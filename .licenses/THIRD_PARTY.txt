@@ -29,7 +29,8 @@ and Apache-2.0.txt in this directory.
   indexmap, itertools, itoa, lazy_static, libc, lock_api, log, nonmax,
   ntapi, num-traits, once_cell, parking, parking_lot, parking_lot_core,
   pin-project-lite, piper, pkg-config, polling, proc-macro2, quote,
-  regex-automata, regex-syntax, rustc-hash, rustc_version, rustversion,
+  regex-automata, regex-syntax, ring, rustc-hash, rustc_version, rustls,
+  rustversion,
   scopeguard, semver, serde, serde_core, serde_derive, serde_json,
   serde_spanned, shlex, signal-hook-registry, smallvec, smol, syn,
   thiserror, thiserror-impl, thread_local, toml, toml_datetime, toml_edit,
@@ -66,6 +67,31 @@ MPL-2.0
 See MPL-2.0.txt in this directory.
 
   smol-timeout
+
+
+BSD-3-Clause
+------------
+See BSD-3-Clause.txt in this directory.
+
+  subtle
+
+
+CDLA-Permissive-2.0
+-------------------
+See CDLA-Permissive-2.0.txt in this directory.
+
+  webpki-roots
+
+
+ISC
+---
+These crates allow distribution under ISC. Some may also appear elsewhere when
+they offer additional alternative licenses. See ISC.txt in this directory.
+
+  ring  (also available under Apache-2.0)
+  rustls  (also available under MIT or Apache-2.0)
+  rustls-webpki
+  untrusted
 
 
 Unicode-3.0
