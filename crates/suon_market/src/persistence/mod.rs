@@ -1,25 +1,21 @@
+mod database;
 mod orm;
 mod settings;
-mod sqlx;
 
-use bevy::prelude::*;
+use bevy::{app::AppExit, prelude::*};
 use log::{debug, info, warn};
 use suon_database::prelude::*;
 
 use crate::{
     history::{MarketHistorySequence, MarketHistoryTable},
-    offer::{MarketItemsTable, MarketOfferSequence, MarketOffersTable, MarketPlayersTable},
+    offer::{MarketActorsTable, MarketItemsTable, MarketOfferSequence, MarketOffersTable},
 };
 
-pub use orm::{MarketOrm, MarketOrmResource};
-pub use settings::{MarketPersistenceSettings, MarketPolicySettings, MarketSettings};
-pub(crate) use sqlx::SqlxMarketOrm;
-
-#[derive(Debug, Clone, Copy, Default, Event)]
-pub struct SaveMarketData;
-
-#[derive(Debug, Clone, Copy, Default, Event)]
-pub struct ShutdownMarketData;
+pub use self::{
+    orm::{MarketOrm, MarketOrmResource},
+    settings::{MarketPersistenceSettings, MarketPolicySettings, MarketSettings},
+};
+pub(crate) use self::database::MarketDatabaseOrm;
 
 #[derive(Debug, Resource)]
 struct MarketFlushTimer(Timer);
@@ -27,7 +23,21 @@ struct MarketFlushTimer(Timer);
 #[derive(Debug, Resource, Default)]
 pub(crate) struct MarketDirty(pub(crate) bool);
 
-pub struct MarketPersistencePlugin;
+impl MarketDirty {
+    fn clear(&mut self) {
+        self.0 = false;
+    }
+
+    pub(crate) fn mark(&mut self) {
+        self.0 = true;
+    }
+
+    fn is_clean(&self) -> bool {
+        !self.0
+    }
+}
+
+pub(crate) struct MarketPersistencePlugin;
 
 impl Plugin for MarketPersistencePlugin {
     fn build(&self, app: &mut App) {
@@ -41,13 +51,13 @@ impl Plugin for MarketPersistencePlugin {
             settings
         };
 
-        app.init_database_table::<MarketPlayersTable>()
+        app.init_database_table::<MarketActorsTable>()
             .init_database_table::<MarketItemsTable>()
             .init_database_table::<MarketOffersTable>()
             .init_database_table::<MarketHistoryTable>();
         app.init_resource::<MarketDirty>();
         app.insert_resource(MarketFlushTimer(Timer::from_seconds(
-            settings.persistence.flush_interval_secs.max(0.001) as f32,
+            settings.persistence().flush_interval_secs().max(0.001) as f32,
             TimerMode::Repeating,
         )));
 
@@ -58,9 +68,7 @@ impl Plugin for MarketPersistencePlugin {
         }
 
         app.add_systems(Startup, load_market_tables_on_startup);
-        app.add_systems(Update, autosave_market_tables);
-        app.add_observer(save_market_tables_on_request)
-            .add_observer(save_market_tables_on_shutdown);
+        app.add_systems(Update, (autosave_market_tables, save_market_tables_on_app_exit));
     }
 }
 
@@ -80,14 +88,28 @@ fn build_market_orm(
     _: &World,
     settings: &MarketSettings,
 ) -> anyhow::Result<std::sync::Arc<dyn MarketOrm>> {
-    Ok(std::sync::Arc::new(SqlxMarketOrm::connect(
-        &settings.persistence.database,
+    Ok(std::sync::Arc::new(MarketDatabaseOrm::connect(
+        settings.persistence().database(),
     )?))
+}
+
+fn persist_market_tables(
+    orm: &dyn MarketOrm,
+    actors: &MarketActorsTable,
+    items: &MarketItemsTable,
+    offers: &MarketOffersTable,
+    history: &MarketHistoryTable,
+) -> anyhow::Result<()> {
+    orm.save_actors(&actors.rows())?;
+    orm.save_items(&items.rows())?;
+    orm.save_offers(&offers.rows())?;
+    orm.save_history(&history.rows())?;
+    Ok(())
 }
 
 fn load_market_tables_on_startup(
     orm: Option<Res<MarketOrmResource>>,
-    mut players: DatabaseMut<MarketPlayersTable>,
+    mut actors: DatabaseMut<MarketActorsTable>,
     mut items: DatabaseMut<MarketItemsTable>,
     mut offers: DatabaseMut<MarketOffersTable>,
     mut history: DatabaseMut<MarketHistoryTable>,
@@ -102,13 +124,13 @@ fn load_market_tables_on_startup(
         return;
     };
 
-    match orm.load_players() {
+    match orm.load_actors() {
         Ok(rows) => {
             let count = rows.len();
-            players.replace(rows);
-            info!("Loaded {count} market player names into MarketPlayersTable");
+            actors.replace(rows);
+            info!("Loaded {count} market actor names into MarketActorsTable");
         }
-        Err(error) => warn!("Failed to load market player names: {error:#}"),
+        Err(error) => warn!("Failed to load market actor names: {error:#}"),
     }
 
     match orm.load_items() {
@@ -147,12 +169,12 @@ fn autosave_market_tables(
     orm: Option<Res<MarketOrmResource>>,
     mut timer: ResMut<MarketFlushTimer>,
     mut dirty: ResMut<MarketDirty>,
-    players: Database<MarketPlayersTable>,
+    actors: Database<MarketActorsTable>,
     items: Database<MarketItemsTable>,
     offers: Database<MarketOffersTable>,
     history: Database<MarketHistoryTable>,
 ) {
-    if !dirty.0 {
+    if dirty.is_clean() {
         return;
     }
 
@@ -165,78 +187,42 @@ fn autosave_market_tables(
         return;
     };
 
-    if let Err(error) = persist_market_tables(orm.provider(), &players, &items, &offers, &history) {
+    if let Err(error) = persist_market_tables(orm.provider(), &actors, &items, &offers, &history) {
         warn!("Failed to flush market tables: {error:#}");
         return;
     }
 
-    dirty.0 = false;
-}
-
-fn save_market_tables_on_request(
-    _: On<SaveMarketData>,
-    orm: Option<Res<MarketOrmResource>>,
-    mut dirty: ResMut<MarketDirty>,
-    players: Database<MarketPlayersTable>,
-    items: Database<MarketItemsTable>,
-    offers: Database<MarketOffersTable>,
-    history: Database<MarketHistoryTable>,
-) {
-    if !dirty.0 {
-        return;
-    }
-
-    let Some(orm) = orm else {
-        warn!("Market save was requested, but no MarketOrmResource is available");
-        return;
-    };
-
-    if let Err(error) = persist_market_tables(orm.provider(), &players, &items, &offers, &history) {
-        warn!("Failed to save market tables on request: {error:#}");
-        return;
-    }
-
-    dirty.0 = false;
+    dirty.clear();
 }
 
 #[allow(clippy::too_many_arguments)]
-fn save_market_tables_on_shutdown(
-    _: On<ShutdownMarketData>,
+fn save_market_tables_on_app_exit(
+    mut exits: MessageReader<AppExit>,
     settings: Res<MarketSettings>,
     orm: Option<Res<MarketOrmResource>>,
     mut dirty: ResMut<MarketDirty>,
-    players: Database<MarketPlayersTable>,
+    actors: Database<MarketActorsTable>,
     items: Database<MarketItemsTable>,
     offers: Database<MarketOffersTable>,
     history: Database<MarketHistoryTable>,
 ) {
-    if !settings.persistence.save_on_shutdown || !dirty.0 {
+    if exits.read().last().is_none() {
+        return;
+    }
+
+    if !settings.persistence().save_on_shutdown() || dirty.is_clean() {
         return;
     }
 
     let Some(orm) = orm else {
-        warn!("Market shutdown save was requested, but no MarketOrmResource is available");
+        warn!("Market app exit was requested, but no MarketOrmResource is available");
         return;
     };
 
-    if let Err(error) = persist_market_tables(orm.provider(), &players, &items, &offers, &history) {
-        warn!("Failed to save market tables on shutdown: {error:#}");
+    if let Err(error) = persist_market_tables(orm.provider(), &actors, &items, &offers, &history) {
+        warn!("Failed to save market tables on app exit: {error:#}");
         return;
     }
 
-    dirty.0 = false;
-}
-
-fn persist_market_tables(
-    orm: &dyn MarketOrm,
-    players: &MarketPlayersTable,
-    items: &MarketItemsTable,
-    offers: &MarketOffersTable,
-    history: &MarketHistoryTable,
-) -> anyhow::Result<()> {
-    orm.save_players(&players.rows())?;
-    orm.save_items(&items.rows())?;
-    orm.save_offers(&offers.rows())?;
-    orm.save_history(&history.rows())?;
-    Ok(())
+    dirty.clear();
 }

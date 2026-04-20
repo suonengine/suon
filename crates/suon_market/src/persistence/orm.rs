@@ -5,30 +5,38 @@ use bevy::prelude::*;
 
 use crate::{
     history::MarketHistoryEntry,
-    offer::{MarketItem, MarketOffer, PlayerName},
+    offer::{MarketActorName, MarketItem, MarketOffer},
 };
 
 /// ORM-style abstraction used by market persistence during startup.
 pub trait MarketOrm: Send + Sync + 'static {
-    fn load_players(&self) -> Result<Vec<PlayerName>>;
+    /// Loads actor-name reference data.
+    fn load_actors(&self) -> Result<Vec<MarketActorName>>;
+    /// Loads item-name reference data.
     fn load_items(&self) -> Result<Vec<MarketItem>>;
+    /// Loads active market offers.
     fn load_offers(&self) -> Result<Vec<MarketOffer>>;
+    /// Loads market history entries.
     fn load_history(&self) -> Result<Vec<MarketHistoryEntry>> {
         Ok(Vec::new())
     }
 
-    fn save_players(&self, _: &[PlayerName]) -> Result<()> {
+    /// Persists actor-name reference data.
+    fn save_actors(&self, _: &[MarketActorName]) -> Result<()> {
         Ok(())
     }
 
+    /// Persists item-name reference data.
     fn save_items(&self, _: &[MarketItem]) -> Result<()> {
         Ok(())
     }
 
+    /// Persists active market offers.
     fn save_offers(&self, _: &[MarketOffer]) -> Result<()> {
         Ok(())
     }
 
+    /// Persists market history entries.
     fn save_history(&self, _: &[MarketHistoryEntry]) -> Result<()> {
         Ok(())
     }
@@ -39,10 +47,12 @@ pub trait MarketOrm: Send + Sync + 'static {
 pub struct MarketOrmResource(Arc<dyn MarketOrm>);
 
 impl MarketOrmResource {
+    /// Creates a new resource wrapper for the active market ORM provider.
     pub fn new(orm: Arc<dyn MarketOrm>) -> Self {
         Self(orm)
     }
 
+    /// Returns the underlying market ORM provider.
     pub fn provider(&self) -> &dyn MarketOrm {
         self.0.as_ref()
     }

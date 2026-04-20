@@ -33,5 +33,10 @@ toml = { workspace = true, features = ["parse", "display", "serde"] }
 
 suon_database.workspace = true
 suon_macros.workspace = true
+suon_movement.workspace = true
 suon_network.workspace = true
 suon_protocol_client.workspace = true
+
+[dev-dependencies]
+suon_chunk.workspace = true
+suon_position.workspace = true

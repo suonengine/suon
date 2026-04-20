@@ -30,7 +30,7 @@ pub mod prelude {
         Decodable, DecodableError, PacketKind,
         accept_market_offer::AcceptMarketOfferPacket,
         accept_trade::AcceptTradePacket,
-        browse_market::BrowseMarketPacket,
+        browse_market::{BrowseMarketPacket, MarketBrowseKind},
         cancel_market_offer::CancelMarketOfferPacket,
         cancel_steps::CancelStepsPacket,
         change_shared_party_experience::ChangeSharedPartyExperiencePacket,

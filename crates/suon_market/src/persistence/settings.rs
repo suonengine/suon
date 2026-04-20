@@ -12,18 +12,38 @@ use suon_database::prelude::*;
 use crate::offer::MarketRateLimiter;
 
 /// Settings that control market persistence, limits, and safety rules.
-#[derive(Resource, Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Resource, Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 pub struct MarketSettings {
     /// Persistence provider used by the market crate.
-    pub persistence: MarketPersistenceSettings,
+    persistence: MarketPersistenceSettings,
 
     /// Rules that restrict who can create offers and how often.
-    pub policy: MarketPolicySettings,
+    policy: MarketPolicySettings,
 }
 
 impl MarketSettings {
+    /// Default path used to load the market settings resource.
     pub const PATH: &'static str = "settings/MarketSettings.toml";
 
+    /// Creates a new market settings resource.
+    pub fn new(persistence: MarketPersistenceSettings, policy: MarketPolicySettings) -> Self {
+        Self {
+            persistence,
+            policy,
+        }
+    }
+
+    /// Returns the persistence settings resource.
+    pub fn persistence(&self) -> &MarketPersistenceSettings {
+        &self.persistence
+    }
+
+    /// Returns the market-policy settings resource.
+    pub fn policy(&self) -> &MarketPolicySettings {
+        &self.policy
+    }
+
+    /// Loads settings from [`Self::PATH`], creating defaults when the file does not exist.
     pub fn load_or_default() -> anyhow::Result<Self> {
         Self::load_or_default_at(Path::new(Self::PATH))
     }
@@ -72,21 +92,12 @@ impl MarketSettings {
     }
 }
 
-#[allow(clippy::derivable_impls)]
-impl Default for MarketSettings {
-    fn default() -> Self {
-        Self {
-            persistence: MarketPersistenceSettings::default(),
-            policy: MarketPolicySettings::default(),
-        }
-    }
-}
-
+/// Persistence-related settings for the market crate.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct MarketPersistenceSettings {
-    pub flush_interval_secs: f64,
-    pub save_on_shutdown: bool,
-    pub database: DatabaseSettings,
+    flush_interval_secs: f64,
+    save_on_shutdown: bool,
+    database: DatabaseSettings,
 }
 
 impl Default for MarketPersistenceSettings {
@@ -99,50 +110,123 @@ impl Default for MarketPersistenceSettings {
     }
 }
 
+impl MarketPersistenceSettings {
+    /// Creates a new persistence settings snapshot.
+    pub fn new(
+        flush_interval_secs: f64,
+        save_on_shutdown: bool,
+        database: DatabaseSettings,
+    ) -> Self {
+        Self {
+            flush_interval_secs,
+            save_on_shutdown,
+            database,
+        }
+    }
+
+    /// Returns the flush interval, in seconds.
+    pub fn flush_interval_secs(&self) -> f64 {
+        self.flush_interval_secs
+    }
+
+    /// Returns whether dirty market data should be flushed on app exit.
+    pub fn save_on_shutdown(&self) -> bool {
+        self.save_on_shutdown
+    }
+
+    /// Returns the configured database settings.
+    pub fn database(&self) -> &DatabaseSettings {
+        &self.database
+    }
+}
+
+/// Policy limits that constrain market usage.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct MarketPolicySettings {
-    pub max_active_offers_per_player: usize,
-    pub max_create_per_minute: usize,
-    pub max_create_per_hour: usize,
-    pub blocked_item_ids: Vec<u16>,
-    pub blocked_player_ids: Vec<u32>,
+    max_active_offers_per_actor: usize,
+    max_create_per_minute: usize,
+    max_create_per_hour: usize,
+    blocked_item_ids: Vec<u16>,
+    blocked_actor_ids: Vec<u32>,
 }
 
 impl Default for MarketPolicySettings {
     fn default() -> Self {
         Self {
-            max_active_offers_per_player: 100,
+            max_active_offers_per_actor: 100,
             max_create_per_minute: 20,
             max_create_per_hour: 200,
             blocked_item_ids: Vec::new(),
-            blocked_player_ids: Vec::new(),
+            blocked_actor_ids: Vec::new(),
         }
     }
 }
 
 impl MarketPolicySettings {
+    /// Creates a new market-policy settings snapshot.
+    pub fn new(
+        max_active_offers_per_actor: usize,
+        max_create_per_minute: usize,
+        max_create_per_hour: usize,
+        blocked_item_ids: Vec<u16>,
+        blocked_actor_ids: Vec<u32>,
+    ) -> Self {
+        Self {
+            max_active_offers_per_actor,
+            max_create_per_minute,
+            max_create_per_hour,
+            blocked_item_ids,
+            blocked_actor_ids,
+        }
+    }
+
+    /// Returns the maximum number of active offers allowed for a single actor.
+    pub fn max_active_offers_per_actor(&self) -> usize {
+        self.max_active_offers_per_actor
+    }
+
+    /// Returns the per-minute creation limit.
+    pub fn max_create_per_minute(&self) -> usize {
+        self.max_create_per_minute
+    }
+
+    /// Returns the per-hour creation limit.
+    pub fn max_create_per_hour(&self) -> usize {
+        self.max_create_per_hour
+    }
+
+    /// Returns the blocked item identifiers.
+    pub fn blocked_item_ids(&self) -> &[u16] {
+        &self.blocked_item_ids
+    }
+
+    /// Returns the blocked actor identifiers.
+    pub fn blocked_actor_ids(&self) -> &[u32] {
+        &self.blocked_actor_ids
+    }
+
     pub(crate) fn validate_offer_creation(
         &self,
-        player_id: u32,
+        actor_id: u32,
         item_id: u16,
         active_offers: usize,
         rate_limiter: &mut MarketRateLimiter,
         now: SystemTime,
     ) -> Result<(), &'static str> {
-        if self.blocked_player_ids.contains(&player_id) {
-            return Err("player is blocked from market offers");
+        if self.blocked_actor_ids.contains(&actor_id) {
+            return Err("actor is blocked from market offers");
         }
 
         if self.blocked_item_ids.contains(&item_id) {
             return Err("item is blocked from market offers");
         }
 
-        if active_offers >= self.max_active_offers_per_player {
+        if active_offers >= self.max_active_offers_per_actor {
             return Err("active market offer limit reached");
         }
 
         if !rate_limiter.record_offer_create(
-            player_id,
+            actor_id,
             now,
             self.max_create_per_minute,
             self.max_create_per_hour,

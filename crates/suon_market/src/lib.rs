@@ -26,26 +26,29 @@ pub mod prelude {
     pub use super::{
         MarketPlugins,
         browse::{
-            MarketBrowse, MarketBrowsePlugin, MarketBrowseScope, MarketPlayerRef,
-            MarketRequestKind, MarketRequestKindError, MarketSession,
-            TryMarketRequestKindFromPacketError,
+            MarketActorRef, MarketBrowse, MarketBrowseIntent, MarketBrowseRejected,
+            MarketBrowseScope, MarketSession, TryMarketRequestKindFromPacketError,
         },
         history::{
-            MarketHistoryAction, MarketHistoryEntry, MarketHistoryPlugin, MarketHistoryTable,
+            MarketHistoryAction, MarketHistoryEntry, MarketHistoryTable,
             ParseMarketHistoryActionError,
         },
         offer::{
-            MarketItem, MarketItemsTable, MarketOffer, MarketOfferAccepted, MarketOfferCancelled,
-            MarketOfferCreated, MarketOfferId, MarketOfferPlugin, MarketOffersTable,
-            MarketPlayersTable, MarketTradeSide, ParseMarketTradeSideError, PlayerName,
+            MarketActorName, MarketActorsTable, MarketItem, MarketItemsTable, MarketOffer,
+            MarketOfferAcceptIntent, MarketOfferAcceptRejected, MarketOfferAccepted,
+            MarketOfferCancelIntent, MarketOfferCancelRejected, MarketOfferCancelled,
+            MarketOfferCreateError, MarketOfferCreateIntent, MarketOfferCreateRejected,
+            MarketOfferCreated, MarketOfferId, MarketOffersTable, MarketTradeSide,
+            ParseMarketTradeSideError,
         },
         persistence::{
-            MarketOrm, MarketOrmResource, MarketPersistencePlugin, MarketPersistenceSettings,
-            MarketPolicySettings, MarketSettings, SaveMarketData, ShutdownMarketData,
+            MarketOrm, MarketOrmResource, MarketPersistenceSettings, MarketPolicySettings,
+            MarketSettings,
         },
     };
 }
 
+/// Plugin group that wires the full market domain into a Bevy app.
 pub struct MarketPlugins;
 
 impl PluginGroup for MarketPlugins {
@@ -62,9 +65,9 @@ impl PluginGroup for MarketPlugins {
 mod tests {
     use super::*;
     use crate::prelude::{
-        MarketHistoryAction, MarketHistoryEntry, MarketHistoryTable, MarketItem, MarketItemsTable,
-        MarketOffer, MarketOfferCancelled, MarketOfferId, MarketOffersTable, MarketOrm,
-        MarketOrmResource, MarketPlayersTable, MarketTradeSide, PlayerName, SaveMarketData,
+        MarketActorName, MarketActorsTable, MarketHistoryAction, MarketHistoryEntry,
+        MarketHistoryTable, MarketItem, MarketItemsTable, MarketOffer, MarketOfferCancelled,
+        MarketOfferId, MarketOffersTable, MarketOrm, MarketOrmResource, MarketTradeSide,
     };
     use std::{
         sync::{Arc, Mutex},
@@ -81,16 +84,16 @@ mod tests {
     #[derive(Default)]
     struct RecordingOrm {
         actions: Mutex<Vec<RecordedAction>>,
-        players: Mutex<Vec<PlayerName>>,
+        actors: Mutex<Vec<MarketActorName>>,
         items: Mutex<Vec<MarketItem>>,
         offers: Mutex<Vec<MarketOffer>>,
         history: Mutex<Vec<MarketHistoryEntry>>,
     }
 
     impl MarketOrm for RecordingOrm {
-        fn load_players(&self) -> anyhow::Result<Vec<PlayerName>> {
+        fn load_actors(&self) -> anyhow::Result<Vec<MarketActorName>> {
             Ok(self
-                .players
+                .actors
                 .lock()
                 .expect("recording mutex should stay available")
                 .clone())
@@ -161,7 +164,7 @@ mod tests {
 
         assert!(
             app.world()
-                .contains_resource::<Tables<MarketPlayersTable>>()
+                .contains_resource::<Tables<MarketActorsTable>>()
         );
         assert!(app.world().contains_resource::<Tables<MarketItemsTable>>());
         assert!(app.world().contains_resource::<Tables<MarketOffersTable>>());
@@ -174,42 +177,30 @@ mod tests {
     #[test]
     fn should_load_market_tables_from_orm_during_startup() {
         let orm = Arc::new(RecordingOrm {
-            players: Mutex::new(vec![PlayerName {
-                id: 7,
-                name: "Ramon".into(),
-            }]),
-            items: Mutex::new(vec![MarketItem {
-                id: 2160,
-                name: "Crystal Coin".into(),
-            }]),
-            offers: Mutex::new(vec![MarketOffer {
-                id: MarketOfferId {
-                    timestamp: UNIX_EPOCH,
-                    counter: 9,
-                },
-                item_id: 2160,
-                player_id: 7,
-                amount: 3,
-                price: 100_000,
-                side: MarketTradeSide::Sell,
-                is_anonymous: false,
-            }]),
-            history: Mutex::new(vec![MarketHistoryEntry {
-                id: 3,
-                recorded_at: UNIX_EPOCH,
-                action: MarketHistoryAction::Create,
-                actor_player_id: Some(7),
-                offer_player_id: Some(7),
-                item_id: Some(2160),
-                offer_id: Some(MarketOfferId {
-                    timestamp: UNIX_EPOCH,
-                    counter: 9,
-                }),
-                amount: 3,
-                remaining_amount: None,
-                price: Some(100_000),
-                side: Some(MarketTradeSide::Sell),
-            }]),
+            actors: Mutex::new(vec![MarketActorName::new(7, "Ramon")]),
+            items: Mutex::new(vec![MarketItem::new(2160, "Crystal Coin")]),
+            offers: Mutex::new(vec![MarketOffer::new(
+                MarketOfferId::new(UNIX_EPOCH, 9),
+                2160,
+                7,
+                3,
+                100_000,
+                MarketTradeSide::Sell,
+                false,
+            )]),
+            history: Mutex::new(vec![MarketHistoryEntry::new(
+                3,
+                UNIX_EPOCH,
+                MarketHistoryAction::Create,
+                Some(7),
+                Some(7),
+                Some(2160),
+                Some(MarketOfferId::new(UNIX_EPOCH, 9)),
+                3,
+                None,
+                Some(100_000),
+                Some(MarketTradeSide::Sell),
+            )]),
             ..Default::default()
         });
         let mut app = App::new();
@@ -219,19 +210,16 @@ mod tests {
         app.add_plugins(MarketPlugins);
         app.update();
 
-        let players = app.world().resource::<Tables<MarketPlayersTable>>();
+        let actors = app.world().resource::<Tables<MarketActorsTable>>();
         let items = app.world().resource::<Tables<MarketItemsTable>>();
         let offers = app.world().resource::<Tables<MarketOffersTable>>();
         let history = app.world().resource::<Tables<MarketHistoryTable>>();
 
-        assert_eq!(players.name(7), Some("Ramon"));
+        assert_eq!(actors.name(7), Some("Ramon"));
         assert_eq!(items.name(2160), Some("Crystal Coin"));
         assert!(
             offers
-                .get(&MarketOfferId {
-                    timestamp: UNIX_EPOCH,
-                    counter: 9
-                })
+                .get(&MarketOfferId::new(UNIX_EPOCH, 9))
                 .is_some()
         );
         assert_eq!(history.len(), 1);
@@ -245,18 +233,15 @@ mod tests {
         app.add_plugins(MinimalPlugins);
         app.insert_resource(MarketOrmResource::new(orm.clone()));
         app.add_plugins(MarketPlugins);
-        let offer = MarketOffer {
-            id: MarketOfferId {
-                timestamp: UNIX_EPOCH,
-                counter: 1,
-            },
-            item_id: 2160,
-            player_id: 77,
-            amount: 5,
-            price: 20_000,
-            side: MarketTradeSide::Sell,
-            is_anonymous: false,
-        };
+        let offer = MarketOffer::new(
+            MarketOfferId::new(UNIX_EPOCH, 1),
+            2160,
+            77,
+            5,
+            20_000,
+            MarketTradeSide::Sell,
+            false,
+        );
 
         {
             let mut offers = app.world_mut().resource_mut::<Tables<MarketOffersTable>>();
@@ -264,7 +249,7 @@ mod tests {
         }
 
         let offers = app.world().resource::<Tables<MarketOffersTable>>();
-        assert!(offers.get(&offer.id).is_some());
+        assert!(offers.get(&offer.id()).is_some());
         assert!(
             orm.actions
                 .lock()
@@ -281,39 +266,29 @@ mod tests {
         app.add_plugins(MinimalPlugins);
         app.insert_resource(MarketOrmResource::new(orm.clone()));
         app.add_plugins(MarketPlugins);
-        app.insert_database_table(MarketOffersTable::from_iter([MarketOffer {
-            id: MarketOfferId {
-                timestamp: UNIX_EPOCH,
-                counter: 1,
-            },
-            item_id: 2160,
-            player_id: 77,
-            amount: 5,
-            price: 20_000,
-            side: MarketTradeSide::Sell,
-            is_anonymous: false,
-        }]));
+        app.insert_database_table(MarketOffersTable::from_iter([MarketOffer::new(
+            MarketOfferId::new(UNIX_EPOCH, 1),
+            2160,
+            77,
+            5,
+            20_000,
+            MarketTradeSide::Sell,
+            false,
+        )]));
         let client = app.world_mut().spawn_empty().id();
         let event = MarketOfferCancelled {
             client,
-            player_id: Some(77),
-            player_name: None,
-            offer_id: MarketOfferId {
-                timestamp: UNIX_EPOCH,
-                counter: 1,
-            },
-            offer: Some(MarketOffer {
-                id: MarketOfferId {
-                    timestamp: UNIX_EPOCH,
-                    counter: 1,
-                },
-                item_id: 2160,
-                player_id: 77,
-                amount: 5,
-                price: 20_000,
-                side: MarketTradeSide::Sell,
-                is_anonymous: false,
-            }),
+            actor_id: Some(77),
+            offer_id: MarketOfferId::new(UNIX_EPOCH, 1),
+            offer: Some(MarketOffer::new(
+                MarketOfferId::new(UNIX_EPOCH, 1),
+                2160,
+                77,
+                5,
+                20_000,
+                MarketTradeSide::Sell,
+                false,
+            )),
         };
 
         {
@@ -339,38 +314,32 @@ mod tests {
         app.add_plugins(MinimalPlugins);
         app.insert_resource(MarketOrmResource::new(orm.clone()));
         app.add_plugins(MarketPlugins);
-        app.insert_database_table(MarketOffersTable::from_iter([MarketOffer {
-            id: MarketOfferId {
-                timestamp: UNIX_EPOCH + Duration::from_secs(5),
-                counter: 2,
-            },
-            item_id: 2160,
-            player_id: 77,
-            amount: 5,
-            price: 20_000,
-            side: MarketTradeSide::Sell,
-            is_anonymous: false,
-        }]));
+        app.insert_database_table(MarketOffersTable::from_iter([MarketOffer::new(
+            MarketOfferId::new(UNIX_EPOCH + Duration::from_secs(5), 2),
+            2160,
+            77,
+            5,
+            20_000,
+            MarketTradeSide::Sell,
+            false,
+        )]));
 
-        let offer_id = MarketOfferId {
-            timestamp: UNIX_EPOCH + Duration::from_secs(5),
-            counter: 2,
-        };
+        let offer_id = MarketOfferId::new(UNIX_EPOCH + Duration::from_secs(5), 2);
 
         {
             let mut offers = app.world_mut().resource_mut::<Tables<MarketOffersTable>>();
             let updated = crate::offer::accept_offer(
                 offer_id,
                 2,
-                Some(MarketOffer {
-                    id: offer_id,
-                    item_id: 2160,
-                    player_id: 77,
-                    amount: 5,
-                    price: 20_000,
-                    side: MarketTradeSide::Sell,
-                    is_anonymous: false,
-                }),
+                Some(MarketOffer::new(
+                    offer_id,
+                    2160,
+                    77,
+                    5,
+                    20_000,
+                    MarketTradeSide::Sell,
+                    false,
+                )),
                 &mut offers,
             );
             assert!(updated.is_some());
@@ -380,50 +349,45 @@ mod tests {
         let remaining = offers
             .get(&offer_id)
             .expect("offer should remain after partial accept");
-        assert_eq!(remaining.amount, 3);
+        assert_eq!(remaining.amount(), 3);
     }
 
     #[test]
-    fn should_persist_market_snapshot_on_save_request() {
+    fn should_persist_market_snapshot_on_app_exit() {
         let orm = Arc::new(RecordingOrm::default());
         let mut app = App::new();
 
         app.add_plugins(MinimalPlugins);
         app.insert_resource(MarketOrmResource::new(orm.clone()));
         app.add_plugins(MarketPlugins);
-        app.insert_database_table(MarketOffersTable::from_iter([MarketOffer {
-            id: MarketOfferId {
-                timestamp: UNIX_EPOCH,
-                counter: 3,
-            },
-            item_id: 2160,
-            player_id: 77,
-            amount: 2,
-            price: 11_000,
-            side: MarketTradeSide::Sell,
-            is_anonymous: false,
-        }]));
+        app.update();
+        app.insert_database_table(MarketOffersTable::from_iter([MarketOffer::new(
+            MarketOfferId::new(UNIX_EPOCH, 3),
+            2160,
+            77,
+            2,
+            11_000,
+            MarketTradeSide::Sell,
+            false,
+        )]));
         app.insert_database_table(MarketHistoryTable::default());
         app.world_mut()
             .resource_mut::<Tables<MarketHistoryTable>>()
-            .append(MarketHistoryEntry {
-                id: 1,
-                recorded_at: UNIX_EPOCH,
-                action: MarketHistoryAction::Create,
-                actor_player_id: Some(77),
-                offer_player_id: Some(77),
-                item_id: Some(2160),
-                offer_id: Some(MarketOfferId {
-                    timestamp: UNIX_EPOCH,
-                    counter: 3,
-                }),
-                amount: 2,
-                remaining_amount: None,
-                price: Some(11_000),
-                side: Some(MarketTradeSide::Sell),
-            });
-        app.world_mut().resource_mut::<persistence::MarketDirty>().0 = true;
-        app.world_mut().trigger(SaveMarketData);
+            .append(MarketHistoryEntry::new(
+                1,
+                UNIX_EPOCH,
+                MarketHistoryAction::Create,
+                Some(77),
+                Some(77),
+                Some(2160),
+                Some(MarketOfferId::new(UNIX_EPOCH, 3)),
+                2,
+                None,
+                Some(11_000),
+                Some(MarketTradeSide::Sell),
+            ));
+        app.world_mut().resource_mut::<persistence::MarketDirty>().mark();
+        app.world_mut().write_message(bevy::app::AppExit::Success);
         app.update();
 
         let actions = orm
@@ -433,7 +397,7 @@ mod tests {
         assert!(
             actions
                 .iter()
-                .any(|action| matches!(action, RecordedAction::Create(offer) if offer.amount == 2))
+                .any(|action| matches!(action, RecordedAction::Create(offer) if offer.amount() == 2))
         );
         assert!(
             actions

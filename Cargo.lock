@@ -4176,9 +4176,12 @@ dependencies = [
  "log",
  "serde",
  "sqlx",
+ "suon_chunk",
  "suon_database",
  "suon_macros",
+ "suon_movement",
  "suon_network",
+ "suon_position",
  "suon_protocol_client",
  "toml",
 ]

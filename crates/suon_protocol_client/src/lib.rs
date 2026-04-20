@@ -15,7 +15,7 @@ pub mod prelude {
     pub use crate::client::{
         Decodable, DecodableError, PacketKind,
         prelude::{
-            AcceptMarketOfferPacket, AcceptTradePacket, BrowseMarketPacket,
+            AcceptMarketOfferPacket, AcceptTradePacket, BrowseMarketPacket, MarketBrowseKind,
             CancelMarketOfferPacket, CancelStepsPacket, ChangeSharedPartyExperiencePacket,
             CloseTradePacket, CreateBuddyPacket, CreateMarketOfferPacket, DeleteBuddyPacket,
             FacePacket, InspectTradePacket, InviteToPartyPacket, JoinPartyPacket, KeepAlivePacket,
