@@ -1,13 +1,28 @@
-//! Lightweight database-table resources for Bevy apps.
+//! Database tables and persistence helpers for Bevy apps.
 //!
-//! This crate wraps typed resources in a small table abstraction so systems can
-//! read and mutate game data through focused `SystemParam` types instead of
-//! reaching for raw resources directly.
+//! This crate combines two layers:
+//! - typed ECS table resources for gameplay systems
+//! - task-backed persistence helpers for loading and saving those tables
+//!
+//! # Modules
+//!
+//! - [`prelude::DatabaseConnection`], [`prelude::DatabaseData`], and
+//!   [`prelude::DatabasePool`] for
+//!   backend-neutral connections and the default SQL pool
+//! - database startup systems for loading settings into the Bevy world
+//! - [`prelude::SnapshotTable`], [`prelude::SnapshotTableExt`], and
+//!   [`prelude::TableMapper`] for table snapshot loading and saving contracts
+//! - [`prelude::DatabaseSettings`] and [`prelude::DatabaseSettingsBuilder`] for
+//!   generic connection settings
+//! - [`prelude::I64DatabaseConvertExt`],
+//!   [`prelude::SystemTimeDatabaseConvertExt`], and
+//!   [`prelude::U64DatabaseConvertExt`] for loss-checked integer and time
+//!   conversions used by mappers
 //!
 //! # Examples
 //! ```no_run
 //! use bevy::prelude::*;
-//! use suon_database::{AppTablesExt, Database, DatabaseMut, Table};
+//! use suon_database::{AppTablesExt, DatabaseMut, Table};
 //!
 //! #[derive(Default)]
 //! struct HealthTable {
@@ -22,165 +37,70 @@
 //! app.add_systems(Update, |mut table: DatabaseMut<HealthTable>| {
 //!     table.hp = 42;
 //! });
-//! app.add_systems(PostUpdate, |table: Database<HealthTable>| {
-//!     assert_eq!(table.hp, 42);
-//! });
-//!
-//! app.update();
 //! ```
 
+mod connection;
+mod convert;
+mod settings;
+mod snapshot;
+mod system;
+
+use crate::system::*;
 use bevy::{ecs::system::SystemParam, prelude::*};
 
+/// Common imports for apps and infrastructure crates that use `suon_database`.
 pub mod prelude {
-    pub use super::{AppTablesExt, Database, DatabaseMut, Table, Tables};
+    pub use super::{
+        AppTablesExt, Database, DatabaseMut, DatabasePlugin, Table, Tables,
+        connection::{DatabaseConnection, DatabaseData, DatabasePool, PoolData},
+        convert::{I64DatabaseConvertExt, SystemTimeDatabaseConvertExt, U64DatabaseConvertExt},
+        settings::{DatabaseSettings, DatabaseSettingsBuilder},
+        snapshot::{SnapshotTable, SnapshotTableExt, TableMapper},
+    };
+}
+
+/// Plugin that loads database settings into the Bevy world during startup.
+pub struct DatabasePlugin;
+
+impl Plugin for DatabasePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, initialize_settings);
+    }
 }
 
 /// Trait that marks a structure as a database table.
 /// Types implementing `Table` can be stored in resource tables.
-///
-/// # Examples
-/// ```no_run
-/// use suon_database::Table;
-///
-/// struct MyTable;
-///
-/// impl Table for MyTable {}
-/// ```
 pub trait Table: Send + Sync + 'static {}
 
 /// Resource that holds a specific table of type `T`.
-/// Provides shared access to the table.
-///
-/// # Examples
-/// ```
-/// use bevy::prelude::*;
-/// use suon_database::{AppTablesExt, Table, Tables};
-///
-/// #[derive(Default)]
-/// struct MyTable {
-///     value: bool,
-/// }
-///
-/// impl Table for MyTable {}
-///
-/// let mut app = App::new();
-/// app.init_database_table::<MyTable>();
-///
-/// assert!(app.world().get_resource::<Tables<MyTable>>().is_some());
-/// ```
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct Tables<T: Table> {
-    /// The actual table data.
+    /// Inner table value stored as a Bevy resource.
     table: T,
 }
 
 /// System parameter for immutable access to a table of type `E`.
-///
-/// # Examples
-/// ```no_run
-/// use bevy::prelude::*;
-/// use suon_database::{AppTablesExt, Database, Table};
-///
-/// #[derive(Default)]
-/// struct MyTable {
-///     value: u32,
-/// }
-///
-/// impl Table for MyTable {}
-///
-/// let mut app = App::new();
-/// app.insert_database_table(MyTable { value: 7 });
-/// app.add_systems(Update, |table: Database<MyTable>| {
-///     assert_eq!(table.value, 7);
-/// });
-///
-/// app.update();
-/// ```
 #[derive(SystemParam, Deref, DerefMut)]
 pub struct Database<'w, E: Table> {
-    /// Reference to the resource containing the table.
+    /// Shared access to the resource that stores the typed table.
     #[system_param(validation_message = "Table not initialized")]
     tables: Res<'w, Tables<E>>,
 }
 
 /// System parameter for mutable access to a table of type `E`.
-///
-/// # Examples
-/// ```no_run
-/// use bevy::prelude::*;
-/// use suon_database::{AppTablesExt, DatabaseMut, Table, Tables};
-///
-/// #[derive(Default)]
-/// struct MyTable {
-///     value: u32,
-/// }
-///
-/// impl Table for MyTable {}
-///
-/// let mut app = App::new();
-/// app.init_database_table::<MyTable>();
-/// app.add_systems(Update, |mut table: DatabaseMut<MyTable>| {
-///     table.value = 9;
-/// });
-///
-/// app.update();
-///
-/// assert_eq!(
-///     app.world().get_resource::<Tables<MyTable>>().unwrap().value,
-///     9
-/// );
-/// ```
 #[derive(SystemParam, Deref, DerefMut)]
 pub struct DatabaseMut<'w, E: Table> {
-    /// Mutable reference to the resource containing the table.
+    /// Mutable access to the resource that stores the typed table.
     #[system_param(validation_message = "Table not initialized")]
     tables: ResMut<'w, Tables<E>>,
 }
 
 /// Extension trait providing convenience methods for managing database tables within Bevy's `App`.
 pub trait AppTablesExt {
-    /// Initializes a resource for the specified table type `T` with its default value.
-    /// If the resource already exists, this does nothing.
-    ///
-    /// # Examples
-    /// ```
-    /// use bevy::prelude::*;
-    /// use suon_database::{AppTablesExt, Table, Tables};
-    ///
-    /// #[derive(Default)]
-    /// struct MyTable {
-    ///     value: bool,
-    /// }
-    ///
-    /// impl Table for MyTable {}
-    ///
-    /// let mut app = App::new();
-    /// app.init_database_table::<MyTable>();
-    ///
-    /// assert!(app.world().get_resource::<Tables<MyTable>>().is_some());
-    /// ```
+    /// Initializes a typed table resource with its default value when missing.
     fn init_database_table<T: Table + Default>(&mut self) -> &mut Self;
 
-    /// Inserts a specific instance of a table `table` into the app's resources.
-    /// Overwrites any existing resource of the same type.
-    ///
-    /// # Examples
-    /// ```
-    /// use bevy::prelude::*;
-    /// use suon_database::{AppTablesExt, Table, Tables};
-    ///
-    /// #[derive(Default)]
-    /// struct MyTable {
-    ///     value: bool,
-    /// }
-    ///
-    /// impl Table for MyTable {}
-    ///
-    /// let mut app = App::new();
-    /// app.insert_database_table(MyTable { value: true });
-    ///
-    /// assert!(app.world().get_resource::<Tables<MyTable>>().unwrap().value);
-    /// ```
+    /// Inserts or replaces a typed table resource with a concrete value.
     fn insert_database_table<T: Table>(&mut self, table: T) -> &mut Self;
 }
 
@@ -199,6 +119,8 @@ impl AppTablesExt for App {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::connection::{DatabaseConnection, DatabaseData};
+    use std::sync::{Arc, Mutex};
 
     #[derive(Default)]
     struct MyTable {
@@ -210,80 +132,56 @@ mod tests {
     #[test]
     fn should_initialize_database_table_resource() {
         let mut app = App::new();
-
         app.init_database_table::<MyTable>();
 
         assert!(
             app.world().get_resource::<Tables<MyTable>>().is_some(),
-            "Tables<MyTable> should be created after init_database_table"
+            "init_database_table should create a Tables<MyTable> resource"
         );
     }
 
     #[test]
     fn should_access_table_through_database_system_params() {
         let mut app = App::new();
-
         app.insert_database_table(MyTable { value: false });
 
         app.add_systems(PreUpdate, |table: Database<MyTable>| {
-            assert!(!table.value, "Initial value should be false");
+            assert!(
+                !table.value,
+                "Database<T> should expose the initial table value before mutation"
+            );
         })
         .add_systems(Update, |mut table: DatabaseMut<MyTable>| {
             table.value = true;
         })
         .add_systems(PostUpdate, |table: Database<MyTable>| {
-            assert!(table.value, "Value should be true after update");
+            assert!(
+                table.value,
+                "Database<T> should observe the value written through DatabaseMut<T>"
+            );
         });
 
         app.update();
 
         let resource = app.world().get_resource::<Tables<MyTable>>();
-        assert!(resource.is_some(), "Tables<MyTable> should still exist");
+        assert!(
+            resource.is_some(),
+            "Tables<MyTable> should remain registered after systems run"
+        );
 
-        let table = resource.unwrap();
-        assert!(table.value, "Table value should be true after update");
-    }
-
-    #[test]
-    fn should_mutate_table_resource_directly() {
-        let mut app = App::new();
-
-        app.insert_database_table(MyTable { value: false });
-
-        {
-            let resource = app.world_mut().get_resource_mut::<Tables<MyTable>>();
-            assert!(
-                resource.is_some(),
-                "Tables<MyTable> resource should exist for mutation"
-            );
-            let mut table = resource.unwrap();
-            assert!(!table.value, "Initial value should be false");
-            table.value = true;
-        }
-
-        {
-            let resource = app.world().get_resource::<Tables<MyTable>>();
-            assert!(
-                resource.is_some(),
-                "Tables<MyTable> should exist after mutation"
-            );
-            let table = resource.unwrap();
-            assert!(table.value, "Table value should be true after mutation");
-        }
+        assert!(
+            resource.unwrap().value,
+            "The stored table value should be updated to true after the update system"
+        );
     }
 
     #[test]
     fn should_keep_existing_table_when_initializing_again() {
         let mut app = App::new();
-
         app.insert_database_table(MyTable { value: true });
         app.init_database_table::<MyTable>();
 
-        let table = app
-            .world()
-            .get_resource::<Tables<MyTable>>()
-            .expect("Tables<MyTable> should exist after initialization");
-
+        let table = app.world().get_resource::<Tables<MyTable>>().unwrap();
         assert!(
             table.value,
             "init_database_table should preserve an already inserted table resource"
@@ -291,20 +189,32 @@ mod tests {
     }
 
     #[test]
-    fn should_overwrite_previous_table_when_inserting_again() {
+    fn should_overwrite_existing_table_when_inserting_again() {
         let mut app = App::new();
-
         app.insert_database_table(MyTable { value: false });
         app.insert_database_table(MyTable { value: true });
 
         let table = app
             .world()
             .get_resource::<Tables<MyTable>>()
-            .expect("Tables<MyTable> should exist after insertion");
+            .expect("Tables<MyTable> should exist after repeated insertion");
 
         assert!(
             table.value,
-            "insert_database_table should overwrite the previous table resource"
+            "insert_database_table should overwrite the previously inserted table value"
+        );
+    }
+
+    #[test]
+    fn should_allow_table_extension_methods_to_chain() {
+        let mut app = App::new();
+        let returned = app
+            .init_database_table::<MyTable>()
+            .insert_database_table(MyTable { value: true });
+
+        assert!(
+            std::ptr::eq(returned, &app),
+            "AppTablesExt methods should return the same App reference for fluent chaining"
         );
     }
 
@@ -331,24 +241,108 @@ mod tests {
         assert_eq!(
             app.world()
                 .get_resource::<Tables<PreludeTable>>()
-                .expect("Tables<PreludeTable> should exist after initialization")
+                .unwrap()
                 .value,
             11,
-            "The prelude should expose DatabaseMut for mutable table access"
+            "The prelude should expose DatabaseMut<T> so systems can mutate typed tables"
         );
     }
 
     #[test]
-    fn should_chain_table_extension_methods() {
-        let mut app = App::new();
+    fn should_expose_database_api_through_prelude() {
+        use crate::prelude::*;
 
-        let returned = app
-            .init_database_table::<MyTable>()
-            .insert_database_table(MyTable { value: true });
+        #[derive(Default)]
+        struct PreludeTable {
+            _value: usize,
+        }
+
+        impl Table for PreludeTable {}
+
+        struct PreludeData;
+
+        impl DatabaseData for PreludeData {}
+
+        let connection = DatabaseConnection::new(PreludeData);
+
+        let mut app = App::new();
+        app.init_database_table::<PreludeTable>();
+
+        let _ = std::mem::size_of::<Database<'static, PreludeTable>>();
+        let _ = std::mem::size_of::<DatabaseMut<'static, PreludeTable>>();
+        let _ = std::mem::size_of::<DatabasePlugin>();
+        let _ = std::mem::size_of::<Tables<PreludeTable>>();
+        let _ = connection.data();
 
         assert!(
-            std::ptr::eq(returned, &app),
-            "AppTablesExt methods should return the same App reference for chaining"
+            app.world().contains_resource::<Tables<PreludeTable>>(),
+            "The prelude should expose AppTablesExt and typed table accessors"
+        );
+    }
+
+    #[test]
+    fn should_allow_direct_resource_access_to_typed_tables() {
+        let mut app = App::new();
+        app.insert_database_table(MyTable { value: true });
+
+        let table = app
+            .world_mut()
+            .get_resource_mut::<Tables<MyTable>>()
+            .expect("Tables<MyTable> should be available for direct mutable access");
+
+        assert!(
+            table.value,
+            "Tables<T> should dereference to the inserted table value for direct resource access"
+        );
+    }
+
+    #[test]
+    fn should_default_tables_resource_using_table_default() {
+        let table = Tables::<MyTable>::default();
+
+        assert!(
+            !table.value,
+            "Tables<T>::default should build the inner table from T::default"
+        );
+    }
+
+    #[test]
+    fn should_allow_tables_resource_to_mutate_through_deref_mut() {
+        let mut table = Tables {
+            table: MyTable { value: false },
+        };
+
+        table.value = true;
+
+        assert!(
+            table.table.value,
+            "Tables<T> should derive DerefMut so callers can mutate the inner table directly"
+        );
+    }
+
+    #[test]
+    fn should_support_task_backed_connections_for_app_level_tests() {
+        #[derive(Clone)]
+        struct DemoData {
+            flag: Arc<Mutex<bool>>,
+        }
+
+        impl DatabaseData for DemoData {}
+
+        let flag = Arc::new(Mutex::new(false));
+        let connection = DatabaseConnection::new(DemoData { flag: flag.clone() });
+
+        connection.block_on(async {
+            *flag.lock().expect("flag mutex should stay available") = true;
+        });
+
+        assert!(
+            *connection
+                .data()
+                .flag
+                .lock()
+                .expect("flag mutex should stay available"),
+            "Connection::block_on should execute futures through Bevy task utilities"
         );
     }
 }

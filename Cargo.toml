@@ -112,6 +112,7 @@ tokio = { version = "1.52", default-features = false }
 toml = { version = "1.1", default-features = false }
 
 # Shared internal crates.
+sqlx = { version = "0.8", default-features = false }
 # Keep `version` alongside `path` so the workspace is closer to crates.io publishing.
 suon_checksum = { version = "0.1.0", path = "crates/suon_checksum" }
 suon_database = { version = "0.1.0", path = "crates/suon_database" }
