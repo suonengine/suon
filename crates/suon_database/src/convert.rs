@@ -130,6 +130,7 @@ mod tests {
         let u32_error = (-1_i64)
             .try_field::<u32>("health")
             .expect_err("negative values should not convert to u32");
+
         let u64_error = (-1_i64)
             .try_field::<u64>("gold")
             .expect_err("negative values should not convert to u64");

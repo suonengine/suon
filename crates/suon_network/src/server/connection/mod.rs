@@ -316,6 +316,7 @@ mod tests {
             1,
             "read should drain every currently queued incoming packet"
         );
+
         assert_eq!(
             packets[0].kind,
             suon_protocol_client::prelude::PacketKind::KeepAlive,
@@ -352,32 +353,39 @@ mod tests {
         let written = connection
             .write(DummyPacket)
             .expect("Writing a small packet should succeed");
+
         let flushed = connection
             .flush()
             .expect("Flushing a non-empty buffer should emit one outgoing packet");
+
         let packet = outgoing_receiver
             .recv()
             .expect("The flushed packet should reach the outgoing channel");
+
         let encoded = packet.encode();
 
         assert_eq!(
             written, 1,
             "The encoded keep-alive packet should contain only its kind byte"
         );
+
         assert_eq!(
             flushed, 1,
             "flush should report the number of raw bytes drained from the buffer"
         );
+
         assert_eq!(
             encoded.len(),
             9,
             "The flushed outgoing packet should contain header, checksum, payload length, and kind"
         );
+
         assert_eq!(
             &encoded.as_ref()[..2],
             &[7, 0],
             "The flushed outgoing packet should encode the total body length in the header"
         );
+
         assert_eq!(
             &encoded.as_ref()[6..],
             &[1, 0, PacketKind::KeepAlive as u8],
@@ -393,9 +401,11 @@ mod tests {
 
         connection.set_xtea_key(XTEA_KEY);
         connection.set_checksum_mode(ChecksumMode::Adler32);
+
         connection
             .write(DummyPacket)
             .expect("Writing with encryption metadata configured should still succeed");
+
         connection.flush();
 
         let packet = outgoing_receiver

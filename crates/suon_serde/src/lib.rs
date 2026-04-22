@@ -59,6 +59,7 @@ mod tests {
         let millis =
             as_millis::serialize(&Duration::from_millis(12), serde_json::value::Serializer)
                 .expect("Prelude should expose the millisecond serializer");
+
         let secs = as_secs::serialize(&Duration::from_secs(3), serde_json::value::Serializer)
             .expect("Prelude should expose the second serializer");
 

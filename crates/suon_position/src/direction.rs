@@ -150,6 +150,7 @@ mod tests {
             (0, 1),
             "North must move exactly one unit up on the Y axis"
         );
+
         assert_eq!(
             Direction::NorthWest.offset(),
             (-1, 1),
@@ -170,6 +171,7 @@ mod tests {
             origin,
             "Subtracting from zero coordinates should saturate at the lower grid bound"
         );
+
         assert_eq!(
             max + Direction::NorthEast,
             max,

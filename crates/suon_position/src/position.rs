@@ -19,6 +19,7 @@ use std::{cmp::*, hash::*};
 pub struct Position {
     /// Horizontal world coordinate.
     pub x: u16,
+
     /// Vertical world coordinate.
     pub y: u16,
 }
@@ -133,6 +134,7 @@ mod tests {
             copied, original,
             "Copy should preserve the original coordinates exactly"
         );
+
         assert_eq!(
             cloned, original,
             "Clone should preserve the original coordinates exactly"

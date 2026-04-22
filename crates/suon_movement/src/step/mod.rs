@@ -27,6 +27,7 @@ impl Plugin for StepPlugin {
 pub struct StepIntent {
     /// Direction to apply to the entity's current position.
     pub to: Direction,
+
     #[event_target]
     /// Entity that should receive the step.
     pub entity: Entity,
@@ -41,8 +42,10 @@ pub struct Step(Entity);
 pub struct StepAcrossChunk {
     /// Chunk that previously contained the entity.
     pub from: Entity,
+
     /// Chunk that now contains the entity after stepping.
     pub to: Entity,
+
     #[event_target]
     entity: Entity,
 }

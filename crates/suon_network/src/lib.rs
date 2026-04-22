@@ -61,6 +61,7 @@ mod tests {
                 .contains_resource::<crate::server::connection::incoming::IncomingConnections>(),
             "Adding the network plugin group should initialize incoming connection state"
         );
+
         assert!(
             app.world()
                 .contains_resource::<crate::server::connection::outgoing::OutgoingConnections>(),

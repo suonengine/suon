@@ -22,8 +22,10 @@ impl Plugin for TeleportPlugin {
 pub struct TeleportIntent {
     /// Destination coordinate for the teleport.
     pub to: Position,
+
     /// Reserved for future floor changes during teleportation.
     pub floor: Option<Floor>,
+
     #[event_target]
     /// Entity that should receive the teleport.
     pub entity: Entity,
@@ -38,8 +40,10 @@ pub struct Teleport(Entity);
 pub struct TeleportAcrossChunk {
     /// Chunk that previously contained the entity.
     pub from: Entity,
+
     /// Chunk that now contains the entity after teleporting.
     pub to: Entity,
+
     #[event_target]
     entity: Entity,
 }

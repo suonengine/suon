@@ -301,7 +301,6 @@ mod tests {
     #[test]
     fn default_settings_use_expected_localhost_address_and_port() {
         let settings = Settings::default();
-
         assert_eq!(
             settings.address,
             SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 7172)),
@@ -312,8 +311,10 @@ mod tests {
     #[test]
     fn settings_roundtrip_through_toml() {
         let settings = Settings::default();
+
         let serialized =
             toml::to_string(&settings).expect("Default settings should serialize to TOML");
+
         let deserialized: Settings =
             toml::from_str(&serialized).expect("Serialized settings should parse back");
 
@@ -336,11 +337,11 @@ mod tests {
     #[test]
     fn should_expose_expected_default_session_quota() {
         let quota = SessionQuota::default();
-
         assert_eq!(
             quota.max_total, 50,
             "The default total session quota should match the intended server capacity"
         );
+
         assert_eq!(
             quota.max_per_address, 2,
             "The default per-address quota should keep individual clients bounded"
@@ -350,16 +351,17 @@ mod tests {
     #[test]
     fn should_expose_expected_default_packet_policies() {
         let policy = PacketPolicy::default();
-
         assert_eq!(
             policy.incoming.server_name_max_length, 256,
             "The default incoming server-name limit should match the configured protocol bound"
         );
+
         assert_eq!(
             policy.outgoing.max_length,
             24 * 1024,
             "The default outgoing packet limit should match the expected max payload size"
         );
+
         assert_eq!(
             policy.incoming.overflow_penalty,
             PacketPolicyPenalty::Disconnect,
@@ -372,8 +374,11 @@ mod tests {
         let _lock = cwd_lock()
             .lock()
             .expect("The settings test should acquire the cwd lock");
+
         let temp_dir = unique_temp_dir();
+
         fs::create_dir_all(&temp_dir).expect("The temp test directory should be created");
+
         let _cwd_guard = CurrentDirGuard::enter(&temp_dir);
 
         let settings = Settings::load_or_default()
@@ -383,6 +388,7 @@ mod tests {
             temp_dir.join(Settings::PATH).exists(),
             "load_or_default should create the settings file when it does not exist"
         );
+
         assert_eq!(
             settings.address,
             Settings::default().address,
@@ -395,8 +401,11 @@ mod tests {
         let _lock = cwd_lock()
             .lock()
             .expect("The settings test should acquire the cwd lock");
+
         let temp_dir = unique_temp_dir();
+
         fs::create_dir_all(&temp_dir).expect("The temp test directory should be created");
+
         let _cwd_guard = CurrentDirGuard::enter(&temp_dir);
 
         let expected = Settings {
@@ -450,19 +459,23 @@ mod tests {
             loaded.address, expected.address,
             "load_or_default should preserve the configured bind address"
         );
+
         assert_eq!(
             loaded.use_nagle_algorithm, expected.use_nagle_algorithm,
             "load_or_default should preserve the configured Nagle setting"
         );
+
         assert_eq!(
             loaded.session_quota.max_total, expected.session_quota.max_total,
             "load_or_default should preserve the configured total session quota"
         );
+
         assert_eq!(
             loaded.packet_policy.incoming.overflow_penalty,
             expected.packet_policy.incoming.overflow_penalty,
             "load_or_default should preserve the configured incoming overflow policy"
         );
+
         assert_eq!(
             loaded.packet_policy.outgoing.max_length, expected.packet_policy.outgoing.max_length,
             "load_or_default should preserve the configured outgoing packet limit"

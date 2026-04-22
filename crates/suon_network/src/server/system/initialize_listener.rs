@@ -85,10 +85,13 @@ mod tests {
     fn available_address() -> SocketAddr {
         let listener = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
             .expect("the port-probing listener should bind successfully");
+
         let addr = listener
             .local_addr()
             .expect("the port-probing listener should expose a local address");
+
         drop(listener);
+
         addr
     }
 
@@ -153,6 +156,7 @@ mod tests {
             "initialize_listener should enqueue every accepted connection that passes the \
              listener loop"
         );
+
         assert_eq!(
             queued[0]
                 .peer_addr()
@@ -162,6 +166,7 @@ mod tests {
                 .expect("The first client stream should expose its local address"),
             "The queued connection should correspond to the allowed client"
         );
+
         assert_eq!(
             queued[1]
                 .peer_addr()

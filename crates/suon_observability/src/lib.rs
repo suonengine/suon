@@ -60,18 +60,21 @@ impl ObservabilitySettings {
                 "Configuration file '{}' found, attempting to load.",
                 path.display()
             );
+
             Self::load_at(path)
         } else {
             warn!(
                 "Configuration file '{}' not found. Creating default configuration.",
                 path.display()
             );
+
             Self::create_at(path)
         }
     }
 
     fn load_at(path: &Path) -> anyhow::Result<Self> {
         debug!("Attempting to read configuration from '{}'", path.display());
+
         let config =
             fs::read_to_string(path).context("Failed to read observability settings file")?;
 
@@ -79,6 +82,7 @@ impl ObservabilitySettings {
 
         let settings =
             toml::from_str(&config).context("Failed to parse observability settings as TOML")?;
+
         trace!("Loaded settings: {:?}", settings);
 
         Ok(settings)
@@ -98,6 +102,7 @@ impl ObservabilitySettings {
         }
 
         debug!("Creating configuration file at '{}'", path.display());
+
         let mut file =
             File::create(path).context("Failed to create the observability settings file")?;
 
@@ -139,6 +144,7 @@ impl Plugin for ObservabilityPlugin {
     fn build(&self, app: &mut App) {
         let settings = ObservabilitySettings::load_or_default()
             .expect("Failed to load observability settings.");
+
         let metrics_enabled = settings.metrics
             || settings.log_metrics
             || settings.frame_time
@@ -194,8 +200,10 @@ mod tests {
     #[test]
     fn settings_roundtrip_through_toml() {
         let settings = ObservabilitySettings::default();
+
         let serialized = toml::to_string(&settings)
             .expect("Default observability settings should serialize to TOML");
+
         let deserialized: ObservabilitySettings =
             toml::from_str(&serialized).expect("Serialized settings should parse back");
 
@@ -219,6 +227,7 @@ mod tests {
             path.exists(),
             "load_or_default_at should create the settings file when it does not exist"
         );
+
         assert_eq!(
             settings,
             ObservabilitySettings::default(),

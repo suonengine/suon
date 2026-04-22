@@ -74,6 +74,7 @@ mod tests {
             vec![queued_connection],
             "read should return the queued outgoing connection in insertion order"
         );
+
         assert!(
             connections.read().is_empty(),
             "Reading again should return an empty list after the queue is drained"

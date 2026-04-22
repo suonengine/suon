@@ -94,6 +94,7 @@ mod tests {
             copied, original,
             "Copy should preserve the previous floor value"
         );
+
         assert_eq!(
             cloned, original,
             "Clone should preserve the previous floor value"

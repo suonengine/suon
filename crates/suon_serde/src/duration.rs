@@ -217,6 +217,7 @@ mod tests {
     fn duration_deserialization_rejects_invalid_json_type() {
         let millis_error =
             serde_json::from_str::<MillisContainer>(r#"{"duration":"fast"}"#).unwrap_err();
+
         let secs_error =
             serde_json::from_str::<SecsContainer>(r#"{"duration":"slow"}"#).unwrap_err();
 

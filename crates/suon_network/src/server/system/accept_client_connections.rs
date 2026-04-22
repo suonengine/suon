@@ -393,6 +393,7 @@ mod tests {
             let listener = smol::net::TcpListener::bind(("127.0.0.1", 0))
                 .await
                 .expect("the test listener should bind successfully");
+
             let addr = listener
                 .local_addr()
                 .expect("the test listener should expose a local address");
@@ -408,7 +409,9 @@ mod tests {
             let client = smol::net::TcpStream::connect(addr)
                 .await
                 .expect("the test client should connect successfully");
+
             let server = accept_task.await;
+
             let peer_addr = client
                 .local_addr()
                 .expect("the test client should expose its local address");
@@ -435,6 +438,7 @@ mod tests {
         app.update();
 
         let mut connections = app.world_mut().query::<&Connection>();
+
         let connection = connections
             .iter(app.world())
             .next()
@@ -475,6 +479,7 @@ mod tests {
                 Bytes::from_static(b"\x01\x02"),
             ))
             .expect("the writer task should accept one outgoing packet");
+
         drop(outgoing_sender);
 
         let mut encoded = vec![0; expected.len()];
@@ -525,6 +530,7 @@ mod tests {
                 .write_all(b"suon\n")
                 .await
                 .expect("the client should send the server-name packet");
+
             client_stream
                 .flush()
                 .await
@@ -532,7 +538,6 @@ mod tests {
         });
 
         let server_name = wait_for(|| incoming_receiver.try_recv().ok());
-
         assert_eq!(
             server_name.kind,
             PacketKind::ServerName,
@@ -546,6 +551,7 @@ mod tests {
                 .write_all(&build_login_packet_bytes(b"login", 0))
                 .await
                 .expect("the client should send the login packet");
+
             client_stream
                 .flush()
                 .await
@@ -573,6 +579,7 @@ mod tests {
                 ))
                 .await
                 .expect("the client should send one encrypted subsequent packet");
+
             client_stream
                 .flush()
                 .await
@@ -585,6 +592,7 @@ mod tests {
             PacketKind::PingLatency,
             "spawn_reader_task should decode and forward encrypted subsequent packets"
         );
+
         assert_eq!(
             subsequent.buffer.as_ref(),
             &[1, 2],

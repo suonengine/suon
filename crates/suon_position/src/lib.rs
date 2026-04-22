@@ -57,18 +57,22 @@ mod tests {
             direction_name.contains("direction::Direction"),
             "The direction module should stay publicly accessible from the crate root"
         );
+
         assert!(
             position_name.contains("position::Position"),
             "The position module should stay publicly accessible from the crate root"
         );
+
         assert!(
             floor_name.contains("floor::Floor"),
             "The floor module should stay publicly accessible from the crate root"
         );
+
         assert!(
             previous_position_name.contains("previous_position::PreviousPosition"),
             "The previous_position module should stay publicly accessible from the crate root"
         );
+
         assert!(
             previous_floor_name.contains("previous_floor::PreviousFloor"),
             "The previous_floor module should stay publicly accessible from the crate root"

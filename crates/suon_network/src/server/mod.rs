@@ -45,6 +45,7 @@ mod tests {
                 .contains_resource::<connection::incoming::IncomingConnections>(),
             "The server plugin should initialize incoming connection storage"
         );
+
         assert!(
             app.world()
                 .contains_resource::<connection::outgoing::OutgoingConnections>(),

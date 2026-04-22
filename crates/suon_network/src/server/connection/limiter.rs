@@ -301,6 +301,7 @@ mod tests {
             0,
             "Releasing an unknown address should not change the total active session count"
         );
+
         assert_eq!(
             limiter.active_sessions_for_address(ADDRESS),
             0,

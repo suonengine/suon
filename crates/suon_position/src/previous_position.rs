@@ -19,6 +19,7 @@ use std::{cmp::*, hash::*};
 pub struct PreviousPosition {
     /// Previous horizontal world coordinate.
     pub x: u16,
+
     /// Previous vertical world coordinate.
     pub y: u16,
 }
@@ -131,6 +132,7 @@ mod tests {
             copied, original,
             "Copy should preserve the previous position coordinates"
         );
+
         assert_eq!(
             cloned, original,
             "Clone should preserve the previous position coordinates"

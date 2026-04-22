@@ -269,6 +269,7 @@ mod tests {
             "process_incoming_client_packets should emit one typed event per queued incoming \
              packet"
         );
+
         assert_eq!(
             metadata.0,
             Some((client, timestamp, Some(checksum))),

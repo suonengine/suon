@@ -159,11 +159,13 @@ mod tests {
             Entity::from_bits(42),
             "entity should expose the entity that produced the packet"
         );
+
         assert_eq!(
             packet.timestamp(),
             timestamp,
             "timestamp should expose the reception instant stored in the packet"
         );
+
         assert_eq!(
             packet.checksum(),
             Some(checksum),
@@ -187,16 +189,19 @@ mod tests {
             Entity::from_bits(42),
             "typed packet events should preserve the originating entity"
         );
+
         assert_eq!(
             event.timestamp(),
             timestamp,
             "typed packet events should preserve the original timestamp"
         );
+
         assert_eq!(
             event.checksum(),
             Some(checksum),
             "typed packet events should preserve the checksum metadata"
         );
+
         assert_eq!(
             event.event_target(),
             Entity::from_bits(42),

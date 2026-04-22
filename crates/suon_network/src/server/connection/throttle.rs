@@ -208,7 +208,6 @@ mod tests {
         let throttle = test_throttle();
 
         let result = throttle.attempt_connection(&ADDRESS);
-
         assert!(
             result.is_ok(),
             "The first attempt should always succeed for a new address"
