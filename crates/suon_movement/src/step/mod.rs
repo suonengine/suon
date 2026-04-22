@@ -13,44 +13,79 @@ use suon_position::prelude::*;
 pub mod path;
 pub mod timer;
 
+/// Plugin that installs step path advancement and step intent handling.
 pub struct StepPlugin;
 
 impl Plugin for StepPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(FixedUpdate, advance_step_paths)
-            .add_observer(on_step_intent);
+        debug!("Installing step movement systems");
+        app.add_systems(FixedUpdate, emit_ready_step_path_intents)
+            .add_observer(apply_step_intent);
     }
 }
 
-#[derive(EntityEvent)]
+#[derive(Debug, Clone, Copy, EntityEvent, PartialEq, Eq)]
 /// Intent requesting a one-tile movement for the target entity.
 pub struct StepIntent {
+    /// Entity that should receive the step.
+    #[event_target]
+    pub entity: Entity,
+
     /// Direction to apply to the entity's current position.
     pub to: Direction,
+}
 
+/// Reason why a step request was rejected.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StepError {
+    /// The target entity does not have the components required for stepping.
+    MissingMovementComponents,
+    /// The requested direction does not change the current position.
+    TargetMatchesCurrentPosition,
+    /// The entity's current coordinate is not mapped to a chunk.
+    MissingCurrentChunk,
+    /// The requested target coordinate is not mapped to a chunk.
+    MissingTargetChunk,
+    /// The target coordinate is already occupied on the entity's floor.
+    TargetOccupied,
+}
+
+/// Event emitted when a step intent cannot be applied.
+#[derive(Debug, Clone, Copy, EntityEvent, PartialEq, Eq)]
+pub struct StepRejected {
+    /// Entity whose step request was rejected.
     #[event_target]
-    /// Entity that should receive the step.
-    pub entity: Entity,
+    entity: Entity,
+
+    /// Direction requested by the rejected intent.
+    pub to: Direction,
+
+    /// Rejection reason produced by movement validation.
+    pub error: StepError,
 }
 
 #[derive(EntityEvent)]
 /// Event emitted after a step successfully updates the entity position.
+///
+/// Observers can read the moved entity from the event target.
 pub struct Step(Entity);
 
 #[derive(EntityEvent)]
 /// Event emitted when a step crosses from one chunk entity to another.
 pub struct StepAcrossChunk {
+    /// Entity that crossed the chunk boundary.
+    #[event_target]
+    entity: Entity,
+
     /// Chunk that previously contained the entity.
     pub from: Entity,
 
     /// Chunk that now contains the entity after stepping.
     pub to: Entity,
-
-    #[event_target]
-    entity: Entity,
 }
 
-fn advance_step_paths(
+/// Advances queued step paths and emits a [`StepIntent`] when an entity is ready to move.
+fn emit_ready_step_path_intents(
     mut commands: Commands,
     query: Query<(Entity, &mut StepPath, &mut StepTimer)>,
     time: Res<Time<Fixed>>,
@@ -69,6 +104,7 @@ fn advance_step_paths(
         timer.set_duration(Duration::from_secs(1));
         timer.reset();
 
+        trace!("Emitting step intent for entity {entity:?} toward {target_direction:?}");
         commands.trigger(StepIntent {
             to: target_direction,
             entity,
@@ -76,7 +112,8 @@ fn advance_step_paths(
     }
 }
 
-fn on_step_intent(
+/// Applies a [`StepIntent`] by validating the target tile and emitting success or rejection events.
+fn apply_step_intent(
     event: On<StepIntent>,
     mut commands: Commands,
     positions: Query<(&Floor, &Position)>,
@@ -85,28 +122,75 @@ fn on_step_intent(
 ) {
     let entity = event.event_target();
 
-    let Ok((layer, position)) = positions.get(entity) else {
+    let Ok((floor, position)) = positions.get(entity) else {
+        debug!("Rejecting step intent for {entity:?}: missing Floor or Position");
+        commands.trigger(StepRejected {
+            entity,
+            to: event.to,
+            error: StepError::MissingMovementComponents,
+        });
         return;
     };
 
     let target_position = *position + event.to;
-    if position == &target_position {
+    if *position == target_position {
+        debug!(
+            "Rejecting step intent for {entity:?}: direction {:?} keeps position {:?}",
+            event.to, position
+        );
+        commands.trigger(StepRejected {
+            entity,
+            to: event.to,
+            error: StepError::TargetMatchesCurrentPosition,
+        });
         return;
     }
 
     let Some(chunk) = chunks.get(position) else {
+        warn!("Rejecting step intent for {entity:?}: current position {position:?} has no chunk");
+        commands.trigger(StepRejected {
+            entity,
+            to: event.to,
+            error: StepError::MissingCurrentChunk,
+        });
         return;
     };
 
     let Some(target_chunk) = chunks.get(&target_position) else {
+        warn!(
+            "Rejecting step intent for {entity:?}: target position {target_position:?} has no \
+             chunk"
+        );
+        commands.trigger(StepRejected {
+            entity,
+            to: event.to,
+            error: StepError::MissingTargetChunk,
+        });
         return;
     };
 
     let Ok(occupancy) = occupancies.get(target_chunk) else {
+        warn!(
+            "Rejecting step intent for {entity:?}: target chunk {target_chunk:?} has no Occupancy"
+        );
+        commands.trigger(StepRejected {
+            entity,
+            to: event.to,
+            error: StepError::MissingTargetChunk,
+        });
         return;
     };
 
-    if occupancy.contains(layer, &target_position) {
+    if occupancy.contains(floor, &target_position) {
+        debug!(
+            "Rejecting step intent for {entity:?}: target {:?} on floor {:?} is occupied",
+            target_position, floor
+        );
+        commands.trigger(StepRejected {
+            entity,
+            to: event.to,
+            error: StepError::TargetOccupied,
+        });
         return;
     }
 
@@ -124,7 +208,13 @@ fn on_step_intent(
         ))
         .trigger(Step);
 
+    trace!(
+        "Applied step for {entity:?}: {:?} -> {:?} on floor {:?}",
+        position, target_position, floor
+    );
+
     if chunk != target_chunk {
+        trace!("Step for {entity:?} crossed chunk boundary: {chunk:?} -> {target_chunk:?}");
         commands.entity(entity).trigger(|entity| StepAcrossChunk {
             from: chunk,
             to: target_chunk,
@@ -144,9 +234,9 @@ mod tests {
     fn should_advance_path_and_reset_timer_when_finished() {
         let mut app = App::new();
 
-        app.add_plugins(ChunkPlugin);
+        app.add_plugins(ChunkPlugins);
         app.insert_resource(Time::<Fixed>::default());
-        app.add_systems(FixedUpdate, advance_step_paths);
+        app.add_systems(FixedUpdate, emit_ready_step_path_intents);
 
         let mut path = StepPath::default();
         path.push(Direction::North);
@@ -195,22 +285,25 @@ mod tests {
     fn should_update_position_and_trigger_step_event_on_successful_intent() {
         let mut app = App::new();
 
-        app.add_plugins(ChunkPlugin);
-        app.add_observer(on_step_intent);
+        app.add_plugins(ChunkPlugins);
+        app.add_observer(apply_step_intent);
 
         const START_POSITION: Position = Position {
             x: 0,
             y: CHUNK_SIZE as u16 - 1,
         };
+        const EXPECTED_TARGET: Position = Position {
+            x: START_POSITION.x,
+            y: START_POSITION.y + 1,
+        };
         const FLOOR: Floor = Floor { z: 0 };
-        let expected_target = START_POSITION + Direction::North;
 
         let start_chunk = app.world_mut().spawn(Chunk).id();
         let target_chunk = app.world_mut().spawn(Chunk).id();
 
         app.insert_resource(Chunks::from_iter([
             (START_POSITION, start_chunk),
-            (expected_target, target_chunk),
+            (EXPECTED_TARGET, target_chunk),
         ]));
 
         let entity = app.world_mut().spawn((START_POSITION, FLOOR)).id();
@@ -230,7 +323,7 @@ mod tests {
             .expect("Current position missing");
 
         assert_eq!(
-            *current_position, expected_target,
+            *current_position, EXPECTED_TARGET,
             "Actor should be at the target coordinate"
         );
 
@@ -242,6 +335,11 @@ mod tests {
         assert_eq!(
             previous_position.x, START_POSITION.x,
             "The system must record the starting position as the previous one"
+        );
+
+        assert!(
+            app.world().get::<PreviousFloor>(entity).is_none(),
+            "Step should not record PreviousFloor because it does not change floors"
         );
 
         let at_chunk = app
@@ -260,8 +358,9 @@ mod tests {
     fn should_prevent_movement_when_target_position_is_occupied() {
         let mut app = App::new();
 
-        app.add_plugins(ChunkPlugin);
-        app.add_observer(on_step_intent);
+        app.add_plugins(ChunkPlugins);
+        app.add_observer(apply_step_intent);
+        app.add_observer(record_step_rejection);
 
         const MOVE_DIRECTION: Direction = Direction::East;
         const START_POSITION: Position = Position { x: 5, y: 5 };
@@ -295,17 +394,29 @@ mod tests {
             *current_position, START_POSITION,
             "Movement must be blocked when a target coordinate contains an Occupied entity"
         );
+
+        let rejection = app
+            .world()
+            .get_resource::<LastStepRejection>()
+            .expect("Step rejection missing");
+
+        assert_eq!(rejection.error, StepError::TargetOccupied);
+        assert_eq!(rejection.to, MOVE_DIRECTION);
     }
 
     #[test]
-    fn should_fail_when_moving_to_coordinate_without_registered_chunk() {
+    fn should_reject_when_moving_to_coordinate_without_registered_chunk() {
         let mut app = App::new();
 
-        app.add_plugins(ChunkPlugin);
-        app.add_observer(on_step_intent);
+        app.add_plugins(ChunkPlugins);
+        app.add_observer(apply_step_intent);
+        app.add_observer(record_step_rejection);
 
         const MOVE_DIRECTION: Direction = Direction::North;
-        const START_POSITION: Position = Position { x: 0, y: 0 };
+        const START_POSITION: Position = Position {
+            x: 0,
+            y: CHUNK_SIZE as u16 - 1,
+        };
         const FLOOR: Floor = Floor { z: 0 };
 
         // Only provide a chunk for the starting position
@@ -314,22 +425,31 @@ mod tests {
 
         let entity = app.world_mut().spawn((START_POSITION, FLOOR)).id();
 
-        // The observer should panic because the target coordinate is not mapped in ChunkLayer
         app.world_mut().trigger(StepIntent {
             entity,
             to: MOVE_DIRECTION,
         });
 
         app.update();
+        app.update();
+
+        let rejection = app
+            .world()
+            .get_resource::<LastStepRejection>()
+            .expect("Step rejection missing");
+
+        assert_eq!(rejection.entity, entity);
+        assert_eq!(rejection.to, MOVE_DIRECTION);
+        assert_eq!(rejection.error, StepError::MissingTargetChunk);
     }
 
     #[test]
     fn should_not_consume_path_or_reset_timer_before_timer_finishes() {
         let mut app = App::new();
 
-        app.add_plugins(ChunkPlugin);
+        app.add_plugins(ChunkPlugins);
         app.insert_resource(Time::<Fixed>::default());
-        app.add_systems(FixedUpdate, advance_step_paths);
+        app.add_systems(FixedUpdate, emit_ready_step_path_intents);
 
         let mut path = StepPath::default();
         path.push(Direction::East);
@@ -349,6 +469,7 @@ mod tests {
             .world()
             .get::<StepTimer>(entity)
             .expect("StepTimer missing");
+
         let path = app
             .world()
             .get::<StepPath>(entity)
@@ -370,16 +491,17 @@ mod tests {
     fn should_ignore_step_intent_when_direction_does_not_change_position() {
         let mut app = App::new();
 
-        app.add_plugins(ChunkPlugin);
-        app.add_observer(on_step_intent);
+        app.add_plugins(ChunkPlugins);
+        app.add_observer(apply_step_intent);
+        app.add_observer(record_step_rejection);
 
         const START_POSITION: Position = Position { x: 0, y: 0 };
         const FLOOR: Floor = Floor { z: 0 };
+
         let chunk = app.world_mut().spawn(Chunk).id();
         app.insert_resource(Chunks::from_iter([(START_POSITION, chunk)]));
 
         let entity = app.world_mut().spawn((START_POSITION, FLOOR)).id();
-
         app.world_mut().trigger(StepIntent {
             entity,
             to: Direction::SouthWest,
@@ -399,14 +521,22 @@ mod tests {
             START_POSITION,
             "A no-op step direction should leave the position unchanged"
         );
+
+        let rejection = app
+            .world()
+            .get_resource::<LastStepRejection>()
+            .expect("Step rejection missing");
+
+        assert_eq!(rejection.error, StepError::TargetMatchesCurrentPosition);
     }
 
     #[test]
-    fn should_ignore_step_intent_when_entity_has_no_position_or_floor() {
+    fn should_reject_step_intent_when_entity_has_no_position_or_floor() {
         let mut app = App::new();
 
-        app.add_plugins(ChunkPlugin);
-        app.add_observer(on_step_intent);
+        app.add_plugins(ChunkPlugins);
+        app.add_observer(apply_step_intent);
+        app.add_observer(record_step_rejection);
 
         let entity = app.world_mut().spawn_empty().id();
 
@@ -421,5 +551,29 @@ mod tests {
             app.world().get::<Position>(entity).is_none(),
             "Entities without movement components should be ignored by step intents"
         );
+
+        let rejection = app
+            .world()
+            .get_resource::<LastStepRejection>()
+            .expect("Step rejection missing");
+
+        assert_eq!(rejection.entity, entity);
+        assert_eq!(rejection.error, StepError::MissingMovementComponents);
+    }
+
+    #[derive(Resource)]
+    struct LastStepRejection {
+        entity: Entity,
+        to: Direction,
+        error: StepError,
+    }
+
+    /// Stores the last step rejection observed by tests.
+    fn record_step_rejection(event: On<StepRejected>, mut commands: Commands) {
+        commands.insert_resource(LastStepRejection {
+            entity: event.event_target(),
+            to: event.to,
+            error: event.error,
+        });
     }
 }

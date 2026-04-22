@@ -27,7 +27,7 @@ impl Plugin for MarketBrowsePlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use suon_chunk::prelude::{Chunk, ChunkPlugin, Chunks};
+    use suon_chunk::prelude::{Chunk, ChunkPlugins, Chunks};
     use suon_movement::prelude::{MovementPlugins, StepIntent, TeleportIntent};
     use suon_position::prelude::{Floor, Position};
     use suon_protocol_client::prelude::MarketBrowseKind;
@@ -36,7 +36,7 @@ mod tests {
     fn should_close_market_session_when_step_event_is_received() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
-        app.add_plugins(ChunkPlugin);
+        app.add_plugins(ChunkPlugins);
         app.add_plugins(MovementPlugins);
         app.add_plugins(MarketBrowsePlugin);
 
@@ -70,7 +70,7 @@ mod tests {
     fn should_close_market_session_when_teleport_event_is_received() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
-        app.add_plugins(ChunkPlugin);
+        app.add_plugins(ChunkPlugins);
         app.add_plugins(MovementPlugins);
         app.add_plugins(MarketBrowsePlugin);
 

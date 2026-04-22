@@ -35,7 +35,7 @@ fn main() {
 
 - Headless Bevy runtime (thread count from `settings/Settings.toml`)
 - `ObservabilityPlugin` (diagnostics from `settings/ObservabilitySettings.toml`)
-- `ChunkPlugin` — world chunk and occupancy management
+- `ChunkPlugins` — world chunk and occupancy management
 - `MovementPlugins` — step and teleport intent processing
 - `NetworkPlugins` — TCP session management
 - `LuaPlugin` — Lua 5.4 scripting runtime

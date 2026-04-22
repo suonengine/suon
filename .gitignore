@@ -4,3 +4,4 @@ target
 # Settings
 Settings.toml
 NetworkServerSettings.toml
+**/settings/*.toml

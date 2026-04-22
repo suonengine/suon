@@ -71,7 +71,7 @@ impl Plugin for SuonPlugin {
 
         app.add_plugins((
             suon_observability::ObservabilityPlugin,
-            ChunkPlugin,
+            ChunkPlugins,
             MovementPlugins,
             MarketPlugins,
             NetworkPlugins,

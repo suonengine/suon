@@ -20,7 +20,7 @@ for the entire workspace.
 | `MinimalPlugins` | Bevy headless runtime, thread pool sized by `Settings::threads` |
 | `ScheduleRunnerPlugin` | Installed when `Settings::schedule_runner = true` |
 | `ObservabilityPlugin` | Logging and diagnostics from `suon_observability` |
-| `ChunkPlugin` | World chunk system from `suon_chunk` |
+| `ChunkPlugins` | World chunk system from `suon_chunk` |
 | `MovementPlugins` | Movement intent processing from `suon_movement` |
 | `NetworkPlugins` | TCP networking from `suon_network` |
 | `LuaPlugin` | Lua 5.4 scripting from `suon_lua` |

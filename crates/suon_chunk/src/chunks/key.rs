@@ -12,6 +12,9 @@ pub(crate) struct ChunkKey(u32);
 
 impl ChunkKey {
     /// Builds a chunk key from world-space coordinates.
+    ///
+    /// Coordinates are shifted by [`crate::CHUNK_EXP`] to collapse every tile in
+    /// the same chunk footprint into one registry key.
     pub(crate) fn new(x: u16, y: u16) -> Self {
         let chunk_x = x as u32 >> CHUNK_EXP;
         let chunk_y = y as u32 >> CHUNK_EXP;

@@ -1,9 +1,9 @@
 //! Movement systems for stepping and teleporting entities across the Suon world.
 //!
 //! This crate owns intent-driven movement behaviors that update
-//! [`suon_position::prelude::Position`] and record
-//! [`suon_position::prelude::PreviousPosition`] so downstream crates can
-//! react consistently to movement.
+//! [`suon_position::prelude::Position`], optionally update
+//! [`suon_position::prelude::Floor`], and record previous values for the axes
+//! that changed so downstream crates can react consistently to movement.
 //!
 //! # Modules
 //!
@@ -20,7 +20,7 @@
 //!
 //! let mut app = App::new();
 //! app.add_plugins(MinimalPlugins);
-//! app.add_plugins(ChunkPlugin);
+//! app.add_plugins(ChunkPlugins);
 //! app.add_plugins(MovementPlugins);
 //!
 //! let chunk = app.world_mut().spawn(Chunk).id();
@@ -47,11 +47,14 @@ use bevy::{app::PluginGroupBuilder, prelude::*};
 mod step;
 mod teleport;
 
+/// Common movement types and plugin groups for downstream crates.
 pub mod prelude {
     pub use super::{
         MovementPlugins,
-        step::{Step, StepAcrossChunk, StepIntent, path::StepPath},
-        teleport::{Teleport, TeleportAcrossChunk, TeleportIntent},
+        step::{Step, StepAcrossChunk, StepError, StepIntent, StepRejected, path::StepPath},
+        teleport::{
+            Teleport, TeleportAcrossChunk, TeleportError, TeleportIntent, TeleportRejected,
+        },
     };
 
     pub(crate) use super::step::timer::StepTimer;
@@ -94,11 +97,15 @@ mod tests {
         let _ = std::mem::size_of::<MovementPlugins>();
         let _ = std::mem::size_of::<Step>();
         let _ = std::mem::size_of::<StepAcrossChunk>();
+        let _ = std::mem::size_of::<StepError>();
         let _ = std::mem::size_of::<StepIntent>();
         let _ = std::mem::size_of::<StepPath>();
+        let _ = std::mem::size_of::<StepRejected>();
         let _ = std::mem::size_of::<Teleport>();
         let _ = std::mem::size_of::<TeleportAcrossChunk>();
+        let _ = std::mem::size_of::<TeleportError>();
         let _ = std::mem::size_of::<TeleportIntent>();
+        let _ = std::mem::size_of::<TeleportRejected>();
 
         assert_eq!(
             Direction::North.offset(),

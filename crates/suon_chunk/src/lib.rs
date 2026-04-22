@@ -16,10 +16,11 @@
 //! back to the chunk that currently contains it.
 //!
 //! The crate treats [`suon_position::prelude::Position`] as the source of truth
-//! for chunk ownership. [`ChunkPlugin`] uses lifecycle observers on
+//! for chunk ownership. [`ChunkPlugins`] uses lifecycle observers on
 //! [`suon_position::prelude::Position`] to synchronize [`crate::prelude::AtChunk`]
 //! and to resynchronize occupied tiles using
-//! [`suon_position::prelude::PreviousPosition`].
+//! [`suon_position::prelude::PreviousPosition`] and
+//! [`suon_position::prelude::PreviousFloor`].
 //!
 //! # Runtime flow
 //!
@@ -30,12 +31,12 @@
 //!    each chunk.
 //! 3. Game entities receive a [`suon_position::prelude::Position`] and optionally
 //!    an [`occupancy::occupied::Occupied`] marker.
-//! 4. [`ChunkPlugin`] derives [`crate::prelude::AtChunk`] automatically from the
+//! 4. [`ChunkPlugins`] derives [`crate::prelude::AtChunk`] automatically from the
 //!    current [`suon_position::prelude::Position`].
 //! 5. Occupied entities register their current tile in the destination chunk's
 //!    [`crate::prelude::Occupancy`] map.
-//! 6. When an occupied entity moves, the crate releases the previous tile and
-//!    registers the new one.
+//! 6. When an occupied entity moves or changes floors, the crate releases the
+//!    previous floor-position pair and registers the new one.
 //!
 //! # Modules
 //!
@@ -57,7 +58,7 @@
 //!
 //! let mut app = App::new();
 //! app.add_plugins(MinimalPlugins);
-//! app.add_plugins(ChunkPlugin);
+//! app.add_plugins(ChunkPlugins);
 //!
 //! let chunk = app.world_mut().spawn(Chunk).id();
 //! app.insert_resource(Chunks::from_iter([(Position { x: 4, y: 4 }, chunk)]));
@@ -70,24 +71,19 @@
 //! ```
 //!
 use crate::{
-    chunks::Chunks as ChunkRegistry,
-    content::sync_at_chunk_from_position,
-    loader::ChunkLoader as ChunkLoaderResource,
-    occupancy::{
-        Occupancy as ChunkOccupancy, resync_occupied_positions, sync_occupancy_register,
-        sync_occupancy_unregister,
-    },
-    terrain::{
-        Navigation as ChunkNavigation, resync_navigation_positions, sync_navigation_register,
-        sync_navigation_unregister,
-    },
+    chunks::ChunksPlugin,
+    content::ContentPlugin,
+    occupancy::{Occupancy as ChunkOccupancy, OccupancyPlugin},
+    terrain::{Navigation as ChunkNavigation, TerrainPlugin},
 };
-use bevy::prelude::*;
+use bevy::{app::PluginGroupBuilder, prelude::*};
 
 /// Chunk registry and chunk-key utilities.
 mod chunks;
 /// Entity relationship components that connect world content to chunks.
 mod content;
+/// Compact floor-position keys shared by chunk-local lookup tables.
+mod floor_position_key;
 /// Chunk loading resources and future loading orchestration.
 mod loader;
 /// Occupancy state and synchronization systems for chunk-contained entities.
@@ -95,14 +91,15 @@ mod occupancy;
 /// Terrain navigation data structures synchronized from occupied tiles.
 mod terrain;
 
+/// Common chunk types and plugin groups for downstream crates.
 pub mod prelude {
     pub use crate::{
-        Active, CHUNK_AREA, CHUNK_EXP, CHUNK_MASK, CHUNK_SIZE, Chunk, ChunkPlugin, Inactive,
-        chunks::Chunks,
-        content::{AtChunk, Content},
+        Active, CHUNK_AREA, CHUNK_EXP, CHUNK_MASK, CHUNK_SIZE, Chunk, ChunkPlugins, Inactive,
+        chunks::{Chunks, ChunksPlugin},
+        content::{AtChunk, AtChunkUpdateError, AtChunkUpdateRejected, Content, ContentPlugin},
         loader::ChunkLoader,
-        occupancy::{Occupancy, occupied::Occupied},
-        terrain::Navigation,
+        occupancy::{Occupancy, OccupancyPlugin, occupied::Occupied},
+        terrain::{Navigation, TerrainPlugin},
     };
 }
 /// The bit exponent used to define the power-of-two dimensions of a chunk.
@@ -117,21 +114,19 @@ pub const CHUNK_AREA: usize = CHUNK_SIZE * CHUNK_SIZE;
 /// A bitmask used to extract local coordinates from global positions.
 pub const CHUNK_MASK: usize = CHUNK_SIZE - 1;
 
-/// Plugin responsible for chunk resources and chunk-local synchronization.
-pub struct ChunkPlugin;
+/// Plugin group for chunk resources and chunk-local synchronization.
+///
+/// This installs the smaller chunk context plugins: [`ChunksPlugin`],
+/// [`ContentPlugin`], [`OccupancyPlugin`], and [`TerrainPlugin`].
+pub struct ChunkPlugins;
 
-impl Plugin for ChunkPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<ChunkRegistry>()
-            .init_resource::<ChunkLoaderResource>();
-
-        app.add_observer(sync_occupancy_register)
-            .add_observer(sync_occupancy_unregister)
-            .add_observer(sync_at_chunk_from_position)
-            .add_observer(resync_occupied_positions)
-            .add_observer(sync_navigation_register)
-            .add_observer(sync_navigation_unregister)
-            .add_observer(resync_navigation_positions);
+impl PluginGroup for ChunkPlugins {
+    fn build(self) -> PluginGroupBuilder {
+        PluginGroupBuilder::start::<Self>()
+            .add(ChunksPlugin)
+            .add(ContentPlugin)
+            .add(OccupancyPlugin)
+            .add(TerrainPlugin)
     }
 }
 
@@ -193,16 +188,16 @@ mod tests {
 
         // Adding the plugin should prepare the runtime resources it depends on.
         app.add_plugins(MinimalPlugins);
-        app.add_plugins(ChunkPlugin);
+        app.add_plugins(ChunkPlugins);
 
         assert!(
             app.world().contains_resource::<Chunks>(),
-            "ChunkPlugin should initialize the chunk registry resource"
+            "ChunkPlugins should initialize the chunk registry resource"
         );
 
         assert!(
             app.world().contains_resource::<ChunkLoader>(),
-            "ChunkPlugin should initialize the chunk loader resource"
+            "ChunkPlugins should initialize the chunk loader resource"
         );
     }
 
@@ -276,11 +271,11 @@ mod tests {
     }
 
     #[test]
-    fn should_sync_at_chunk_from_position_automatically() {
+    fn should_update_at_chunk_after_position_change_automatically() {
         let mut app = App::new();
 
         app.add_plugins(MinimalPlugins);
-        app.add_plugins(ChunkPlugin);
+        app.add_plugins(ChunkPlugins);
 
         let chunk = app.world_mut().spawn(Chunk).id();
         app.insert_resource(Chunks::from_iter([(Position { x: 4, y: 4 }, chunk)]));
@@ -307,15 +302,21 @@ mod tests {
 
         let _ = std::mem::size_of::<Active>();
         let _ = std::mem::size_of::<AtChunk>();
+        let _ = std::mem::size_of::<AtChunkUpdateError>();
+        let _ = std::mem::size_of::<AtChunkUpdateRejected>();
         let _ = std::mem::size_of::<Chunk>();
         let _ = std::mem::size_of::<ChunkLoader>();
-        let _ = std::mem::size_of::<ChunkPlugin>();
+        let _ = std::mem::size_of::<ChunkPlugins>();
+        let _ = std::mem::size_of::<ChunksPlugin>();
         let _ = std::mem::size_of::<Chunks>();
+        let _ = std::mem::size_of::<ContentPlugin>();
         let _ = std::mem::size_of::<Content>();
         let _ = std::mem::size_of::<Inactive>();
+        let _ = std::mem::size_of::<OccupancyPlugin>();
         let _ = std::mem::size_of::<Navigation>();
         let _ = std::mem::size_of::<Occupancy>();
         let _ = std::mem::size_of::<Occupied>();
+        let _ = std::mem::size_of::<TerrainPlugin>();
 
         assert_eq!(CHUNK_EXP, 3);
         assert_eq!(CHUNK_SIZE, 1 << CHUNK_EXP);

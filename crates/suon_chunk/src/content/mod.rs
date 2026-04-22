@@ -7,6 +7,16 @@
 use bevy::prelude::*;
 use suon_position::prelude::*;
 
+/// Plugin responsible for deriving [`AtChunk`] relationships from positions.
+pub struct ContentPlugin;
+
+impl Plugin for ContentPlugin {
+    fn build(&self, app: &mut App) {
+        debug!("Installing chunk content observers");
+        app.add_observer(update_at_chunk_after_position_change);
+    }
+}
+
 #[derive(Component, Deref, Debug)]
 #[relationship_target(relationship = AtChunk, linked_spawn)]
 /// Stores the entities currently linked to a chunk through [`AtChunk`].
@@ -38,7 +48,7 @@ impl AtChunk {
     ///
     /// let mut app = App::new();
     /// app.add_plugins(MinimalPlugins);
-    /// app.add_plugins(ChunkPlugin);
+    /// app.add_plugins(ChunkPlugins);
     ///
     /// let chunk = app.world_mut().spawn(Chunk).id();
     /// app.insert_resource(Chunks::from_iter([(Position { x: 1, y: 1 }, chunk)]));
@@ -54,12 +64,35 @@ impl AtChunk {
     }
 }
 
+/// Reason why an [`AtChunk`] update could not be completed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AtChunkUpdateError {
+    /// The entity no longer has the inserted position when the observer runs.
+    MissingPosition,
+    /// The current position does not resolve to a registered chunk.
+    MissingRegisteredChunk,
+}
+
+/// Event emitted when [`AtChunk`] cannot be derived from an entity position.
+#[derive(Debug, Clone, Copy, EntityEvent, PartialEq, Eq)]
+pub struct AtChunkUpdateRejected {
+    /// Entity whose chunk relationship could not be updated.
+    #[event_target]
+    entity: Entity,
+
+    /// Position that failed chunk ownership lookup, when available.
+    pub position: Option<Position>,
+
+    /// Rejection reason produced by chunk ownership validation.
+    pub error: AtChunkUpdateError,
+}
+
 /// Derives [`AtChunk`] whenever [`suon_position::prelude::Position`] is inserted
 /// or replaced.
 ///
 /// If the entity's position no longer resolves to a registered chunk, the stale
-/// [`AtChunk`] component is removed.
-pub(crate) fn sync_at_chunk_from_position(
+/// [`AtChunk`] component is removed and [`AtChunkUpdateRejected`] is emitted.
+pub(crate) fn update_at_chunk_after_position_change(
     event: On<Insert, Position>,
     mut commands: Commands,
     entities: Query<(&Position, Option<&AtChunk>)>,
@@ -68,17 +101,35 @@ pub(crate) fn sync_at_chunk_from_position(
     let entity = event.event_target();
 
     let Ok((position, at_chunk)) = entities.get(entity) else {
+        debug!("Rejecting AtChunk update for {entity:?}: missing Position");
+
+        commands.trigger(AtChunkUpdateRejected {
+            entity,
+            position: None,
+            error: AtChunkUpdateError::MissingPosition,
+        });
         return;
     };
 
     let Some(chunk) = chunks.get(position) else {
+        warn!("Rejecting AtChunk update for {entity:?}: position {position:?} has no chunk");
+
         commands.entity(entity).remove::<AtChunk>();
+
+        commands.trigger(AtChunkUpdateRejected {
+            entity,
+            position: Some(*position),
+            error: AtChunkUpdateError::MissingRegisteredChunk,
+        });
         return;
     };
 
     if at_chunk.is_some_and(|current_chunk| current_chunk.entity() == chunk) {
+        trace!("AtChunk for {entity:?} already points to chunk {chunk:?}");
         return;
     }
+
+    trace!("Updating AtChunk for {entity:?} at position {position:?} to chunk {chunk:?}");
 
     commands.entity(entity).insert(AtChunk::new(chunk));
 }
@@ -86,13 +137,30 @@ pub(crate) fn sync_at_chunk_from_position(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Chunk, ChunkPlugin, chunks::Chunks};
+    use crate::{Chunk, ChunkPlugins, chunks::Chunks};
+
+    #[derive(Resource)]
+    struct LastAtChunkRejection {
+        entity: Entity,
+        position: Option<Position>,
+        error: AtChunkUpdateError,
+    }
+
+    /// Stores the last AtChunk update rejection observed by tests.
+    fn record_at_chunk_rejection(event: On<AtChunkUpdateRejected>, mut commands: Commands) {
+        commands.insert_resource(LastAtChunkRejection {
+            entity: event.event_target(),
+            position: event.position,
+            error: event.error,
+        });
+    }
 
     #[test]
-    fn should_remove_stale_at_chunk_when_position_has_no_registered_chunk() {
+    fn should_reject_at_chunk_update_when_position_has_no_registered_chunk() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
-        app.add_plugins(ChunkPlugin);
+        app.add_plugins(ChunkPlugins);
+        app.add_observer(record_at_chunk_rejection);
 
         let old_chunk = app.world_mut().spawn(Chunk).id();
         let entity = app
@@ -112,13 +180,22 @@ mod tests {
             app.world().get::<AtChunk>(entity).is_none(),
             "Entities should lose AtChunk when their position no longer resolves to a chunk"
         );
+
+        let rejection = app
+            .world()
+            .get_resource::<LastAtChunkRejection>()
+            .expect("AtChunk rejection missing");
+
+        assert_eq!(rejection.entity, entity);
+        assert_eq!(rejection.position, Some(Position { x: 99, y: 99 }));
+        assert_eq!(rejection.error, AtChunkUpdateError::MissingRegisteredChunk);
     }
 
     #[test]
     fn should_replace_at_chunk_when_position_moves_to_another_registered_chunk() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
-        app.add_plugins(ChunkPlugin);
+        app.add_plugins(ChunkPlugins);
 
         let first_chunk = app.world_mut().spawn(Chunk).id();
         let second_chunk = app.world_mut().spawn(Chunk).id();

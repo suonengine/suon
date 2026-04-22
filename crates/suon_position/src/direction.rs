@@ -30,7 +30,7 @@ impl Direction {
     /// assert_eq!(Direction::North.offset(), (0, 1));
     /// assert_eq!(Direction::SouthWest.offset(), (-1, -1));
     /// ```
-    pub fn offset(self) -> (isize, isize) {
+    pub const fn offset(self) -> (isize, isize) {
         match self {
             Direction::North => (0, 1),
             Direction::NorthEast => (1, 1),

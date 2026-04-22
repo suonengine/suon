@@ -3,12 +3,21 @@
 //! This module exposes [`Chunks`], the resource used to resolve which chunk entity
 //! owns a given world-space [`suon_position::prelude::Position`].
 
-use crate::chunks::key::ChunkKey;
+use crate::{chunks::key::ChunkKey, loader::ChunkLoader};
 use bevy::prelude::*;
 use std::collections::*;
 use suon_position::prelude::*;
 
 pub mod key;
+
+/// Plugin responsible for chunk registry and loader resources.
+pub struct ChunksPlugin;
+
+impl Plugin for ChunksPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<Chunks>().init_resource::<ChunkLoader>();
+    }
+}
 
 #[derive(Resource, Default, Debug)]
 /// Global registry mapping world positions to their owning chunk entities.
@@ -35,6 +44,9 @@ impl Chunks {
     }
 
     /// Registers the chunk entity responsible for the provided world position.
+    ///
+    /// Positions inside the same chunk footprint share one internal key, so a
+    /// later insert for the same footprint replaces the previous chunk entity.
     pub(crate) fn insert(&mut self, position: &Position, entity: Entity) {
         self.inner.insert(position.into(), entity);
     }
@@ -99,6 +111,7 @@ impl Chunks {
         self.inner.is_empty()
     }
 
+    /// Removes every tracked chunk mapping.
     #[cfg(test)]
     pub(crate) fn clear(&mut self) {
         self.inner.clear();
