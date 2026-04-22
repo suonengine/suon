@@ -199,10 +199,39 @@ impl DatabaseConnectOptions {
             .test_before_acquire(settings.test_before_acquire);
 
         Ok(Self {
-            database_url: settings.database_url.clone(),
+            database_url: database_url_with_sqlite_create_mode(&settings.database_url),
             pool_options,
         })
     }
+}
+
+fn database_url_with_sqlite_create_mode(database_url: &str) -> String {
+    if !database_url.starts_with("sqlite:") {
+        return database_url.to_string();
+    }
+
+    let database_and_params = database_url
+        .trim_start_matches("sqlite://")
+        .trim_start_matches("sqlite:");
+    let mut parts = database_and_params.splitn(2, '?');
+    let database = parts.next().unwrap_or_default();
+    let params = parts.next();
+
+    if database == ":memory:" {
+        return database_url.to_string();
+    }
+
+    if params.is_some_and(|params| {
+        params.split('&').any(|pair| {
+            pair.split_once('=')
+                .map_or(pair == "mode", |(key, _)| key == "mode")
+        })
+    }) {
+        return database_url.to_string();
+    }
+
+    let separator = if database_url.contains('?') { '&' } else { '?' };
+    format!("{database_url}{separator}mode=rwc")
 }
 
 impl Default for DatabaseSettings {
@@ -210,7 +239,7 @@ impl Default for DatabaseSettings {
         // Keep the default small and local so crates can opt into persistence
         // without a large amount of configuration.
         Self {
-            database_url: "sqlite://suon.db".to_string(),
+            database_url: "sqlite://suon.db?mode=rwc".to_string(),
             min_connections: 1,
             max_connections: 4,
             acquire_timeout_secs: 30,
@@ -364,7 +393,7 @@ mod tests {
 
         assert_eq!(
             settings.database_url(),
-            "sqlite://suon.db",
+            "sqlite://suon.db?mode=rwc",
             "DatabaseSettings::default should point at the local sqlite database URL"
         );
 
@@ -435,7 +464,7 @@ mod tests {
         );
 
         assert!(
-            format!("{cloned:?}").contains("sqlite://suon.db"),
+            format!("{cloned:?}").contains("sqlite://suon.db?mode=rwc"),
             "DatabaseSettings should derive Debug with field values that aid diagnostics"
         );
     }
@@ -455,9 +484,69 @@ mod tests {
             .expect("from_settings should convert timeout fields into pool options");
 
         assert_eq!(
-            options.database_url, "sqlite://suon.db",
+            options.database_url, "sqlite://suon.db?mode=rwc",
             "from_settings should preserve the configured database URL"
         );
+    }
+
+    #[test]
+    fn should_add_create_mode_to_legacy_sqlite_file_urls() {
+        let settings = DatabaseSettingsBuilder {
+            database_url: "sqlite://legacy.db".to_string(),
+            ..DatabaseSettingsBuilder::default()
+        }
+        .build()
+        .expect("builder should accept legacy sqlite urls");
+
+        let options = DatabaseConnectOptions::from_settings(&settings)
+            .expect("from_settings should convert sqlite file urls into connection options");
+
+        assert_eq!(
+            options.database_url, "sqlite://legacy.db?mode=rwc",
+            "sqlite file URLs without an explicit mode should create the database file on first \
+             use"
+        );
+    }
+
+    #[test]
+    fn should_preserve_explicit_sqlite_modes_and_memory_urls() {
+        for database_url in [
+            "sqlite::memory:",
+            "sqlite://:memory:",
+            "sqlite://readonly.db?mode=ro",
+        ] {
+            let settings = DatabaseSettingsBuilder {
+                database_url: database_url.to_string(),
+                ..DatabaseSettingsBuilder::default()
+            }
+            .build()
+            .expect("builder should accept sqlite urls");
+
+            let options = DatabaseConnectOptions::from_settings(&settings)
+                .expect("from_settings should convert sqlite urls into connection options");
+
+            assert_eq!(options.database_url, database_url);
+        }
+    }
+
+    #[test]
+    fn should_preserve_non_sqlite_any_pool_urls() {
+        for database_url in [
+            "postgres://suon:secret@localhost/suon",
+            "mysql://suon:secret@localhost/suon",
+        ] {
+            let settings = DatabaseSettingsBuilder {
+                database_url: database_url.to_string(),
+                ..DatabaseSettingsBuilder::default()
+            }
+            .build()
+            .expect("builder should accept non-empty AnyPool urls");
+
+            let options = DatabaseConnectOptions::from_settings(&settings)
+                .expect("from_settings should preserve non-sqlite URLs");
+
+            assert_eq!(options.database_url, database_url);
+        }
     }
 
     #[test]

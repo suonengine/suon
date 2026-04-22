@@ -1,9 +1,39 @@
 //! Backend-neutral database connections and the default SQL-backed payload.
 
 use crate::settings::{DatabaseConnectOptions, DatabaseSettings};
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use bevy::tasks::block_on;
 use sqlx::{AnyPool, any::install_default_drivers};
+
+/// Database backend selected by an [`sqlx::AnyPool`] URL.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DatabaseBackend {
+    /// SQLite file or in-memory backend.
+    Sqlite,
+    /// PostgreSQL backend.
+    Postgres,
+    /// MySQL backend.
+    MySql,
+    /// MariaDB backend.
+    MariaDb,
+}
+
+impl DatabaseBackend {
+    /// Detects the database backend from an AnyPool URL scheme.
+    pub fn from_url(database_url: &str) -> Result<Self> {
+        if database_url.starts_with("sqlite:") {
+            Ok(Self::Sqlite)
+        } else if database_url.starts_with("postgres:") || database_url.starts_with("postgresql:") {
+            Ok(Self::Postgres)
+        } else if database_url.starts_with("mysql:") {
+            Ok(Self::MySql)
+        } else if database_url.starts_with("mariadb:") {
+            Ok(Self::MariaDb)
+        } else {
+            bail!("Unsupported database URL scheme for AnyPool: '{database_url}'")
+        }
+    }
+}
 
 /// Marker trait for backend-specific connection data stored inside a [`DatabaseConnection`].
 pub trait DatabaseData: Send + Sync + 'static {}
@@ -47,9 +77,19 @@ impl<D: DatabaseData> DatabaseConnection<D> {
 pub struct DatabasePool {
     /// Lazy pool configured from [`DatabaseSettings`].
     pool: AnyPool,
+
+    /// Backend selected by the configured database URL.
+    backend: DatabaseBackend,
 }
 
 impl DatabaseData for DatabasePool {}
+
+impl DatabasePool {
+    /// Returns the backend selected by the configured database URL.
+    pub fn backend(&self) -> DatabaseBackend {
+        self.backend
+    }
+}
 
 impl PoolData for DatabasePool {
     type Pool = AnyPool;
@@ -63,6 +103,7 @@ impl DatabaseConnection<DatabasePool> {
     /// Builds a SQL-backed connection using Bevy task utilities for async execution.
     pub fn connect(settings: &DatabaseSettings) -> Result<Self> {
         let options = DatabaseConnectOptions::from_settings(settings)?;
+        let backend = DatabaseBackend::from_url(&options.database_url)?;
         install_default_drivers();
 
         let pool = options
@@ -75,7 +116,7 @@ impl DatabaseConnection<DatabasePool> {
                 )
             })?;
 
-        Ok(Self::new(DatabasePool { pool }))
+        Ok(Self::new(DatabasePool { pool, backend }))
     }
 }
 
@@ -91,6 +132,32 @@ mod tests {
             .expect("database connection should build");
 
         let _ = database.data().pool();
+        assert_eq!(database.data().backend(), DatabaseBackend::Sqlite);
+    }
+
+    #[test]
+    fn should_execute_queries_against_default_sqlite_driver() {
+        let settings = DatabaseSettingsBuilder {
+            database_url: "sqlite::memory:".to_string(),
+            min_connections: 1,
+            max_connections: 1,
+            ..DatabaseSettingsBuilder::default()
+        }
+        .build()
+        .expect("builder should create in-memory sqlite settings");
+
+        let database = DatabaseConnection::<DatabasePool>::connect(&settings)
+            .expect("database connection should build");
+
+        let value = database
+            .block_on(async {
+                sqlx::query_scalar::<_, i64>("SELECT 1")
+                    .fetch_one(database.data().pool())
+                    .await
+            })
+            .expect("default sqlite driver should execute queries through AnyPool");
+
+        assert_eq!(value, 1);
     }
 
     #[test]
@@ -111,6 +178,37 @@ mod tests {
             .expect("database connection should build with custom pool options");
 
         let _ = database.data().pool();
+    }
+
+    #[test]
+    fn should_detect_supported_any_pool_backends_from_urls() {
+        assert_eq!(
+            DatabaseBackend::from_url("sqlite://suon.db").expect("sqlite should be supported"),
+            DatabaseBackend::Sqlite
+        );
+
+        assert_eq!(
+            DatabaseBackend::from_url("postgres://localhost/suon")
+                .expect("postgres should be supported"),
+            DatabaseBackend::Postgres
+        );
+
+        assert_eq!(
+            DatabaseBackend::from_url("postgresql://localhost/suon")
+                .expect("postgresql should be supported"),
+            DatabaseBackend::Postgres
+        );
+
+        assert_eq!(
+            DatabaseBackend::from_url("mysql://localhost/suon").expect("mysql should be supported"),
+            DatabaseBackend::MySql
+        );
+
+        assert_eq!(
+            DatabaseBackend::from_url("mariadb://localhost/suon")
+                .expect("mariadb should be supported"),
+            DatabaseBackend::MariaDb
+        );
     }
 
     #[test]
@@ -179,8 +277,8 @@ mod tests {
         assert!(
             error
                 .to_string()
-                .contains("Failed to create lazy database pool for URL"),
-            "connect should attach the failing database URL to connection errors"
+                .contains("Unsupported database URL scheme for AnyPool"),
+            "connect should reject URLs whose scheme cannot select an AnyPool backend"
         );
     }
 }

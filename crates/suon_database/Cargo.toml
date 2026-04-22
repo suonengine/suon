@@ -23,5 +23,11 @@ bevy = { workspace = true, features = [
   "async_executor",
 ] }
 serde = { workspace = true, features = ["derive"] }
-sqlx = { workspace = true, features = ["any", "runtime-async-std-rustls"] }
+sqlx = { workspace = true, features = [
+  "any",
+  "mysql",
+  "postgres",
+  "runtime-async-std-rustls",
+  "sqlite",
+] }
 toml = { workspace = true, features = ["parse", "display", "serde"] }

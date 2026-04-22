@@ -52,7 +52,7 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 pub mod prelude {
     pub use super::{
         AppTablesExt, Database, DatabaseMut, DatabasePlugin, Table, Tables,
-        connection::{DatabaseConnection, DatabaseData, DatabasePool, PoolData},
+        connection::{DatabaseBackend, DatabaseConnection, DatabaseData, DatabasePool, PoolData},
         convert::{FieldTryIntoExt, SystemTimeDatabaseConvertExt},
         settings::{DatabaseSettings, DatabaseSettingsBuilder},
         snapshot::{SnapshotTable, SnapshotTableExt, TableMapper},

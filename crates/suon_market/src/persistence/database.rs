@@ -132,7 +132,7 @@ impl TableMapper<MarketActorsTable, DatabasePool> for MarketActorsMapper {
                 .context("Failed to clear market_actors before snapshot save")?;
 
             for record in rows.iter().map(MarketActorRow::from) {
-                sqlx::query("INSERT INTO market_actors (id, name) VALUES (?, ?)")
+                sqlx::query(insert_market_actor_sql(database.data().backend()))
                     .bind(record.id)
                     .bind(record.name)
                     .execute(database.data().pool())
@@ -187,7 +187,7 @@ impl TableMapper<MarketItemsTable, DatabasePool> for MarketItemsMapper {
                 .context("Failed to clear market_items before snapshot save")?;
 
             for record in rows.iter().map(MarketItemRow::from) {
-                sqlx::query("INSERT INTO market_items (id, name) VALUES (?, ?)")
+                sqlx::query(insert_market_item_sql(database.data().backend()))
                     .bind(record.id)
                     .bind(record.name)
                     .execute(database.data().pool())
@@ -253,23 +253,18 @@ impl TableMapper<MarketOffersTable, DatabasePool> for MarketOffersMapper {
 
             for record in rows.iter().map(MarketOfferRow::try_from) {
                 let record = record?;
-                sqlx::query(
-                    "INSERT INTO market_offers (
-                        timestamp_secs, counter, item_id, actor_id, amount, price, side, \
-                     is_anonymous
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                )
-                .bind(record.timestamp_secs)
-                .bind(record.counter)
-                .bind(record.item_id)
-                .bind(record.actor_id)
-                .bind(record.amount)
-                .bind(record.price)
-                .bind(record.side)
-                .bind(record.is_anonymous)
-                .execute(database.data().pool())
-                .await
-                .context("Failed to insert offer snapshot into the database")?;
+                sqlx::query(insert_market_offer_sql(database.data().backend()))
+                    .bind(record.timestamp_secs)
+                    .bind(record.counter)
+                    .bind(record.item_id)
+                    .bind(record.actor_id)
+                    .bind(record.amount)
+                    .bind(record.price)
+                    .bind(record.side)
+                    .bind(record.is_anonymous)
+                    .execute(database.data().pool())
+                    .await
+                    .context("Failed to insert offer snapshot into the database")?;
             }
 
             Ok(())
@@ -282,25 +277,10 @@ struct MarketHistoryMapper;
 impl MarketHistoryMapper {
     fn initialize_schema(&self, database: &DatabaseConnection<DatabasePool>) -> Result<()> {
         database.block_on(async {
-            sqlx::query(
-                "CREATE TABLE IF NOT EXISTS market_history (
-                    id BIGINT PRIMARY KEY AUTOINCREMENT,
-                    recorded_at_secs BIGINT NOT NULL,
-                    action TEXT NOT NULL,
-                    actor_id BIGINT NULL,
-                    offer_actor_id BIGINT NULL,
-                    item_id INTEGER NULL,
-                    offer_timestamp_secs BIGINT NULL,
-                    offer_counter INTEGER NULL,
-                    amount INTEGER NOT NULL,
-                    remaining_amount INTEGER NULL,
-                    price BIGINT NULL,
-                    side TEXT NULL
-                )",
-            )
-            .execute(database.data().pool())
-            .await
-            .context("Failed to create market_history table")?;
+            sqlx::query(create_market_history_sql(database.data().backend()))
+                .execute(database.data().pool())
+                .await
+                .context("Failed to create market_history table")?;
 
             Ok(())
         })
@@ -314,29 +294,127 @@ impl MarketHistoryMapper {
         let record = MarketHistoryRow::try_from(entry)?;
 
         database.block_on(async {
-            sqlx::query(
-                "INSERT INTO market_history (
-                    recorded_at_secs, action, actor_id, offer_actor_id, item_id,
-                    offer_timestamp_secs, offer_counter, amount, remaining_amount, price, side
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            )
-            .bind(record.recorded_at_secs)
-            .bind(record.action)
-            .bind(record.actor_id)
-            .bind(record.offer_actor_id)
-            .bind(record.item_id)
-            .bind(record.offer_timestamp_secs)
-            .bind(record.offer_counter)
-            .bind(record.amount)
-            .bind(record.remaining_amount)
-            .bind(record.price)
-            .bind(record.side)
-            .execute(database.data().pool())
-            .await
-            .context("Failed to append market history entry")?;
+            sqlx::query(insert_market_history_sql(database.data().backend()))
+                .bind(record.recorded_at_secs)
+                .bind(record.action)
+                .bind(record.actor_id)
+                .bind(record.offer_actor_id)
+                .bind(record.item_id)
+                .bind(record.offer_timestamp_secs)
+                .bind(record.offer_counter)
+                .bind(record.amount)
+                .bind(record.remaining_amount)
+                .bind(record.price)
+                .bind(record.side)
+                .execute(database.data().pool())
+                .await
+                .context("Failed to append market history entry")?;
 
             Ok(())
         })
+    }
+}
+
+fn create_market_history_sql(backend: DatabaseBackend) -> &'static str {
+    match backend {
+        DatabaseBackend::Sqlite => {
+            "CREATE TABLE IF NOT EXISTS market_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                recorded_at_secs BIGINT NOT NULL,
+                action TEXT NOT NULL,
+                actor_id BIGINT NULL,
+                offer_actor_id BIGINT NULL,
+                item_id INTEGER NULL,
+                offer_timestamp_secs BIGINT NULL,
+                offer_counter INTEGER NULL,
+                amount INTEGER NOT NULL,
+                remaining_amount INTEGER NULL,
+                price BIGINT NULL,
+                side TEXT NULL
+            )"
+        }
+        DatabaseBackend::Postgres => {
+            "CREATE TABLE IF NOT EXISTS market_history (
+                id BIGSERIAL PRIMARY KEY,
+                recorded_at_secs BIGINT NOT NULL,
+                action TEXT NOT NULL,
+                actor_id BIGINT NULL,
+                offer_actor_id BIGINT NULL,
+                item_id INTEGER NULL,
+                offer_timestamp_secs BIGINT NULL,
+                offer_counter INTEGER NULL,
+                amount INTEGER NOT NULL,
+                remaining_amount INTEGER NULL,
+                price BIGINT NULL,
+                side TEXT NULL
+            )"
+        }
+        DatabaseBackend::MySql | DatabaseBackend::MariaDb => {
+            "CREATE TABLE IF NOT EXISTS market_history (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                recorded_at_secs BIGINT NOT NULL,
+                action TEXT NOT NULL,
+                actor_id BIGINT NULL,
+                offer_actor_id BIGINT NULL,
+                item_id INTEGER NULL,
+                offer_timestamp_secs BIGINT NULL,
+                offer_counter INTEGER NULL,
+                amount INTEGER NOT NULL,
+                remaining_amount INTEGER NULL,
+                price BIGINT NULL,
+                side TEXT NULL
+            )"
+        }
+    }
+}
+
+fn insert_market_actor_sql(backend: DatabaseBackend) -> &'static str {
+    match backend {
+        DatabaseBackend::Postgres => "INSERT INTO market_actors (id, name) VALUES ($1, $2)",
+        DatabaseBackend::Sqlite | DatabaseBackend::MySql | DatabaseBackend::MariaDb => {
+            "INSERT INTO market_actors (id, name) VALUES (?, ?)"
+        }
+    }
+}
+
+fn insert_market_item_sql(backend: DatabaseBackend) -> &'static str {
+    match backend {
+        DatabaseBackend::Postgres => "INSERT INTO market_items (id, name) VALUES ($1, $2)",
+        DatabaseBackend::Sqlite | DatabaseBackend::MySql | DatabaseBackend::MariaDb => {
+            "INSERT INTO market_items (id, name) VALUES (?, ?)"
+        }
+    }
+}
+
+fn insert_market_offer_sql(backend: DatabaseBackend) -> &'static str {
+    match backend {
+        DatabaseBackend::Postgres => {
+            "INSERT INTO market_offers (
+                timestamp_secs, counter, item_id, actor_id, amount, price, side, is_anonymous
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
+        }
+        DatabaseBackend::Sqlite | DatabaseBackend::MySql | DatabaseBackend::MariaDb => {
+            "INSERT INTO market_offers (
+                timestamp_secs, counter, item_id, actor_id, amount, price, side, is_anonymous
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        }
+    }
+}
+
+fn insert_market_history_sql(backend: DatabaseBackend) -> &'static str {
+    match backend {
+        DatabaseBackend::Postgres => {
+            "INSERT INTO market_history (
+                recorded_at_secs, action, actor_id, offer_actor_id, item_id,
+                offer_timestamp_secs, offer_counter, amount, remaining_amount, price, side
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)"
+        }
+        DatabaseBackend::Sqlite | DatabaseBackend::MySql | DatabaseBackend::MariaDb => {
+            "INSERT INTO market_history (
+                recorded_at_secs, action, actor_id, offer_actor_id, item_id,
+                offer_timestamp_secs, offer_counter, amount, remaining_amount, price, side
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        }
     }
 }
 
