@@ -124,7 +124,10 @@ impl DatabaseConnection<DatabasePool> {
 mod tests {
     use super::*;
     use crate::settings::DatabaseSettingsBuilder;
-    use std::sync::{Arc, Mutex};
+    use std::{
+        sync::{Arc, Mutex},
+        time::Duration,
+    };
 
     #[test]
     fn should_build_database_connection_from_shared_runtime() {
@@ -165,9 +168,9 @@ mod tests {
         let settings = DatabaseSettingsBuilder {
             min_connections: 0,
             max_connections: 8,
-            acquire_timeout_secs: 5,
-            idle_timeout_secs: Some(60),
-            max_lifetime_secs: Some(600),
+            acquire_timeout: Duration::from_secs(5),
+            idle_timeout: Some(Duration::from_secs(60)),
+            max_lifetime: Some(Duration::from_secs(600)),
             test_before_acquire: false,
             ..DatabaseSettingsBuilder::default()
         }

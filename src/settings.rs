@@ -6,20 +6,25 @@ use std::{
     io::Write,
     path::Path,
 };
+use suon_serde::{DocumentedToml, prelude::*};
 
-/// Configuration for the Suon root plugin bootstrap.
-#[derive(Resource, Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+/// Core runtime settings for a Suon server process.
+#[derive(Resource, Serialize, Deserialize, DocumentedToml, Clone, Copy, Debug, PartialEq)]
 pub struct Settings {
-    /// Number of worker threads used by Bevy task pools.
+    /// Number of worker threads available for background work.
+    /// Increase this when your server has more CPU headroom.
     pub threads: usize,
 
-    /// Seconds between each app loop when `schedule_runner` is enabled.
-    pub event_loop: f64,
+    /// Main app loop frequency, in hertz.
+    /// Higher values make the app tick more often and consume more CPU.
+    pub event_loop_hz: f64,
 
-    /// Seconds for Bevy's fixed timestep resource.
-    pub fixed_event_loop: f64,
+    /// Fixed update frequency, in hertz, for deterministic gameplay systems.
+    /// Typical uses include movement, combat, and other time-sensitive logic.
+    pub fixed_event_loop_hz: f64,
 
-    /// Whether Suon should install `ScheduleRunnerPlugin`.
+    /// Enables Suon's built-in app loop runner.
+    /// Disable this if your host application drives the Bevy schedule itself.
     pub schedule_runner: bool,
 }
 
@@ -67,9 +72,9 @@ impl Settings {
 
         let default_config = Self::default();
 
-        debug!("Serializing default configuration to TOML format");
+        debug!("Rendering documented default configuration");
 
-        let config = toml::to_string_pretty(&default_config)
+        let config = write_documented_toml(&default_config)
             .context("Failed to serialize default Suon settings")?;
 
         if let Some(parent) = path.parent() {
@@ -100,21 +105,28 @@ impl Settings {
     pub fn summary(self) -> String {
         format!(
             "threads={}, schedule_runner={}, event_loop_hz={:.2}, fixed_event_loop_hz={:.2}",
-            self.threads,
-            self.schedule_runner,
-            self.event_loop_hz(),
-            self.fixed_event_loop_hz()
+            self.threads, self.schedule_runner, self.event_loop_hz, self.fixed_event_loop_hz
         )
     }
 
     /// Returns the configured app loop frequency in hertz.
     pub fn event_loop_hz(self) -> f64 {
-        1.0 / self.event_loop
+        self.event_loop_hz
     }
 
     /// Returns the configured fixed timestep frequency in hertz.
     pub fn fixed_event_loop_hz(self) -> f64 {
-        1.0 / self.fixed_event_loop
+        self.fixed_event_loop_hz
+    }
+
+    /// Returns the app loop interval in seconds.
+    pub fn event_loop_seconds(self) -> f64 {
+        1.0 / self.event_loop_hz
+    }
+
+    /// Returns the fixed timestep interval in seconds.
+    pub fn fixed_event_loop_seconds(self) -> f64 {
+        1.0 / self.fixed_event_loop_hz
     }
 }
 
@@ -122,8 +134,8 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             threads: 2,
-            event_loop: 1.0 / 60.0,
-            fixed_event_loop: 1.0 / 20.0,
+            event_loop_hz: 60.0,
+            fixed_event_loop_hz: 20.0,
             schedule_runner: true,
         }
     }
@@ -182,6 +194,10 @@ mod tests {
             "The created configuration should match the default Suon settings"
         );
 
+        let written = fs::read_to_string(&path).expect("the settings file should be readable");
+        assert!(written.contains("# Configuration for the Suon root plugin bootstrap."));
+        assert!(written.contains("event_loop_hz = 60.0"));
+
         fs::remove_file(&path).expect("The temp settings file should be removed");
     }
 
@@ -191,8 +207,8 @@ mod tests {
 
         let expected = Settings {
             threads: 8,
-            event_loop: 0.25,
-            fixed_event_loop: 0.5,
+            event_loop_hz: 4.0,
+            fixed_event_loop_hz: 2.0,
             schedule_runner: false,
         };
 

@@ -24,3 +24,4 @@ bevy = { workspace = true, features = [
 ] }
 serde = { workspace = true, features = ["derive"] }
 toml = { workspace = true, features = ["parse", "display", "serde"] }
+suon_serde.workspace = true

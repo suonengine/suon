@@ -10,6 +10,7 @@
 //! }
 //! ```
 
+mod documented_toml;
 mod lua_component;
 mod lua_hook;
 mod table;
@@ -80,4 +81,9 @@ pub fn derive_lua_component(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(LuaHook, attributes(lua))]
 pub fn derive_lua_hook(input: TokenStream) -> TokenStream {
     lua_hook::derive_lua_hook(input)
+}
+
+#[proc_macro_derive(DocumentedToml)]
+pub fn derive_documented_toml(input: TokenStream) -> TokenStream {
+    documented_toml::derive_documented_toml(input)
 }

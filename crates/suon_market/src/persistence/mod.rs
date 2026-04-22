@@ -13,7 +13,9 @@ use crate::offer::{MarketActorsTable, MarketItemsTable, MarketOffersTable};
 pub(crate) use self::{database::MarketDatabaseOrm, dirty::MarketDirty};
 pub use self::{
     orm::{MarketOrm, MarketOrmResource},
-    settings::{MarketPersistenceSettings, MarketPolicySettings, MarketSettings},
+    settings::{
+        MarketOfferCreateRule, MarketPersistenceSettings, MarketPolicySettings, MarketSettings,
+    },
 };
 
 pub(crate) struct MarketPersistencePlugin;

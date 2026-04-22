@@ -31,8 +31,8 @@ for the entire workspace.
 ```toml
 # settings/Settings.toml
 threads = 4
-event_loop = 16.0       # target ticks per second
-fixed_event_loop = 8.0  # fixed-timestep ticks per second
+event_loop_hz = 16.0       # target ticks per second
+fixed_event_loop_hz = 8.0  # fixed-timestep ticks per second
 schedule_runner = false
 ```
 
@@ -41,7 +41,7 @@ are created with defaults.
 
 `SuonPlugin` uses those settings in two phases:
 - `PreStartup`: load or preserve the `Settings` resource
-- `Startup`: initialize `Time<Fixed>` from `Settings::fixed_event_loop`
+- `Startup`: initialize `Time<Fixed>` from `Settings::fixed_event_loop_seconds()`
 
 ## Prelude
 

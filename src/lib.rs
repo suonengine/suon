@@ -59,7 +59,7 @@ impl Plugin for SuonPlugin {
 
         let minimal_plugins = if settings.schedule_runner {
             minimal_plugins.set(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
-                settings.event_loop,
+                settings.event_loop_seconds(),
             )))
         } else {
             minimal_plugins

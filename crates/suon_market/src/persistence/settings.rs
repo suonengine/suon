@@ -5,14 +5,15 @@ use std::{
     fs::{self, File},
     io::Write,
     path::Path,
-    time::SystemTime,
+    time::{Duration, SystemTime},
 };
 use suon_database::prelude::*;
+use suon_serde::{DocumentedToml, prelude::*};
 
 use crate::offer::MarketRateLimiter;
 
 /// Settings that control market persistence, limits, and safety rules.
-#[derive(Resource, Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[derive(Resource, Serialize, Deserialize, DocumentedToml, Clone, Debug, PartialEq, Default)]
 pub struct MarketSettings {
     /// Persistence provider used by the market crate.
     persistence: MarketPersistenceSettings,
@@ -54,14 +55,14 @@ impl MarketSettings {
                 "Configuration file '{}' found, attempting to load.",
                 path.display()
             );
-            Self::load_at(path)
-        } else {
-            warn!(
-                "Configuration file '{}' not found. Creating default configuration.",
-                path.display()
-            );
-            Self::create_at(path)
+            return Self::load_at(path);
         }
+
+        warn!(
+            "Configuration file '{}' not found. Creating default configuration.",
+            path.display()
+        );
+        Self::create_at(path)
     }
 
     fn load_at(path: &Path) -> anyhow::Result<Self> {
@@ -75,7 +76,12 @@ impl MarketSettings {
 
     fn create_at(path: &Path) -> anyhow::Result<Self> {
         let default_config = Self::default();
-        let config = toml::to_string_pretty(&default_config)
+        Self::write_at(path, &default_config)?;
+        Self::load_at(path)
+    }
+
+    fn write_at(path: &Path, settings: &Self) -> anyhow::Result<()> {
+        let config = write_documented_toml(settings)
             .context("Failed to serialize default market settings")?;
 
         if let Some(parent) = path.parent() {
@@ -84,25 +90,24 @@ impl MarketSettings {
 
         let mut file = File::create(path).context("Failed to create the market settings file")?;
         file.write_all(config.as_bytes())
-            .context("Failed to write the default market settings file")?;
+            .context("Failed to write the market settings file")?;
         file.sync_all()
-            .context("Failed to flush the default market settings file")?;
+            .context("Failed to flush the market settings file")?;
 
-        Self::load_at(path)
+        Ok(())
     }
 
     /// Returns a log-safe summary of market persistence and policy settings.
     pub fn summary(&self) -> String {
         format!(
-            "flush_interval_secs={:.3}, save_on_shutdown={}, database=({}), \
-             max_active_offers_per_actor={}, max_create_per_minute={}, max_create_per_hour={}, \
-             blocked_item_ids={}, blocked_actor_ids={}",
-            self.persistence.flush_interval_secs,
+            "flush_interval_secs={}, save_on_shutdown={}, database_override={}, \
+             max_active_offers_per_actor={}, create_rules={}, blocked_item_ids={}, \
+             blocked_actor_ids={}",
+            self.persistence.flush_interval().as_secs(),
             self.persistence.save_on_shutdown,
-            self.persistence.database.summary(),
+            self.persistence.database.is_some(),
             self.policy.max_active_offers_per_actor,
-            self.policy.max_create_per_minute,
-            self.policy.max_create_per_hour,
+            self.policy.create_offer_rules.len(),
             self.policy.blocked_item_ids.len(),
             self.policy.blocked_actor_ids.len()
         )
@@ -110,19 +115,26 @@ impl MarketSettings {
 }
 
 /// Persistence-related settings for the market crate.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, DocumentedToml, Clone, Debug, PartialEq)]
 pub struct MarketPersistenceSettings {
-    flush_interval_secs: f64,
+    /// How often market tables should be flushed to persistence.
+    #[serde(rename = "flush_interval_secs", with = "as_secs")]
+    flush_interval: Duration,
+
+    /// Whether dirty market data should be persisted when the app exits.
     save_on_shutdown: bool,
-    database: DatabaseSettings,
+
+    /// Optional database override for the market module.
+    /// When omitted, the shared `DatabaseSettings` resource is used.
+    database: Option<DatabaseSettings>,
 }
 
 impl Default for MarketPersistenceSettings {
     fn default() -> Self {
         Self {
-            flush_interval_secs: 1.0,
+            flush_interval: Duration::from_secs(1),
             save_on_shutdown: true,
-            database: DatabaseSettings::default(),
+            database: None,
         }
     }
 }
@@ -130,20 +142,20 @@ impl Default for MarketPersistenceSettings {
 impl MarketPersistenceSettings {
     /// Creates a new persistence settings snapshot.
     pub fn new(
-        flush_interval_secs: f64,
+        flush_interval: Duration,
         save_on_shutdown: bool,
-        database: DatabaseSettings,
+        database: Option<DatabaseSettings>,
     ) -> Self {
         Self {
-            flush_interval_secs,
+            flush_interval,
             save_on_shutdown,
             database,
         }
     }
 
-    /// Returns the flush interval, in seconds.
-    pub fn flush_interval_secs(&self) -> f64 {
-        self.flush_interval_secs
+    /// Returns the flush interval.
+    pub fn flush_interval(&self) -> Duration {
+        self.flush_interval
     }
 
     /// Returns whether dirty market data should be flushed on app exit.
@@ -151,19 +163,25 @@ impl MarketPersistenceSettings {
         self.save_on_shutdown
     }
 
-    /// Returns the configured database settings.
-    pub fn database(&self) -> &DatabaseSettings {
-        &self.database
+    /// Returns the configured database override, if one exists.
+    pub fn database_override(&self) -> Option<&DatabaseSettings> {
+        self.database.as_ref()
     }
 }
 
 /// Policy limits that constrain market usage.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, DocumentedToml, Clone, Debug, PartialEq, Eq)]
 pub struct MarketPolicySettings {
+    /// Maximum number of active offers allowed for a single actor.
     max_active_offers_per_actor: usize,
-    max_create_per_minute: usize,
-    max_create_per_hour: usize,
+
+    /// Dynamic offer creation rules checked for each actor.
+    create_offer_rules: Vec<MarketOfferCreateRule>,
+
+    /// Item identifiers blocked from market offer creation.
     blocked_item_ids: Vec<u16>,
+
+    /// Actor identifiers blocked from market offer creation.
     blocked_actor_ids: Vec<u32>,
 }
 
@@ -171,8 +189,10 @@ impl Default for MarketPolicySettings {
     fn default() -> Self {
         Self {
             max_active_offers_per_actor: 100,
-            max_create_per_minute: 20,
-            max_create_per_hour: 200,
+            create_offer_rules: vec![
+                MarketOfferCreateRule::new(Duration::from_secs(60), 20),
+                MarketOfferCreateRule::new(Duration::from_secs(60 * 60), 200),
+            ],
             blocked_item_ids: Vec::new(),
             blocked_actor_ids: Vec::new(),
         }
@@ -183,15 +203,13 @@ impl MarketPolicySettings {
     /// Creates a new market-policy settings snapshot.
     pub fn new(
         max_active_offers_per_actor: usize,
-        max_create_per_minute: usize,
-        max_create_per_hour: usize,
+        create_offer_rules: Vec<MarketOfferCreateRule>,
         blocked_item_ids: Vec<u16>,
         blocked_actor_ids: Vec<u32>,
     ) -> Self {
         Self {
             max_active_offers_per_actor,
-            max_create_per_minute,
-            max_create_per_hour,
+            create_offer_rules,
             blocked_item_ids,
             blocked_actor_ids,
         }
@@ -202,14 +220,9 @@ impl MarketPolicySettings {
         self.max_active_offers_per_actor
     }
 
-    /// Returns the per-minute creation limit.
-    pub fn max_create_per_minute(&self) -> usize {
-        self.max_create_per_minute
-    }
-
-    /// Returns the per-hour creation limit.
-    pub fn max_create_per_hour(&self) -> usize {
-        self.max_create_per_hour
+    /// Returns the configured offer creation rules.
+    pub fn create_offer_rules(&self) -> &[MarketOfferCreateRule] {
+        &self.create_offer_rules
     }
 
     /// Returns the blocked item identifiers.
@@ -242,16 +255,48 @@ impl MarketPolicySettings {
             return Err("active market offer limit reached");
         }
 
-        if !rate_limiter.record_offer_create(
-            actor_id,
-            now,
-            self.max_create_per_minute,
-            self.max_create_per_hour,
-        ) {
+        if !rate_limiter.record_offer_create(actor_id, now, &self.create_offer_rules) {
             return Err("market offer rate limit reached");
         }
 
         Ok(())
+    }
+}
+
+/// Rule that limits how many offers an actor can create within a time window.
+#[derive(Serialize, Deserialize, DocumentedToml, Clone, Debug, PartialEq, Eq)]
+pub struct MarketOfferCreateRule {
+    /// Duration of the rolling window used by this rule.
+    #[serde(rename = "window_secs", with = "as_secs")]
+    window: Duration,
+
+    /// Maximum number of creates allowed within the configured window.
+    max_creates: usize,
+}
+
+impl MarketOfferCreateRule {
+    /// Creates a new offer creation rule.
+    pub fn new(window: Duration, max_creates: usize) -> Self {
+        Self {
+            window,
+            max_creates,
+        }
+    }
+
+    /// Returns the rolling window used by this rule.
+    pub fn window(&self) -> Duration {
+        self.window
+    }
+
+    /// Returns the maximum number of creates allowed within the window.
+    pub fn max_creates(&self) -> usize {
+        self.max_creates
+    }
+}
+
+impl Default for MarketOfferCreateRule {
+    fn default() -> Self {
+        Self::new(Duration::from_secs(60), 20)
     }
 }
 
@@ -297,6 +342,19 @@ mod tests {
         assert!(path.exists());
         assert_eq!(settings, MarketSettings::default());
 
+        let written = fs::read_to_string(&path).expect("the market settings file should exist");
+        assert!(
+            written
+                .contains("# Settings that control market persistence, limits, and safety rules.")
+        );
+        assert!(written.contains("[[policy.create_offer_rules]]"));
+
         fs::remove_file(&path).expect("The temp settings file should be removed");
+    }
+
+    #[test]
+    fn policy_should_default_to_shared_database_settings() {
+        let settings = MarketSettings::default();
+        assert!(settings.persistence().database_override().is_none());
     }
 }

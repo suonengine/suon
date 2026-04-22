@@ -4150,6 +4150,7 @@ dependencies = [
  "bevy",
  "serde",
  "sqlx",
+ "suon_serde",
  "toml",
 ]
 
@@ -4189,6 +4190,7 @@ dependencies = [
  "suon_network",
  "suon_position",
  "suon_protocol_client",
+ "suon_serde",
  "toml",
 ]
 
@@ -4233,6 +4235,7 @@ dependencies = [
  "anyhow",
  "bevy",
  "serde",
+ "suon_serde",
  "toml",
 ]
 
@@ -4272,8 +4275,11 @@ dependencies = [
 name = "suon_serde"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "serde",
  "serde_json",
+ "suon_macros",
+ "toml",
 ]
 
 [[package]]

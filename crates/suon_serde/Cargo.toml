@@ -15,7 +15,10 @@ description = "Serialization helpers and derive utilities for the Suon MMORPG fr
 
 [dependencies]
 # External crates used directly by this crate.
+anyhow.workspace = true
 serde = { workspace = true, features = ["derive"] }
+toml = { workspace = true, features = ["parse", "display", "serde"] }
+suon_macros.workspace = true
 
 [dev-dependencies]
 serde_json = { workspace = true, features = ["std"] }

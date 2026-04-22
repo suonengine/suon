@@ -40,7 +40,9 @@ impl Plugin for MarketOfferPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence::{MarketPersistenceSettings, MarketPolicySettings, MarketSettings};
+    use crate::persistence::{
+        MarketOfferCreateRule, MarketPersistenceSettings, MarketPolicySettings, MarketSettings,
+    };
     use std::time::{Duration, UNIX_EPOCH};
 
     #[test]
@@ -71,7 +73,15 @@ mod tests {
     fn should_reject_offer_creation_for_blocked_player() {
         let settings = MarketSettings::new(
             MarketPersistenceSettings::default(),
-            MarketPolicySettings::new(100, 20, 200, Vec::new(), vec![77]),
+            MarketPolicySettings::new(
+                100,
+                vec![
+                    MarketOfferCreateRule::new(Duration::from_secs(60), 20),
+                    MarketOfferCreateRule::new(Duration::from_secs(60 * 60), 200),
+                ],
+                Vec::new(),
+                vec![77],
+            ),
         );
 
         let result = settings.policy().validate_offer_creation(
@@ -89,7 +99,12 @@ mod tests {
     fn should_reject_offer_creation_when_rate_limit_is_hit() {
         let settings = MarketSettings::new(
             MarketPersistenceSettings::default(),
-            MarketPolicySettings::new(100, 1, 10, Vec::new(), Vec::new()),
+            MarketPolicySettings::new(
+                100,
+                vec![MarketOfferCreateRule::new(Duration::from_secs(60), 1)],
+                Vec::new(),
+                Vec::new(),
+            ),
         );
         let mut limiter = MarketRateLimiter::default();
 

@@ -48,6 +48,30 @@ pub mod as_millis {
         let millis = u64::deserialize(deserializer)?;
         Ok(Duration::from_millis(millis))
     }
+
+    /// Module for serializing and deserializing `Option<Duration>` as milliseconds.
+    pub mod option {
+        use serde::{Deserialize, Deserializer, Serializer};
+        use std::time::Duration;
+
+        pub fn serialize<S>(duration: &Option<Duration>, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            match duration {
+                Some(duration) => serializer.serialize_some(&(duration.as_millis() as u64)),
+                None => serializer.serialize_none(),
+            }
+        }
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Duration>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let millis = Option::<u64>::deserialize(deserializer)?;
+            Ok(millis.map(Duration::from_millis))
+        }
+    }
 }
 
 /// Module for serializing and deserializing `Duration` as seconds.
@@ -97,6 +121,30 @@ pub mod as_secs {
     {
         let secs = u64::deserialize(deserializer)?;
         Ok(Duration::from_secs(secs))
+    }
+
+    /// Module for serializing and deserializing `Option<Duration>` as seconds.
+    pub mod option {
+        use serde::{Deserialize, Deserializer, Serializer};
+        use std::time::Duration;
+
+        pub fn serialize<S>(duration: &Option<Duration>, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            match duration {
+                Some(duration) => serializer.serialize_some(&duration.as_secs()),
+                None => serializer.serialize_none(),
+            }
+        }
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Duration>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let secs = Option::<u64>::deserialize(deserializer)?;
+            Ok(secs.map(Duration::from_secs))
+        }
     }
 }
 #[cfg(test)]

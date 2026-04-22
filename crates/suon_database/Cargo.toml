@@ -31,3 +31,4 @@ sqlx = { workspace = true, features = [
   "sqlite",
 ] }
 toml = { workspace = true, features = ["parse", "display", "serde"] }
+suon_serde.workspace = true

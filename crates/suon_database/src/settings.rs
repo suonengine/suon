@@ -10,11 +10,15 @@ use std::{
     path::Path,
     time::Duration,
 };
+use suon_serde::{DocumentedToml, prelude::*};
 
 /// Generic persistence settings used by database-backed providers.
-#[derive(Resource, Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Resource, Serialize, Deserialize, DocumentedToml, Clone, Debug, PartialEq)]
 pub struct DatabaseSettings {
-    /// URL used by the backing database driver, for example `sqlite://market.db`.
+    /// Database connection URL.
+    /// Supported backends: SQLite, PostgreSQL, MySQL, and MariaDB.
+    /// Examples: `sqlite://suon.db`, `postgres://user:password@localhost/suon`,
+    /// `mysql://user:password@localhost/suon`, `mariadb://user:password@localhost/suon`
     database_url: String,
 
     /// Minimum number of connections kept ready by the backing pool.
@@ -23,14 +27,17 @@ pub struct DatabaseSettings {
     /// Maximum number of concurrent connections allowed by the backing pool.
     max_connections: u32,
 
-    /// Maximum time, in seconds, spent waiting to acquire a connection.
-    acquire_timeout_secs: u64,
+    /// Maximum time spent waiting to acquire a connection from the pool.
+    #[serde(rename = "acquire_timeout_secs", with = "as_secs")]
+    acquire_timeout: Duration,
 
-    /// Maximum idle time, in seconds, before an unused connection is recycled.
-    idle_timeout_secs: Option<u64>,
+    /// Maximum idle time before an unused connection is recycled.
+    #[serde(default, rename = "idle_timeout_secs", with = "as_secs::option")]
+    idle_timeout: Option<Duration>,
 
-    /// Maximum lifetime, in seconds, before a connection is recycled.
-    max_lifetime_secs: Option<u64>,
+    /// Maximum lifetime before a connection is recycled.
+    #[serde(default, rename = "max_lifetime_secs", with = "as_secs::option")]
+    max_lifetime: Option<Duration>,
 
     /// Whether the pool should validate a connection before handing it out.
     test_before_acquire: bool,
@@ -68,19 +75,19 @@ impl DatabaseSettings {
         self.max_connections
     }
 
-    /// Maximum time, in seconds, spent waiting to acquire a connection.
-    pub fn acquire_timeout_secs(&self) -> u64 {
-        self.acquire_timeout_secs
+    /// Maximum time spent waiting to acquire a connection from the pool.
+    pub fn acquire_timeout(&self) -> Duration {
+        self.acquire_timeout
     }
 
-    /// Maximum idle time, in seconds, before an unused connection is recycled.
-    pub fn idle_timeout_secs(&self) -> Option<u64> {
-        self.idle_timeout_secs
+    /// Maximum idle time before an unused connection is recycled.
+    pub fn idle_timeout(&self) -> Option<Duration> {
+        self.idle_timeout
     }
 
-    /// Maximum lifetime, in seconds, before a connection is recycled.
-    pub fn max_lifetime_secs(&self) -> Option<u64> {
-        self.max_lifetime_secs
+    /// Maximum lifetime before a connection is recycled.
+    pub fn max_lifetime(&self) -> Option<Duration> {
+        self.max_lifetime
     }
 
     /// Whether the pool should validate a connection before handing it out.
@@ -103,9 +110,9 @@ impl DatabaseSettings {
             self.redacted_target(),
             self.min_connections,
             self.max_connections,
-            self.acquire_timeout_secs,
-            option_or_disabled(self.idle_timeout_secs),
-            option_or_disabled(self.max_lifetime_secs),
+            self.acquire_timeout.as_secs(),
+            option_or_disabled(self.idle_timeout),
+            option_or_disabled(self.max_lifetime),
             self.test_before_acquire,
             self.auto_initialize_schema
         )
@@ -133,15 +140,15 @@ impl DatabaseSettings {
                 path.display()
             );
 
-            Self::load_at(path)
-        } else {
-            warn!(
-                "Configuration file '{}' not found. Creating default configuration.",
-                path.display()
-            );
-
-            Self::create_at(path)
+            return Self::load_at(path);
         }
+
+        warn!(
+            "Configuration file '{}' not found. Creating default configuration.",
+            path.display()
+        );
+
+        Self::create_at(path)
     }
 
     fn load_at(path: &Path) -> anyhow::Result<Self> {
@@ -175,9 +182,20 @@ impl DatabaseSettings {
             path.display()
         );
 
-        debug!("Serializing default database configuration to TOML format");
+        Self::write_at(path, &default_config)?;
 
-        let config = toml::to_string_pretty(&default_config)
+        info!(
+            "Default database configuration written to '{}'. Reloading from file.",
+            path.display()
+        );
+
+        Self::load_at(path)
+    }
+
+    fn write_at(path: &Path, settings: &Self) -> anyhow::Result<()> {
+        debug!("Rendering documented database configuration");
+
+        let config = write_documented_toml(settings)
             .context("Failed to serialize default database settings")?;
 
         if let Some(parent) = path.parent() {
@@ -195,20 +213,15 @@ impl DatabaseSettings {
 
         let mut file = File::create(path).context("Failed to create the database settings file")?;
 
-        debug!("Writing default database configuration to file");
+        debug!("Writing database configuration to file");
 
         file.write_all(config.as_bytes())
-            .context("Failed to write the default database settings file")?;
+            .context("Failed to write the database settings file")?;
 
         file.sync_all()
-            .context("Failed to flush the default database settings file")?;
+            .context("Failed to flush the database settings file")?;
 
-        info!(
-            "Default database configuration written to '{}'. Reloading from file.",
-            path.display()
-        );
-
-        Self::load_at(path)
+        Ok(())
     }
 }
 
@@ -226,9 +239,9 @@ impl DatabaseConnectOptions {
         let pool_options = AnyPoolOptions::new()
             .min_connections(settings.min_connections)
             .max_connections(settings.max_connections)
-            .acquire_timeout(Duration::from_secs(settings.acquire_timeout_secs))
-            .idle_timeout(settings.idle_timeout_secs.map(Duration::from_secs))
-            .max_lifetime(settings.max_lifetime_secs.map(Duration::from_secs))
+            .acquire_timeout(settings.acquire_timeout)
+            .idle_timeout(settings.idle_timeout)
+            .max_lifetime(settings.max_lifetime)
             .test_before_acquire(settings.test_before_acquire);
 
         Ok(Self {
@@ -290,21 +303,22 @@ fn redact_sqlite_target(database_url: &str) -> String {
         .map_or_else(|| "<sqlite-file>".to_string(), ToString::to_string)
 }
 
-fn option_or_disabled(value: Option<u64>) -> String {
-    value.map_or_else(|| "disabled".to_string(), |value| value.to_string())
+fn option_or_disabled(value: Option<Duration>) -> String {
+    value.map_or_else(
+        || "disabled".to_string(),
+        |value| value.as_secs().to_string(),
+    )
 }
 
 impl Default for DatabaseSettings {
     fn default() -> Self {
-        // Keep the default small and local so crates can opt into persistence
-        // without a large amount of configuration.
         Self {
             database_url: "sqlite://suon.db?mode=rwc".to_string(),
             min_connections: 1,
             max_connections: 4,
-            acquire_timeout_secs: 30,
-            idle_timeout_secs: Some(300),
-            max_lifetime_secs: Some(1800),
+            acquire_timeout: Duration::from_secs(30),
+            idle_timeout: Some(Duration::from_secs(300)),
+            max_lifetime: Some(Duration::from_secs(1800)),
             test_before_acquire: true,
             auto_initialize_schema: true,
         }
@@ -314,7 +328,10 @@ impl Default for DatabaseSettings {
 /// Public builder used to create validated [`DatabaseSettings`] values.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DatabaseSettingsBuilder {
-    /// URL used by the backing database driver, for example `sqlite://market.db`.
+    /// Database connection URL.
+    /// Supported backends: SQLite, PostgreSQL, MySQL, and MariaDB.
+    /// Examples: `sqlite://suon.db`, `postgres://user:password@localhost/suon`,
+    /// `mysql://user:password@localhost/suon`, `mariadb://user:password@localhost/suon`
     pub database_url: String,
 
     /// Minimum number of connections kept ready by the backing pool.
@@ -323,14 +340,14 @@ pub struct DatabaseSettingsBuilder {
     /// Maximum number of concurrent connections allowed by the backing pool.
     pub max_connections: u32,
 
-    /// Maximum time, in seconds, spent waiting to acquire a connection.
-    pub acquire_timeout_secs: u64,
+    /// Maximum time spent waiting to acquire a connection from the pool.
+    pub acquire_timeout: Duration,
 
-    /// Maximum idle time, in seconds, before an unused connection is recycled.
-    pub idle_timeout_secs: Option<u64>,
+    /// Maximum idle time before an unused connection is recycled.
+    pub idle_timeout: Option<Duration>,
 
-    /// Maximum lifetime, in seconds, before a connection is recycled.
-    pub max_lifetime_secs: Option<u64>,
+    /// Maximum lifetime before a connection is recycled.
+    pub max_lifetime: Option<Duration>,
 
     /// Whether the pool should validate a connection before handing it out.
     pub test_before_acquire: bool,
@@ -360,17 +377,17 @@ impl DatabaseSettingsBuilder {
             "DatabaseSettings.min_connections must not exceed DatabaseSettings.max_connections"
         );
         anyhow::ensure!(
-            self.acquire_timeout_secs > 0,
-            "DatabaseSettings.acquire_timeout_secs must be greater than zero"
+            self.acquire_timeout > Duration::ZERO,
+            "DatabaseSettings.acquire_timeout must be greater than zero"
         );
 
         let settings = DatabaseSettings {
             database_url: self.database_url,
             min_connections: self.min_connections,
             max_connections: self.max_connections,
-            acquire_timeout_secs: self.acquire_timeout_secs,
-            idle_timeout_secs: self.idle_timeout_secs,
-            max_lifetime_secs: self.max_lifetime_secs,
+            acquire_timeout: self.acquire_timeout,
+            idle_timeout: self.idle_timeout,
+            max_lifetime: self.max_lifetime,
             test_before_acquire: self.test_before_acquire,
             auto_initialize_schema: self.auto_initialize_schema,
         };
@@ -386,9 +403,9 @@ impl From<&DatabaseSettings> for DatabaseSettingsBuilder {
             database_url: settings.database_url.clone(),
             min_connections: settings.min_connections,
             max_connections: settings.max_connections,
-            acquire_timeout_secs: settings.acquire_timeout_secs,
-            idle_timeout_secs: settings.idle_timeout_secs,
-            max_lifetime_secs: settings.max_lifetime_secs,
+            acquire_timeout: settings.acquire_timeout,
+            idle_timeout: settings.idle_timeout,
+            max_lifetime: settings.max_lifetime,
             test_before_acquire: settings.test_before_acquire,
             auto_initialize_schema: settings.auto_initialize_schema,
         }
@@ -403,9 +420,9 @@ impl Default for DatabaseSettingsBuilder {
             database_url: settings.database_url,
             min_connections: settings.min_connections,
             max_connections: settings.max_connections,
-            acquire_timeout_secs: settings.acquire_timeout_secs,
-            idle_timeout_secs: settings.idle_timeout_secs,
-            max_lifetime_secs: settings.max_lifetime_secs,
+            acquire_timeout: settings.acquire_timeout,
+            idle_timeout: settings.idle_timeout,
+            max_lifetime: settings.max_lifetime,
             test_before_acquire: settings.test_before_acquire,
             auto_initialize_schema: settings.auto_initialize_schema,
         }
@@ -419,7 +436,7 @@ mod tests {
         env, fs,
         path::PathBuf,
         process,
-        time::{SystemTime, UNIX_EPOCH},
+        time::{Duration, SystemTime, UNIX_EPOCH},
     };
 
     fn unique_temp_dir() -> PathBuf {
@@ -451,65 +468,25 @@ mod tests {
     fn should_provide_predictable_default_database_settings() {
         let settings = DatabaseSettings::default();
 
-        assert_eq!(
-            settings.database_url(),
-            "sqlite://suon.db?mode=rwc",
-            "DatabaseSettings::default should point at the local sqlite database URL"
-        );
-
-        assert_eq!(
-            settings.max_connections(),
-            4,
-            "DatabaseSettings::default should cap the pool at four connections"
-        );
-
-        assert_eq!(
-            settings.min_connections(),
-            1,
-            "DatabaseSettings::default should keep one connection ready in the pool"
-        );
-
-        assert_eq!(
-            settings.acquire_timeout_secs(),
-            30,
-            "DatabaseSettings::default should wait up to thirty seconds to acquire a connection"
-        );
-
-        assert_eq!(
-            settings.idle_timeout_secs(),
-            Some(300),
-            "DatabaseSettings::default should recycle idle connections after five minutes"
-        );
-
-        assert_eq!(
-            settings.max_lifetime_secs(),
-            Some(1800),
-            "DatabaseSettings::default should recycle long-lived connections after thirty minutes"
-        );
-
-        assert!(
-            settings.test_before_acquire(),
-            "DatabaseSettings::default should validate pooled connections before use"
-        );
-
-        assert!(
-            settings.auto_initialize_schema(),
-            "DatabaseSettings::default should enable automatic schema initialization"
-        );
+        assert_eq!(settings.database_url(), "sqlite://suon.db?mode=rwc");
+        assert_eq!(settings.max_connections(), 4);
+        assert_eq!(settings.min_connections(), 1);
+        assert_eq!(settings.acquire_timeout(), Duration::from_secs(30));
+        assert_eq!(settings.idle_timeout(), Some(Duration::from_secs(300)));
+        assert_eq!(settings.max_lifetime(), Some(Duration::from_secs(1800)));
+        assert!(settings.test_before_acquire());
+        assert!(settings.auto_initialize_schema());
     }
 
     #[test]
     fn should_expose_builder_constructors_with_default_values() {
         assert_eq!(
             DatabaseSettings::builder(),
-            DatabaseSettingsBuilder::default(),
-            "DatabaseSettings::builder should start from the crate default settings"
+            DatabaseSettingsBuilder::default()
         );
-
         assert_eq!(
             DatabaseSettingsBuilder::new(),
-            DatabaseSettingsBuilder::default(),
-            "DatabaseSettingsBuilder::new should be an alias for the default builder"
+            DatabaseSettingsBuilder::default()
         );
     }
 
@@ -518,23 +495,16 @@ mod tests {
         let settings = DatabaseSettings::default();
         let cloned = settings.clone();
 
-        assert_eq!(
-            cloned, settings,
-            "DatabaseSettings should derive Clone and PartialEq so callers can compare copies"
-        );
-
-        assert!(
-            format!("{cloned:?}").contains("sqlite://suon.db?mode=rwc"),
-            "DatabaseSettings should derive Debug with field values that aid diagnostics"
-        );
+        assert_eq!(cloned, settings);
+        assert!(format!("{cloned:?}").contains("sqlite://suon.db?mode=rwc"));
     }
 
     #[test]
     fn should_build_pool_options_from_timeout_settings() {
         let settings = DatabaseSettingsBuilder {
-            acquire_timeout_secs: 9,
-            idle_timeout_secs: Some(12),
-            max_lifetime_secs: Some(18),
+            acquire_timeout: Duration::from_secs(9),
+            idle_timeout: Some(Duration::from_secs(12)),
+            max_lifetime: Some(Duration::from_secs(18)),
             ..DatabaseSettingsBuilder::default()
         }
         .build()
@@ -543,10 +513,7 @@ mod tests {
         let options = DatabaseConnectOptions::from_settings(&settings)
             .expect("from_settings should convert timeout fields into pool options");
 
-        assert_eq!(
-            options.database_url, "sqlite://suon.db?mode=rwc",
-            "from_settings should preserve the configured database URL"
-        );
+        assert_eq!(options.database_url, "sqlite://suon.db?mode=rwc");
     }
 
     #[test]
@@ -561,11 +528,7 @@ mod tests {
         let options = DatabaseConnectOptions::from_settings(&settings)
             .expect("from_settings should convert sqlite file urls into connection options");
 
-        assert_eq!(
-            options.database_url, "sqlite://legacy.db?mode=rwc",
-            "sqlite file URLs without an explicit mode should create the database file on first \
-             use"
-        );
+        assert_eq!(options.database_url, "sqlite://legacy.db?mode=rwc");
     }
 
     #[test]
@@ -612,8 +575,8 @@ mod tests {
     #[test]
     fn should_allow_optional_pool_timeouts_to_be_disabled() {
         let settings = DatabaseSettingsBuilder {
-            idle_timeout_secs: None,
-            max_lifetime_secs: None,
+            idle_timeout: None,
+            max_lifetime: None,
             ..DatabaseSettingsBuilder::default()
         }
         .build()
@@ -622,11 +585,7 @@ mod tests {
         let options = DatabaseConnectOptions::from_settings(&settings)
             .expect("from_settings should allow optional pool recycling settings to be disabled");
 
-        assert!(
-            format!("{:?}", options.pool_options).contains("PoolOptions"),
-            "from_settings should still return pool options when optional recycling settings are \
-             disabled"
-        );
+        assert!(format!("{:?}", options.pool_options).contains("PoolOptions"));
     }
 
     #[test]
@@ -641,8 +600,7 @@ mod tests {
         assert!(
             error
                 .to_string()
-                .contains("DatabaseSettings.database_url must not be empty"),
-            "validate should explain why a blank database URL is invalid"
+                .contains("DatabaseSettings.database_url must not be empty")
         );
     }
 
@@ -658,8 +616,7 @@ mod tests {
         assert!(
             error
                 .to_string()
-                .contains("DatabaseSettings.max_connections must be greater than zero"),
-            "validate should explain why zero max connections are invalid"
+                .contains("DatabaseSettings.max_connections must be greater than zero")
         );
     }
 
@@ -673,18 +630,15 @@ mod tests {
         .build()
         .expect_err("validate should reject min connections above max connections");
 
-        assert!(
-            error.to_string().contains(
-                "DatabaseSettings.min_connections must not exceed DatabaseSettings.max_connections"
-            ),
-            "validate should explain why min connections above max connections are invalid"
-        );
+        assert!(error.to_string().contains(
+            "DatabaseSettings.min_connections must not exceed DatabaseSettings.max_connections"
+        ));
     }
 
     #[test]
     fn validate_should_reject_zero_acquire_timeout() {
         let error = DatabaseSettingsBuilder {
-            acquire_timeout_secs: 0,
+            acquire_timeout: Duration::ZERO,
             ..DatabaseSettingsBuilder::default()
         }
         .build()
@@ -693,8 +647,7 @@ mod tests {
         assert!(
             error
                 .to_string()
-                .contains("DatabaseSettings.acquire_timeout_secs must be greater than zero"),
-            "validate should explain why zero acquire timeouts are invalid"
+                .contains("DatabaseSettings.acquire_timeout must be greater than zero")
         );
     }
 
@@ -715,21 +668,20 @@ mod tests {
     #[test]
     fn should_create_default_settings_file_when_missing() {
         let temp_dir = unique_temp_dir();
-        let config_path = temp_dir.join("nested").join("DatabaseSettings.toml");
+        let config_path = temp_dir.join("nested").join("Settings.toml");
 
         let created = DatabaseSettings::create_at(&config_path)
             .expect("create_at should write and then reload the default settings file");
 
-        assert_eq!(
-            created,
-            DatabaseSettings::default(),
-            "create_at should return the default settings when no custom values are provided"
-        );
+        assert_eq!(created, DatabaseSettings::default());
+        assert!(config_path.exists());
 
+        let written =
+            fs::read_to_string(&config_path).expect("the documented settings file should exist");
         assert!(
-            config_path.exists(),
-            "create_at should create the target configuration file on disk"
+            written.contains("# Generic persistence settings used by database-backed providers.")
         );
+        assert!(written.contains("acquire_timeout_secs = 30"));
     }
 
     #[test]
@@ -737,7 +689,7 @@ mod tests {
         let temp_dir = unique_temp_dir();
         fs::create_dir_all(&temp_dir).expect("the temp settings directory should be created");
 
-        let config_path = temp_dir.join("DatabaseSettings.toml");
+        let config_path = temp_dir.join("Settings.toml");
         let config = r#"
 database_url = "sqlite://loaded.db"
 min_connections = 2
@@ -757,9 +709,9 @@ auto_initialize_schema = false
         assert_eq!(loaded.database_url(), "sqlite://loaded.db");
         assert_eq!(loaded.min_connections(), 2);
         assert_eq!(loaded.max_connections(), 6);
-        assert_eq!(loaded.acquire_timeout_secs(), 15);
-        assert_eq!(loaded.idle_timeout_secs(), Some(120));
-        assert_eq!(loaded.max_lifetime_secs(), Some(900));
+        assert_eq!(loaded.acquire_timeout(), Duration::from_secs(15));
+        assert_eq!(loaded.idle_timeout(), Some(Duration::from_secs(120)));
+        assert_eq!(loaded.max_lifetime(), Some(Duration::from_secs(900)));
         assert!(!loaded.test_before_acquire());
         assert!(!loaded.auto_initialize_schema());
     }

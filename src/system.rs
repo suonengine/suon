@@ -27,11 +27,13 @@ pub(crate) fn initialize_settings(mut commands: Commands, settings: Option<Res<S
 
 /// Initializes the fixed timestep resource from the loaded Suon settings during startup.
 pub(crate) fn initialize_fixed_time(mut commands: Commands, settings: Res<Settings>) {
-    commands.insert_resource(Time::<Fixed>::from_seconds(settings.fixed_event_loop));
+    commands.insert_resource(Time::<Fixed>::from_seconds(
+        settings.fixed_event_loop_seconds(),
+    ));
 
     info!(
         "Suon fixed timestep initialized: seconds={:.6}, hz={:.2}",
-        settings.fixed_event_loop,
+        settings.fixed_event_loop_seconds(),
         settings.fixed_event_loop_hz()
     );
 }
@@ -133,7 +135,7 @@ mod tests {
                 .resource::<Time<Fixed>>()
                 .timestep()
                 .as_secs_f64(),
-            Settings::default().fixed_event_loop,
+            Settings::default().fixed_event_loop_seconds(),
             "Startup should configure the fixed timestep from the loaded settings"
         );
     }
@@ -143,8 +145,8 @@ mod tests {
         let mut app = App::new();
         let settings = Settings {
             threads: 3,
-            event_loop: 0.25,
-            fixed_event_loop: 0.5,
+            event_loop_hz: 4.0,
+            fixed_event_loop_hz: 2.0,
             schedule_runner: false,
         };
 
@@ -165,7 +167,7 @@ mod tests {
                 .resource::<Time<Fixed>>()
                 .timestep()
                 .as_secs_f64(),
-            settings.fixed_event_loop,
+            settings.fixed_event_loop_seconds(),
             "Startup should derive Time<Fixed> from the preserved Settings resource"
         );
     }
@@ -175,8 +177,8 @@ mod tests {
         let mut app = App::new();
         let settings = Settings {
             threads: 5,
-            event_loop: 0.1,
-            fixed_event_loop: 0.2,
+            event_loop_hz: 10.0,
+            fixed_event_loop_hz: 5.0,
             schedule_runner: false,
         };
 

@@ -18,30 +18,37 @@ use std::{
     io::Write,
     path::Path,
 };
+use suon_serde::{DocumentedToml, prelude::*};
 
 pub mod prelude {
     pub use crate::{ObservabilityPlugin, ObservabilitySettings};
 }
 
-/// Configuration for Suon's logging and metrics bootstrap.
-#[derive(Resource, Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+/// Controls logs and runtime diagnostics exposed by the server.
+#[derive(Resource, Serialize, Deserialize, DocumentedToml, Clone, Copy, Debug, PartialEq)]
 pub struct ObservabilitySettings {
-    /// Whether Suon should install `LogPlugin`.
+    /// Enables normal application logs.
+    /// Turn this off only if logging is configured elsewhere.
     pub log: bool,
 
-    /// Whether Suon should install Bevy metrics/diagnostics infrastructure.
+    /// Enables the diagnostics infrastructure used by the options below.
+    /// This alone does not print or expose much until another diagnostic is enabled.
     pub metrics: bool,
 
-    /// Whether Suon should install `LogDiagnosticsPlugin`.
+    /// Periodically writes diagnostic counters to the log output.
+    /// Useful for lightweight visibility in local development and servers without dashboards.
     pub log_metrics: bool,
 
-    /// Whether Suon should install `FrameTimeDiagnosticsPlugin`.
+    /// Collects frame and tick timing statistics.
+    /// Useful when tuning server cadence or investigating stalls.
     pub frame_time: bool,
 
-    /// Whether Suon should install `EntityCountDiagnosticsPlugin`.
+    /// Tracks how many ECS entities currently exist.
+    /// Helpful for spotting leaks or unexpected world growth over time.
     pub entity_count: bool,
 
-    /// Whether Suon should install `SystemInformationDiagnosticsPlugin`.
+    /// Collects host machine information such as CPU and memory details.
+    /// Usually most useful in development, debugging, or operator environments.
     pub system_information: bool,
 }
 
@@ -92,9 +99,20 @@ impl ObservabilitySettings {
         info!("Creating default configuration file '{}'", path.display());
         let default_config = Self::default();
 
-        debug!("Serializing default configuration to TOML format");
+        Self::write_at(path, &default_config)?;
 
-        let config = toml::to_string_pretty(&default_config)
+        info!(
+            "Default configuration written to '{}'. Reloading from file.",
+            path.display()
+        );
+
+        Self::load_at(path)
+    }
+
+    fn write_at(path: &Path, default_config: &Self) -> anyhow::Result<()> {
+        debug!("Rendering documented configuration");
+
+        let config = write_documented_toml(default_config)
             .context("Failed to serialize default observability settings")?;
 
         if let Some(parent) = path.parent() {
@@ -114,12 +132,7 @@ impl ObservabilitySettings {
         file.sync_all()
             .context("Failed to flush the default observability settings file")?;
 
-        info!(
-            "Default configuration written to '{}'. Reloading from file.",
-            path.display()
-        );
-
-        Self::load_at(path)
+        Ok(())
     }
 
     /// Returns a log-safe summary of observability features.
@@ -150,7 +163,7 @@ impl Default for ObservabilitySettings {
     }
 }
 
-/// Plugin that loads `ObservabilitySettings.toml` and installs Bevy logging and
+/// Plugin that loads `settings/ObservabilitySettings.toml` and installs Bevy logging and
 /// diagnostics plugins accordingly.
 pub struct ObservabilityPlugin;
 

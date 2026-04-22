@@ -36,6 +36,7 @@ suon_macros.workspace = true
 suon_movement.workspace = true
 suon_network.workspace = true
 suon_protocol_client.workspace = true
+suon_serde.workspace = true
 
 [dev-dependencies]
 suon_chunk.workspace = true

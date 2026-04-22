@@ -27,11 +27,20 @@
 //! assert_eq!(json, r#"{"retry_after":1500,"timeout":3}"#);
 //! ```
 
+mod documented;
 mod duration;
 
 pub mod prelude {
-    pub use crate::duration::{as_millis, as_secs};
+    pub use crate::{
+        documented::{DocumentedToml, write_documented_toml},
+        duration::{as_millis, as_secs},
+    };
 }
+
+pub use crate::documented::{
+    DocumentedField, DocumentedFieldKind, DocumentedStruct, DocumentedToml, write_documented_toml,
+};
+pub use suon_macros::DocumentedToml;
 
 #[cfg(test)]
 mod tests {

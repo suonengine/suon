@@ -10,7 +10,7 @@ use std::{
     path::Path,
     time::Duration,
 };
-use suon_serde::prelude::*;
+use suon_serde::{DocumentedToml, prelude::*};
 
 #[cfg(test)]
 pub(crate) fn test_cwd_lock() -> &'static Mutex<()> {
@@ -19,21 +19,22 @@ pub(crate) fn test_cwd_lock() -> &'static Mutex<()> {
 }
 
 /// Network server configuration.
-#[derive(Resource, Serialize, Deserialize, Clone, Copy, Debug)]
+#[derive(Resource, Serialize, Deserialize, DocumentedToml, Clone, Copy, Debug)]
 pub(crate) struct Settings {
-    /// IP address and port the server will bind to.
+    /// IP address and port where the login/game server will listen.
     pub address: SocketAddr,
 
-    /// Enable or disable Nagle's algorithm for connections.
+    /// Enables packet coalescing at the TCP layer.
+    /// Keep this disabled for lower latency; enable it only if batching is more important.
     pub use_nagle_algorithm: bool,
 
-    /// Limits on total and per-address simultaneous sessions.
+    /// Limits for how many clients may stay connected at once.
     pub session_quota: SessionQuota,
 
-    /// Policy for managing rapid reconnects and preventing abuse.
+    /// Protection against reconnect spam and abusive connection bursts.
     pub throttle_policy: ThrottlePolicy,
 
-    /// Policy for controlling packet floods and excessive network traffic.
+    /// Limits for oversized packets and packet floods.
     pub packet_policy: PacketPolicy,
 }
 
@@ -43,7 +44,9 @@ impl Settings {
 
     /// Tries to load the settings, or creates the file with default settings if it doesn't exist.
     pub(crate) fn load_or_default() -> anyhow::Result<Self> {
-        if Path::new(Self::PATH).exists() {
+        let path = Path::new(Self::PATH);
+
+        if path.exists() {
             info!(
                 "Configuration file '{}' found, attempting to load.",
                 Self::PATH
@@ -62,12 +65,16 @@ impl Settings {
 
     /// Tries to load the settings from the file.
     fn load() -> anyhow::Result<Self> {
-        debug!("Attempting to read configuration from '{}'", Self::PATH);
+        Self::load_from(Path::new(Self::PATH))
+    }
+
+    fn load_from(path: &Path) -> anyhow::Result<Self> {
+        debug!("Attempting to read configuration from '{}'", path.display());
 
         let config_str =
-            fs::read_to_string(Self::PATH).context("Failed to read the configuration file")?;
+            fs::read_to_string(path).context("Failed to read the configuration file")?;
 
-        info!("Successfully read configuration file '{}'", Self::PATH);
+        info!("Successfully read configuration file '{}'", path.display());
 
         let service_settings = toml::from_str(&config_str)
             .context("Failed to parse the configuration file as TOML")?;
@@ -83,24 +90,7 @@ impl Settings {
 
         let default_config = Self::default();
 
-        debug!("Serializing default configuration to TOML format");
-
-        let config_str: String = toml::to_string_pretty(&default_config)
-            .context("Failed to serialize default configuration")?;
-
-        debug!("Creating configuration file at '{}'", Self::PATH);
-
-        if let Some(parent) = std::path::Path::new(Self::PATH).parent() {
-            fs::create_dir_all(parent).context("Failed to create settings directory")?;
-        }
-
-        let mut file =
-            File::create(Self::PATH).context("Failed to create the configuration file")?;
-
-        debug!("Writing default configuration to file");
-
-        file.write_all(config_str.as_bytes())
-            .context("Failed to write the default configuration to the file")?;
+        Self::write_at(Path::new(Self::PATH), &default_config)?;
 
         info!(
             "Default configuration written to '{}'. Reloading from file.",
@@ -109,6 +99,28 @@ impl Settings {
 
         // After creating the file, load the settings
         Self::load()
+    }
+
+    fn write_at(path: &Path, settings: &Self) -> anyhow::Result<()> {
+        debug!("Rendering documented configuration");
+
+        let config_str: String =
+            write_documented_toml(settings).context("Failed to serialize default configuration")?;
+
+        debug!("Creating configuration file at '{}'", path.display());
+
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).context("Failed to create settings directory")?;
+        }
+
+        let mut file = File::create(path).context("Failed to create the configuration file")?;
+
+        debug!("Writing default configuration to file");
+
+        file.write_all(config_str.as_bytes())
+            .context("Failed to write the default configuration to the file")?;
+
+        Ok(())
     }
 
     /// Returns a log-safe summary of the listener and traffic policies.
@@ -141,13 +153,13 @@ impl Default for Settings {
     }
 }
 
-/// Configuration for limiting the number of simultaneous sessions.
-#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
+/// Connection caps for the whole server and for a single remote address.
+#[derive(Serialize, Deserialize, DocumentedToml, Clone, Copy, Debug)]
 pub struct SessionQuota {
-    /// Maximum number of total active sessions allowed at the same time.
+    /// Total number of active sessions allowed across the server.
     pub max_total: usize,
 
-    /// Maximum number of active sessions allowed per individual address.
+    /// Maximum simultaneous sessions allowed from the same IP address.
     pub max_per_address: usize,
 }
 
@@ -160,25 +172,25 @@ impl Default for SessionQuota {
     }
 }
 
-/// Configuration for managing connection retries and abuse prevention.
-#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
+/// Rules for slowing down fast reconnects and repeated abusive attempts.
+#[derive(Serialize, Deserialize, DocumentedToml, Clone, Copy, Debug)]
 pub struct ThrottlePolicy {
-    /// Maximum allowed connection attempts within the specified interval.
+    /// Maximum connection attempts allowed inside the interval below.
     pub max_attempts: usize,
 
-    /// Duration of the interval window for counting connection attempts.
+    /// Rolling time window used when counting connection attempts.
     #[serde(rename = "interval_window_millis", with = "as_millis")]
     pub interval_window: Duration,
 
-    /// Duration considered as a "fast" attempt.
+    /// Attempts faster than this are treated as suspiciously rapid reconnects.
     #[serde(rename = "fast_attempt_threshold_millis", with = "as_millis")]
     pub fast_attempt_threshold: Duration,
 
-    /// Duration for blocking an abusive IP.
+    /// Base block duration applied after abuse is detected.
     #[serde(rename = "block_duration_millis", with = "as_millis")]
     pub block_duration: Duration,
 
-    /// Additional backoff time added to the block duration for continued abuse.
+    /// Extra time added to the block for repeated abuse.
     #[serde(rename = "penalty_backoff_millis", with = "as_millis")]
     pub penalty_backoff: Duration,
 }
@@ -194,43 +206,44 @@ impl Default for ThrottlePolicy {
         }
     }
 }
-/// Configuration for controlling packet floods and traffic for both incoming and outgoing packets.
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default)]
+/// Packet size and timeout rules for traffic entering and leaving the server.
+#[derive(Serialize, Deserialize, DocumentedToml, Clone, Copy, Debug, Default)]
 pub struct PacketPolicy {
-    /// Flood control settings for incoming packets.
+    /// Limits applied to packets received from clients.
     pub incoming: IncomingPacketPolicy,
 
-    /// Flood control settings for outgoing packets.
+    /// Limits applied to packets sent by the server.
     pub outgoing: OutgoingPacketPolicy,
 }
 
-/// Policy for controlling floods of incoming packets and enforcing limits per address.
-#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
+/// Limits for client packet size, receive timeouts, and flood control.
+#[derive(Serialize, Deserialize, DocumentedToml, Clone, Copy, Debug)]
 pub struct IncomingPacketPolicy {
-    /// Maximum duration to wait for reading from a session.
+    /// Maximum time to wait for a client packet before the read is considered stalled.
     #[serde(rename = "timeout_millis", with = "as_millis")]
     pub timeout: Duration,
 
-    /// Maximum allowed length of a single packet.
+    /// Maximum size accepted for the initial server-name packet.
     pub server_name_max_length: usize,
 
-    /// Maximum allowed length of a single packet.
+    /// Maximum size accepted for the login packet.
     pub login_max_length: usize,
 
-    /// Maximum allowed length of a single packet.
+    /// Maximum size accepted for packets after login.
     pub subsequent_max_length: usize,
 
-    /// Maximum number of packets allowed per address within the enforcement window.
+    /// Packet count allowed from one address inside the enforcement window.
     pub subsequent_max_per_address: usize,
 
-    /// Duration of the time window in which packet limits are enforced.
+    /// Rolling window used for packet flood detection.
     #[serde(rename = "enforcement_window_millis", with = "as_millis")]
     pub enforcement_window: Duration,
 
-    /// Number of packets above the limit tolerated before applying a penalty.
+    /// Extra packets tolerated above the configured rate before the penalty is applied.
     pub tolerance_overflow: usize,
 
-    /// Action to take when the packet limit is exceeded.
+    /// What to do after a client exceeds the tolerated packet limit.
+    /// Available values are `Disconnect` and `Ignore`.
     pub overflow_penalty: PacketPolicyPenalty,
 }
 
@@ -249,24 +262,24 @@ impl Default for IncomingPacketPolicy {
     }
 }
 
-/// Action to take when a packet limit is exceeded.
+/// Action taken when packet flood protection triggers.
 #[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Copy, Debug)]
 pub enum PacketPolicyPenalty {
-    /// Disconnect the session if the packet limit is exceeded.
+    /// Immediately disconnect the offending session.
     Disconnect,
 
-    /// Ignore excessive packets without disconnecting the session.
+    /// Drop excessive packets and keep the session connected.
     Ignore,
 }
 
-/// Policy for controlling floods of outgoing packets.
-#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
+/// Limits for packets written by the server.
+#[derive(Serialize, Deserialize, DocumentedToml, Clone, Copy, Debug)]
 pub struct OutgoingPacketPolicy {
-    /// Maximum duration to wait for writing to a session.
+    /// Maximum time to wait while sending a packet to a client.
     #[serde(rename = "timeout_millis", with = "as_millis")]
     pub timeout: Duration,
 
-    /// Maximum allowed length of a single packet.
+    /// Maximum size the server is allowed to send in a single packet.
     pub max_length: usize,
 }
 

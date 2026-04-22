@@ -25,10 +25,20 @@ pub(super) fn load_market_settings() -> MarketSettings {
 }
 
 /// Builds the default market ORM adapter from the active settings.
-pub(super) fn build_market_orm(settings: &MarketSettings) -> anyhow::Result<Arc<dyn MarketOrm>> {
-    Ok(Arc::new(MarketDatabaseOrm::connect(
-        settings.persistence().database(),
-    )?))
+pub(super) fn build_market_orm(
+    settings: &MarketSettings,
+    shared_database: Option<&DatabaseSettings>,
+) -> anyhow::Result<Arc<dyn MarketOrm>> {
+    let database = settings
+        .persistence()
+        .database_override()
+        .or(shared_database)
+        .cloned()
+        .unwrap_or_else(|| {
+            DatabaseSettings::load_or_default().expect("Failed to load shared database settings.")
+        });
+
+    Ok(Arc::new(MarketDatabaseOrm::connect(&database)?))
 }
 
 /// Inserts the default market settings resource during startup when none was provided.
@@ -60,13 +70,21 @@ pub(super) fn initialize_market_flush_timer(
     }
 
     commands.insert_resource(MarketFlushTimer(Timer::from_seconds(
-        settings.persistence().flush_interval_secs().max(0.001) as f32,
+        settings
+            .persistence()
+            .flush_interval()
+            .as_secs_f32()
+            .max(0.001),
         TimerMode::Repeating,
     )));
 
     info!(
         "Market flush timer initialized: interval_secs={:.3}, save_on_shutdown={}",
-        settings.persistence().flush_interval_secs().max(0.001),
+        settings
+            .persistence()
+            .flush_interval()
+            .as_secs_f32()
+            .max(0.001),
         settings.persistence().save_on_shutdown()
     );
 }
@@ -76,18 +94,31 @@ pub(super) fn initialize_market_orm(
     mut commands: Commands,
     orm: Option<Res<MarketOrmResource>>,
     settings: Res<MarketSettings>,
+    shared_database: Option<Res<DatabaseSettings>>,
 ) {
     if orm.is_some() {
         info!("Market ORM already provided by app.");
         return;
     }
 
-    let orm = build_market_orm(&settings).expect("Failed to build market ORM provider");
+    let shared_database = shared_database.as_deref();
+    let orm =
+        build_market_orm(&settings, shared_database).expect("Failed to build market ORM provider");
     commands.insert_resource(MarketOrmResource::new(orm));
-    info!(
-        "Market ORM initialized from persistence settings: {}",
-        settings.persistence().database().summary()
-    );
+
+    if let Some(database) = settings.persistence().database_override() {
+        info!(
+            "Market ORM initialized from market database override: {}",
+            database.summary()
+        );
+    } else if let Some(database) = shared_database {
+        info!(
+            "Market ORM initialized from shared database settings: {}",
+            database.summary()
+        );
+    } else {
+        info!("Market ORM initialized from shared database settings loaded from disk.");
+    }
 }
 
 /// Loads persisted market tables into the in-memory cache during startup.

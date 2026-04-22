@@ -7,7 +7,10 @@ use std::{
 use bevy::prelude::*;
 use log::{debug, warn};
 
-use crate::offer::{MarketOffer, MarketOfferCancelled, MarketOfferId, MarketOffersTable};
+use crate::{
+    offer::{MarketOffer, MarketOfferCancelled, MarketOfferId, MarketOffersTable},
+    persistence::MarketOfferCreateRule,
+};
 
 #[derive(Debug, Resource, Default)]
 pub(crate) struct MarketRateLimiter {
@@ -19,24 +22,29 @@ impl MarketRateLimiter {
         &mut self,
         actor_id: u32,
         now: SystemTime,
-        minute_limit: usize,
-        hour_limit: usize,
+        rules: &[MarketOfferCreateRule],
     ) -> bool {
         let entries = self.by_actor.entry(actor_id).or_default();
-        prune_entries(entries, now, Duration::from_secs(60 * 60));
-
-        let within_hour = entries.len();
-        let within_minute = entries
+        let max_window = rules
             .iter()
-            .filter(|timestamp| {
-                now.duration_since(**timestamp)
-                    .map(|elapsed| elapsed <= Duration::from_secs(60))
-                    .unwrap_or(false)
-            })
-            .count();
+            .map(|rule| rule.window())
+            .max()
+            .unwrap_or(Duration::ZERO);
+        prune_entries(entries, now, max_window);
 
-        if within_minute >= minute_limit || within_hour >= hour_limit {
-            return false;
+        for rule in rules {
+            let within_window = entries
+                .iter()
+                .filter(|timestamp| {
+                    now.duration_since(**timestamp)
+                        .map(|elapsed| elapsed <= rule.window())
+                        .unwrap_or(false)
+                })
+                .count();
+
+            if within_window >= rule.max_creates() {
+                return false;
+            }
         }
 
         entries.push_back(now);
