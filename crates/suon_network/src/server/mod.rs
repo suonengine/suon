@@ -16,6 +16,8 @@ pub(crate) struct NetworkServerPlugin;
 
 impl Plugin for NetworkServerPlugin {
     fn build(&self, app: &mut App) {
+        info!("Starting the server networking systems");
+
         app.init_resource::<IncomingConnections>()
             .init_resource::<OutgoingConnections>()
             .add_systems(PreStartup, initialize_settings)

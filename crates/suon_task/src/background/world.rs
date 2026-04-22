@@ -20,9 +20,9 @@ pub trait TaskCommands {
     /// Spawns a background task without an associated system.
     ///
     /// # Examples
-    /// ```ignore
+    /// ```no_run
     /// use bevy::prelude::*;
-    /// use suon_task::background::{BackgroundTask, world::TaskCommands};
+    /// use suon_task::prelude::*;
     ///
     /// struct ExampleTask;
     ///
@@ -42,9 +42,9 @@ pub trait TaskCommands {
     /// Spawns a background task and registers a system to run upon completion.
     ///
     /// # Examples
-    /// ```ignore
+    /// ```no_run
     /// use bevy::prelude::*;
-    /// use suon_task::background::{BackgroundTask, world::TaskCommands};
+    /// use suon_task::prelude::*;
     ///
     /// struct ExampleTask;
     ///

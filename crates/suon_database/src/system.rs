@@ -15,7 +15,10 @@ use crate::settings::{DatabaseSettings, DatabaseSettingsBuilder};
 /// Loads database settings during startup and inserts them into the Bevy world.
 pub(crate) fn initialize_settings(mut commands: Commands, settings: Option<Res<DatabaseSettings>>) {
     if let Some(settings) = settings {
-        debug!("Found a pre-existing DatabaseSettings resource.");
+        info!(
+            "Database settings already provided by app: {}",
+            settings.summary()
+        );
 
         DatabaseSettingsBuilder::from(&*settings)
             .build()
@@ -27,10 +30,11 @@ pub(crate) fn initialize_settings(mut commands: Commands, settings: Option<Res<D
     info!("Loading database settings from disk.");
 
     let settings = DatabaseSettings::load_or_default().expect("Failed to load database settings.");
+    let summary = settings.summary();
 
     commands.insert_resource(settings);
 
-    info!("Inserted DatabaseSettings into the world.");
+    info!("Database settings loaded: {summary}");
 }
 
 #[cfg(test)]

@@ -34,9 +34,9 @@ pub trait EntityTaskCommands {
     /// Spawns a background task and attaches a tracker component.
     ///
     /// # Examples
-    /// ```ignore
+    /// ```no_run
     /// use bevy::prelude::*;
-    /// use suon_task::background::{BackgroundTask, entity::EntityTaskCommands};
+    /// use suon_task::prelude::*;
     ///
     /// struct ExampleTask;
     ///
@@ -56,9 +56,9 @@ pub trait EntityTaskCommands {
     /// Spawns a background task and registers a system to run upon completion.
     ///
     /// # Examples
-    /// ```ignore
+    /// ```no_run
     /// use bevy::prelude::*;
-    /// use suon_task::background::{BackgroundTask, entity::{EntityIn, EntityTaskCommands}};
+    /// use suon_task::prelude::*;
     ///
     /// struct ExampleTask;
     ///

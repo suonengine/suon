@@ -122,6 +122,8 @@ pub struct ChunkPlugins;
 
 impl PluginGroup for ChunkPlugins {
     fn build(self) -> PluginGroupBuilder {
+        info!("Loading the chunk systems");
+
         PluginGroupBuilder::start::<Self>()
             .add(ChunksPlugin)
             .add(ContentPlugin)

@@ -20,6 +20,8 @@ pub(crate) struct MarketPersistencePlugin;
 
 impl Plugin for MarketPersistencePlugin {
     fn build(&self, app: &mut App) {
+        info!("Starting the market persistence systems");
+
         app.add_plugins(DatabasePlugin);
         app.init_database_table::<MarketActorsTable>()
             .init_database_table::<MarketItemsTable>()

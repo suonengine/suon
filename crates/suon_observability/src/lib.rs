@@ -121,6 +121,20 @@ impl ObservabilitySettings {
 
         Self::load_at(path)
     }
+
+    /// Returns a log-safe summary of observability features.
+    pub fn summary(self) -> String {
+        format!(
+            "log={}, metrics={}, log_metrics={}, frame_time={}, entity_count={}, \
+             system_information={}",
+            self.log,
+            self.metrics,
+            self.log_metrics,
+            self.frame_time,
+            self.entity_count,
+            self.system_information
+        )
+    }
 }
 
 impl Default for ObservabilitySettings {
@@ -144,6 +158,7 @@ impl Plugin for ObservabilityPlugin {
     fn build(&self, app: &mut App) {
         let settings = ObservabilitySettings::load_or_default()
             .expect("Failed to load observability settings.");
+        let settings_summary = settings.summary();
 
         let metrics_enabled = settings.metrics
             || settings.log_metrics
@@ -176,6 +191,11 @@ impl Plugin for ObservabilityPlugin {
         if settings.system_information {
             app.add_plugins(SystemInformationDiagnosticsPlugin);
         }
+
+        info!(
+            "Starting the observability systems with {}; diagnostics_enabled={}",
+            settings_summary, metrics_enabled
+        );
     }
 }
 

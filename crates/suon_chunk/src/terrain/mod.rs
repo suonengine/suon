@@ -28,6 +28,8 @@ pub struct TerrainPlugin;
 
 impl Plugin for TerrainPlugin {
     fn build(&self, app: &mut App) {
+        info!("Starting the terrain navigation systems");
+
         app.add_observer(register_navigation_block)
             .add_observer(release_navigation_block)
             .add_observer(reconcile_navigation_position_change)

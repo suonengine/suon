@@ -93,6 +93,39 @@ impl DatabaseSettings {
         self.auto_initialize_schema
     }
 
+    /// Returns a log-safe summary of the database settings.
+    pub fn summary(&self) -> String {
+        format!(
+            "backend={}, target={}, pool_min={}, pool_max={}, acquire_timeout_secs={}, \
+             idle_timeout_secs={}, max_lifetime_secs={}, test_before_acquire={}, \
+             auto_initialize_schema={}",
+            self.backend_name(),
+            self.redacted_target(),
+            self.min_connections,
+            self.max_connections,
+            self.acquire_timeout_secs,
+            option_or_disabled(self.idle_timeout_secs),
+            option_or_disabled(self.max_lifetime_secs),
+            self.test_before_acquire,
+            self.auto_initialize_schema
+        )
+    }
+
+    fn backend_name(&self) -> &str {
+        self.database_url
+            .split_once(':')
+            .map(|(scheme, _)| scheme)
+            .unwrap_or("unknown")
+    }
+
+    fn redacted_target(&self) -> String {
+        if self.database_url.starts_with("sqlite:") {
+            return redact_sqlite_target(&self.database_url);
+        }
+
+        "<redacted>".to_string()
+    }
+
     fn load_or_default_at(path: &Path) -> anyhow::Result<Self> {
         if path.exists() {
             info!(
@@ -232,6 +265,33 @@ fn database_url_with_sqlite_create_mode(database_url: &str) -> String {
 
     let separator = if database_url.contains('?') { '&' } else { '?' };
     format!("{database_url}{separator}mode=rwc")
+}
+
+fn redact_sqlite_target(database_url: &str) -> String {
+    let database_and_params = database_url
+        .trim_start_matches("sqlite://")
+        .trim_start_matches("sqlite:");
+    let database = database_and_params
+        .split_once('?')
+        .map(|(database, _)| database)
+        .unwrap_or(database_and_params);
+
+    if database == ":memory:" {
+        return ":memory:".to_string();
+    }
+
+    if database.is_empty() {
+        return "<default>".to_string();
+    }
+
+    Path::new(database)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map_or_else(|| "<sqlite-file>".to_string(), ToString::to_string)
+}
+
+fn option_or_disabled(value: Option<u64>) -> String {
+    value.map_or_else(|| "disabled".to_string(), |value| value.to_string())
 }
 
 impl Default for DatabaseSettings {

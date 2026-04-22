@@ -1,6 +1,8 @@
 use anyhow::Context;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
+use std::sync::{Mutex, OnceLock};
 use std::{
     fs::{self, File},
     io::Write,
@@ -9,6 +11,12 @@ use std::{
     time::Duration,
 };
 use suon_serde::prelude::*;
+
+#[cfg(test)]
+pub(crate) fn test_cwd_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
 
 /// Network server configuration.
 #[derive(Resource, Serialize, Deserialize, Clone, Copy, Debug)]
@@ -101,6 +109,23 @@ impl Settings {
 
         // After creating the file, load the settings
         Self::load()
+    }
+
+    /// Returns a log-safe summary of the listener and traffic policies.
+    pub(crate) fn summary(self) -> String {
+        format!(
+            "listen_address={}, nagle={}, session_quota_total={}, session_quota_per_address={}, \
+             incoming_timeout_ms={}, outgoing_timeout_ms={}, incoming_max_packet_bytes={}, \
+             outgoing_max_packet_bytes={}",
+            self.address,
+            self.use_nagle_algorithm,
+            self.session_quota.max_total,
+            self.session_quota.max_per_address,
+            self.packet_policy.incoming.timeout.as_millis(),
+            self.packet_policy.outgoing.timeout.as_millis(),
+            self.packet_policy.incoming.subsequent_max_length,
+            self.packet_policy.outgoing.max_length
+        )
     }
 }
 
@@ -261,14 +286,8 @@ mod tests {
         env,
         path::PathBuf,
         process,
-        sync::{Mutex, OnceLock},
         time::{SystemTime, UNIX_EPOCH},
     };
-
-    fn cwd_lock() -> &'static Mutex<()> {
-        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(()))
-    }
 
     struct CurrentDirGuard {
         previous: PathBuf,
@@ -371,7 +390,7 @@ mod tests {
 
     #[test]
     fn load_or_default_should_create_the_configuration_file_when_it_is_missing() {
-        let _lock = cwd_lock()
+        let _lock = test_cwd_lock()
             .lock()
             .expect("The settings test should acquire the cwd lock");
 
@@ -398,7 +417,7 @@ mod tests {
 
     #[test]
     fn load_or_default_should_load_an_existing_configuration_file() {
-        let _lock = cwd_lock()
+        let _lock = test_cwd_lock()
             .lock()
             .expect("The settings test should acquire the cwd lock");
 

@@ -95,6 +95,27 @@ impl Settings {
 
         Self::load_at(path)
     }
+
+    /// Returns a log-safe summary of the bootstrap settings.
+    pub fn summary(self) -> String {
+        format!(
+            "threads={}, schedule_runner={}, event_loop_hz={:.2}, fixed_event_loop_hz={:.2}",
+            self.threads,
+            self.schedule_runner,
+            self.event_loop_hz(),
+            self.fixed_event_loop_hz()
+        )
+    }
+
+    /// Returns the configured app loop frequency in hertz.
+    pub fn event_loop_hz(self) -> f64 {
+        1.0 / self.event_loop
+    }
+
+    /// Returns the configured fixed timestep frequency in hertz.
+    pub fn fixed_event_loop_hz(self) -> f64 {
+        1.0 / self.fixed_event_loop
+    }
 }
 
 impl Default for Settings {

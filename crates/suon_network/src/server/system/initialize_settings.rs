@@ -6,31 +6,36 @@ use crate::server::{
 };
 
 /// Loads the server settings and initializes related resources.
-pub(crate) fn initialize_settings(mut commands: Commands) {
+pub(crate) fn initialize_settings(mut commands: Commands, settings: Option<Res<Settings>>) {
+    if let Some(settings) = settings {
+        commands.insert_resource(Throttle::new(*settings));
+        commands.insert_resource(Limiter::new(*settings));
+        info!(
+            "Network server settings already provided by app: {}",
+            settings.summary()
+        );
+        return;
+    }
+
     let settings = Settings::load_or_default().expect("Failed to load network server settings.");
 
     commands.insert_resource(Throttle::new(settings));
     commands.insert_resource(Limiter::new(settings));
     commands.insert_resource(settings);
 
-    info!("Server settings initialized successfully.");
+    info!("Network server settings loaded: {}", settings.summary());
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::server::settings::test_cwd_lock;
     use std::{
         env, fs,
         path::PathBuf,
         process,
-        sync::{Mutex, OnceLock},
         time::{SystemTime, UNIX_EPOCH},
     };
-
-    fn cwd_lock() -> &'static Mutex<()> {
-        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(()))
-    }
 
     struct CurrentDirGuard {
         previous: PathBuf,
@@ -65,7 +70,7 @@ mod tests {
 
     #[test]
     fn should_insert_network_resources_and_create_a_default_settings_file() {
-        let _lock = cwd_lock()
+        let _lock = test_cwd_lock()
             .lock()
             .expect("the initialize_settings test should acquire the cwd lock");
         let temp_dir = unique_temp_dir();

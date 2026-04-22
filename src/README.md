@@ -9,11 +9,12 @@ for the entire workspace.
 |---|---|
 | `lib.rs` | Defines `SuonPlugin` and the workspace prelude |
 | `settings.rs` | `Settings` resource and TOML file I/O |
+| `system.rs` | `PreStartup`/`Startup` bootstrap systems for root settings |
 
 ## `SuonPlugin`
 
 `SuonPlugin` is the one-line way to start a Suon server. It reads `Settings` from
-`settings/Settings.toml` and installs:
+`settings/Settings.toml`, loads them into the world during `PreStartup`, and installs:
 
 | Plugin | Source |
 |---|---|
@@ -37,6 +38,10 @@ schedule_runner = false
 
 `Settings::load_or_default()` reads the file; if it does not exist the directory and file
 are created with defaults.
+
+`SuonPlugin` uses those settings in two phases:
+- `PreStartup`: load or preserve the `Settings` resource
+- `Startup`: initialize `Time<Fixed>` from `Settings::fixed_event_loop`
 
 ## Prelude
 

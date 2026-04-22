@@ -49,6 +49,8 @@ pub struct MarketPlugins;
 
 impl PluginGroup for MarketPlugins {
     fn build(self) -> PluginGroupBuilder {
+        info!("Loading the market systems");
+
         PluginGroupBuilder::start::<Self>()
             .add(persistence::MarketPersistencePlugin)
             .add(history::MarketHistoryPlugin)

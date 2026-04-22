@@ -90,6 +90,23 @@ impl MarketSettings {
 
         Self::load_at(path)
     }
+
+    /// Returns a log-safe summary of market persistence and policy settings.
+    pub fn summary(&self) -> String {
+        format!(
+            "flush_interval_secs={:.3}, save_on_shutdown={}, database=({}), \
+             max_active_offers_per_actor={}, max_create_per_minute={}, max_create_per_hour={}, \
+             blocked_item_ids={}, blocked_actor_ids={}",
+            self.persistence.flush_interval_secs,
+            self.persistence.save_on_shutdown,
+            self.persistence.database.summary(),
+            self.policy.max_active_offers_per_actor,
+            self.policy.max_create_per_minute,
+            self.policy.max_create_per_hour,
+            self.policy.blocked_item_ids.len(),
+            self.policy.blocked_actor_ids.len()
+        )
+    }
 }
 
 /// Persistence-related settings for the market crate.

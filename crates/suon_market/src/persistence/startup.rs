@@ -36,11 +36,17 @@ pub(super) fn initialize_market_settings(
     mut commands: Commands,
     settings: Option<Res<MarketSettings>>,
 ) {
-    if settings.is_some() {
+    if let Some(settings) = settings {
+        info!(
+            "Market settings already provided by app: {}",
+            settings.summary()
+        );
         return;
     }
 
-    commands.insert_resource(load_market_settings());
+    let settings = load_market_settings();
+    info!("Market settings loaded: {}", settings.summary());
+    commands.insert_resource(settings);
 }
 
 /// Initializes the autosave timer after the market settings resource is available.
@@ -57,6 +63,12 @@ pub(super) fn initialize_market_flush_timer(
         settings.persistence().flush_interval_secs().max(0.001) as f32,
         TimerMode::Repeating,
     )));
+
+    info!(
+        "Market flush timer initialized: interval_secs={:.3}, save_on_shutdown={}",
+        settings.persistence().flush_interval_secs().max(0.001),
+        settings.persistence().save_on_shutdown()
+    );
 }
 
 /// Builds the default market ORM resource during startup when the app did not provide one.
@@ -66,11 +78,16 @@ pub(super) fn initialize_market_orm(
     settings: Res<MarketSettings>,
 ) {
     if orm.is_some() {
+        info!("Market ORM already provided by app.");
         return;
     }
 
     let orm = build_market_orm(&settings).expect("Failed to build market ORM provider");
     commands.insert_resource(MarketOrmResource::new(orm));
+    info!(
+        "Market ORM initialized from persistence settings: {}",
+        settings.persistence().database().summary()
+    );
 }
 
 /// Loads persisted market tables into the in-memory cache during startup.

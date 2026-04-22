@@ -18,7 +18,8 @@ pub struct StepPlugin;
 
 impl Plugin for StepPlugin {
     fn build(&self, app: &mut App) {
-        debug!("Installing step movement systems");
+        info!("Starting the step movement systems");
+
         app.add_systems(FixedUpdate, emit_ready_step_path_intents)
             .add_observer(apply_step_intent);
     }

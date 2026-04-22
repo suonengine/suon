@@ -15,6 +15,8 @@ pub struct OccupancyPlugin;
 
 impl Plugin for OccupancyPlugin {
     fn build(&self, app: &mut App) {
+        info!("Starting the occupancy systems");
+
         app.add_observer(register_occupied_position)
             .add_observer(release_occupied_position)
             .add_observer(reconcile_occupied_position_change)

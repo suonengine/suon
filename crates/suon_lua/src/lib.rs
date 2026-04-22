@@ -84,6 +84,8 @@ pub struct LuaPlugin;
 
 impl Plugin for LuaPlugin {
     fn build(&self, app: &mut App) {
+        info!("Starting the Lua scripting systems");
+
         app.init_resource::<runtime::ScriptRegistry>()
             .insert_non_send_resource(runtime::LuaRuntime::new());
     }

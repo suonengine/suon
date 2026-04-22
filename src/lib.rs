@@ -21,6 +21,7 @@ use suon_movement::prelude::*;
 use suon_network::prelude::*;
 
 mod settings;
+mod system;
 
 /// Common imports for apps that build on top of the umbrella `suon` crate.
 pub mod prelude {
@@ -50,8 +51,8 @@ pub struct SuonPlugin;
 
 impl Plugin for SuonPlugin {
     fn build(&self, app: &mut App) {
-        let settings =
-            settings::Settings::load_or_default().expect("Failed to load Suon settings.");
+        let settings = system::bootstrap_settings(app);
+        let settings_summary = settings.summary();
 
         let minimal_plugins = MinimalPlugins.set(TaskPoolPlugin {
             task_pool_options: TaskPoolOptions::with_num_threads(settings.threads),
@@ -65,18 +66,22 @@ impl Plugin for SuonPlugin {
             minimal_plugins
         };
 
-        app.add_plugins(minimal_plugins);
-        app.insert_resource(settings);
-        app.insert_resource(Time::<Fixed>::from_seconds(settings.fixed_event_loop));
+        app.add_plugins(minimal_plugins)
+            .add_systems(PreStartup, system::initialize_settings)
+            .add_systems(
+                Startup,
+                (system::initialize_fixed_time, system::log_startup_summary).chain(),
+            )
+            .add_plugins((
+                suon_observability::ObservabilityPlugin,
+                ChunkPlugins,
+                MovementPlugins,
+                MarketPlugins,
+                NetworkPlugins,
+            ))
+            .add_plugins(LuaPlugin);
 
-        app.add_plugins((
-            suon_observability::ObservabilityPlugin,
-            ChunkPlugins,
-            MovementPlugins,
-            MarketPlugins,
-            NetworkPlugins,
-        ));
-        app.add_plugins(LuaPlugin);
+        info!("Starting the Suon core systems with {}", settings_summary);
     }
 }
 
