@@ -64,8 +64,6 @@ pub struct MovementPlugins;
 
 impl PluginGroup for MovementPlugins {
     fn build(self) -> PluginGroupBuilder {
-        info!("Loading the movement systems");
-
         PluginGroupBuilder::start::<Self>()
             .add(step::StepPlugin)
             .add(teleport::TeleportPlugin)

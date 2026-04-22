@@ -16,8 +16,6 @@ pub(crate) struct MarketBrowsePlugin;
 
 impl Plugin for MarketBrowsePlugin {
     fn build(&self, app: &mut App) {
-        info!("Starting the market browsing systems");
-
         app.add_observer(lifecycle::on_leave_market_packet)
             .add_observer(lifecycle::on_step_close_market_session)
             .add_observer(lifecycle::on_teleport_close_market_session)

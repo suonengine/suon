@@ -15,8 +15,6 @@ pub struct ChunksPlugin;
 
 impl Plugin for ChunksPlugin {
     fn build(&self, app: &mut App) {
-        info!("Starting the chunk systems");
-
         app.init_resource::<Chunks>().init_resource::<ChunkLoader>();
     }
 }

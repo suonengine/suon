@@ -64,8 +64,6 @@ pub struct DatabasePlugin;
 
 impl Plugin for DatabasePlugin {
     fn build(&self, app: &mut App) {
-        info!("Starting the data persistence systems");
-
         app.add_systems(Startup, initialize_settings);
     }
 }

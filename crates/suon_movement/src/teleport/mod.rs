@@ -14,8 +14,6 @@ pub struct TeleportPlugin;
 
 impl Plugin for TeleportPlugin {
     fn build(&self, app: &mut App) {
-        info!("Starting the teleport systems");
-
         app.add_observer(apply_teleport_intent);
     }
 }

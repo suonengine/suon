@@ -26,8 +26,6 @@ pub(crate) struct MarketOfferPlugin;
 
 impl Plugin for MarketOfferPlugin {
     fn build(&self, app: &mut App) {
-        info!("Starting the market offer systems");
-
         app.init_resource::<MarketOfferSequence>();
         app.init_resource::<MarketRateLimiter>();
         app.add_observer(create::on_create_market_offer_packet)

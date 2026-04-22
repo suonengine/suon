@@ -21,8 +21,6 @@ pub(crate) struct MarketHistoryPlugin;
 
 impl Plugin for MarketHistoryPlugin {
     fn build(&self, app: &mut App) {
-        info!("Starting the market history systems");
-
         app.add_observer(on_market_offer_created)
             .add_observer(on_market_offer_cancelled)
             .add_observer(on_market_offer_accepted);

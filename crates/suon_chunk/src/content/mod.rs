@@ -12,8 +12,6 @@ pub struct ContentPlugin;
 
 impl Plugin for ContentPlugin {
     fn build(&self, app: &mut App) {
-        info!("Starting the chunk content systems");
-
         app.add_observer(update_at_chunk_after_position_change);
     }
 }

@@ -52,7 +52,6 @@ pub struct SuonPlugin;
 impl Plugin for SuonPlugin {
     fn build(&self, app: &mut App) {
         let settings = system::bootstrap_settings(app);
-        let settings_summary = settings.summary();
 
         let minimal_plugins = MinimalPlugins.set(TaskPoolPlugin {
             task_pool_options: TaskPoolOptions::with_num_threads(settings.threads),
@@ -80,8 +79,6 @@ impl Plugin for SuonPlugin {
                 NetworkPlugins,
             ))
             .add_plugins(LuaPlugin);
-
-        info!("Starting the Suon core systems with {}", settings_summary);
     }
 }
 
