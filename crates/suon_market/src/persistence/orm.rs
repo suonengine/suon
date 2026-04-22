@@ -5,7 +5,7 @@ use bevy::prelude::*;
 
 use crate::{
     history::MarketHistoryEntry,
-    offer::{MarketActorName, MarketItem, MarketOffer},
+    offer::{MarketActorName, MarketOffer},
 };
 
 /// ORM-style abstraction used by market persistence during startup.
@@ -13,13 +13,9 @@ pub trait MarketOrm: Send + Sync + 'static {
     /// Loads actor-name reference data.
     fn load_actors(&self) -> Result<Vec<MarketActorName>>;
     /// Loads item-name reference data.
-    fn load_items(&self) -> Result<Vec<MarketItem>>;
+    fn load_items(&self) -> Result<Vec<(u16, String)>>;
     /// Loads active market offers.
     fn load_offers(&self) -> Result<Vec<MarketOffer>>;
-    /// Loads market history entries.
-    fn load_history(&self) -> Result<Vec<MarketHistoryEntry>> {
-        Ok(Vec::new())
-    }
 
     /// Persists actor-name reference data.
     fn save_actors(&self, _: &[MarketActorName]) -> Result<()> {
@@ -27,7 +23,7 @@ pub trait MarketOrm: Send + Sync + 'static {
     }
 
     /// Persists item-name reference data.
-    fn save_items(&self, _: &[MarketItem]) -> Result<()> {
+    fn save_items(&self, _: &[(u16, String)]) -> Result<()> {
         Ok(())
     }
 
@@ -36,8 +32,8 @@ pub trait MarketOrm: Send + Sync + 'static {
         Ok(())
     }
 
-    /// Persists market history entries.
-    fn save_history(&self, _: &[MarketHistoryEntry]) -> Result<()> {
+    /// Appends a single market history entry.
+    fn insert_history(&self, _: &MarketHistoryEntry) -> Result<()> {
         Ok(())
     }
 }

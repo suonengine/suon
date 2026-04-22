@@ -2,10 +2,10 @@ use anyhow::{Context, Result};
 use suon_database::prelude::*;
 
 use crate::{
-    history::{MarketHistoryAction, MarketHistoryEntry, MarketHistoryTable},
+    history::MarketHistoryEntry,
     offer::{
-        MarketActorName, MarketActorsTable, MarketItem, MarketItemsTable, MarketOffer,
-        MarketOfferId, MarketOffersTable,
+        MarketActorName, MarketActorsTable, MarketItemsTable, MarketOffer, MarketOfferId,
+        MarketOffersTable,
     },
     persistence::orm::MarketOrm,
 };
@@ -35,7 +35,7 @@ impl MarketDatabaseOrm {
             MarketActorsTable::default().initialize_schema(&orm.database, &orm.actors)?;
             MarketItemsTable::default().initialize_schema(&orm.database, &orm.items)?;
             MarketOffersTable::default().initialize_schema(&orm.database, &orm.offers)?;
-            MarketHistoryTable::default().initialize_schema(&orm.database, &orm.history)?;
+            orm.history.initialize_schema(&orm.database)?;
         }
 
         Ok(orm)
@@ -49,7 +49,7 @@ impl MarketOrm for MarketDatabaseOrm {
         Ok(table.rows())
     }
 
-    fn load_items(&self) -> Result<Vec<MarketItem>> {
+    fn load_items(&self) -> Result<Vec<(u16, String)>> {
         let mut table = MarketItemsTable::default();
         table.load_from_database(&self.database, &self.items)?;
         Ok(table.rows())
@@ -68,7 +68,7 @@ impl MarketOrm for MarketDatabaseOrm {
         Ok(())
     }
 
-    fn save_items(&self, items: &[MarketItem]) -> Result<()> {
+    fn save_items(&self, items: &[(u16, String)]) -> Result<()> {
         let mut table = MarketItemsTable::default();
         table.replace(items.iter().cloned());
         table.save_to_database(&self.database, &self.items)?;
@@ -82,17 +82,8 @@ impl MarketOrm for MarketDatabaseOrm {
         Ok(())
     }
 
-    fn load_history(&self) -> Result<Vec<MarketHistoryEntry>> {
-        let mut table = MarketHistoryTable::default();
-        table.load_from_database(&self.database, &self.history)?;
-        Ok(table.rows())
-    }
-
-    fn save_history(&self, history: &[MarketHistoryEntry]) -> Result<()> {
-        let mut table = MarketHistoryTable::default();
-        table.replace(history.iter().cloned());
-        table.save_to_database(&self.database, &self.history)?;
-        Ok(())
+    fn insert_history(&self, entry: &MarketHistoryEntry) -> Result<()> {
+        self.history.insert_row(&self.database, entry)
     }
 }
 
@@ -115,7 +106,10 @@ impl TableMapper<MarketActorsTable, DatabasePool> for MarketActorsMapper {
         })
     }
 
-    fn load_rows(&self, database: &DatabaseConnection<DatabasePool>) -> Result<Vec<MarketActorName>> {
+    fn load_rows(
+        &self,
+        database: &DatabaseConnection<DatabasePool>,
+    ) -> Result<Vec<MarketActorName>> {
         database.block_on(async {
             let rows = sqlx::query_as::<_, MarketActorRow>("SELECT id, name FROM market_actors")
                 .fetch_all(database.data().pool())
@@ -170,7 +164,7 @@ impl TableMapper<MarketItemsTable, DatabasePool> for MarketItemsMapper {
         })
     }
 
-    fn load_rows(&self, database: &DatabaseConnection<DatabasePool>) -> Result<Vec<MarketItem>> {
+    fn load_rows(&self, database: &DatabaseConnection<DatabasePool>) -> Result<Vec<(u16, String)>> {
         database.block_on(async {
             let rows = sqlx::query_as::<_, MarketItemRow>("SELECT id, name FROM market_items")
                 .fetch_all(database.data().pool())
@@ -184,7 +178,7 @@ impl TableMapper<MarketItemsTable, DatabasePool> for MarketItemsMapper {
     fn save_rows(
         &self,
         database: &DatabaseConnection<DatabasePool>,
-        rows: &[MarketItem],
+        rows: &[(u16, String)],
     ) -> Result<()> {
         database.block_on(async {
             sqlx::query("DELETE FROM market_items")
@@ -240,7 +234,7 @@ impl TableMapper<MarketOffersTable, DatabasePool> for MarketOffersMapper {
             )
             .fetch_all(database.data().pool())
             .await
-                .context("Failed to load market offers from the database")?;
+            .context("Failed to load market offers from the database")?;
 
             rows.into_iter().map(TryInto::try_into).collect()
         })
@@ -275,7 +269,7 @@ impl TableMapper<MarketOffersTable, DatabasePool> for MarketOffersMapper {
                 .bind(record.is_anonymous)
                 .execute(database.data().pool())
                 .await
-                    .context("Failed to insert offer snapshot into the database")?;
+                .context("Failed to insert offer snapshot into the database")?;
             }
 
             Ok(())
@@ -285,12 +279,12 @@ impl TableMapper<MarketOffersTable, DatabasePool> for MarketOffersMapper {
 
 struct MarketHistoryMapper;
 
-impl TableMapper<MarketHistoryTable, DatabasePool> for MarketHistoryMapper {
+impl MarketHistoryMapper {
     fn initialize_schema(&self, database: &DatabaseConnection<DatabasePool>) -> Result<()> {
         database.block_on(async {
             sqlx::query(
                 "CREATE TABLE IF NOT EXISTS market_history (
-                    id BIGINT PRIMARY KEY,
+                    id BIGINT PRIMARY KEY AUTOINCREMENT,
                     recorded_at_secs BIGINT NOT NULL,
                     action TEXT NOT NULL,
                     actor_id BIGINT NULL,
@@ -312,60 +306,34 @@ impl TableMapper<MarketHistoryTable, DatabasePool> for MarketHistoryMapper {
         })
     }
 
-    fn load_rows(
+    fn insert_row(
         &self,
         database: &DatabaseConnection<DatabasePool>,
-    ) -> Result<Vec<MarketHistoryEntry>> {
-        database.block_on(async {
-            let rows = sqlx::query_as::<_, MarketHistoryRow>(
-                "SELECT id, recorded_at_secs, action, actor_id, offer_actor_id, item_id,
-                        offer_timestamp_secs, offer_counter, amount, remaining_amount, price, side
-                 FROM market_history
-                 ORDER BY id ASC",
-            )
-            .fetch_all(database.data().pool())
-            .await
-                .context("Failed to load market history from the database")?;
-
-            rows.into_iter().map(TryInto::try_into).collect()
-        })
-    }
-
-    fn save_rows(
-        &self,
-        database: &DatabaseConnection<DatabasePool>,
-        rows: &[MarketHistoryEntry],
+        entry: &MarketHistoryEntry,
     ) -> Result<()> {
-        database.block_on(async {
-            sqlx::query("DELETE FROM market_history")
-                .execute(database.data().pool())
-                .await
-                .context("Failed to clear market_history before snapshot save")?;
+        let record = MarketHistoryRow::try_from(entry)?;
 
-            for record in rows.iter().map(MarketHistoryRow::try_from) {
-                let record = record?;
-                sqlx::query(
-                    "INSERT INTO market_history (
-                        id, recorded_at_secs, action, actor_id, offer_actor_id, item_id,
-                        offer_timestamp_secs, offer_counter, amount, remaining_amount, price, side
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                )
-                .bind(record.id)
-                .bind(record.recorded_at_secs)
-                .bind(record.action)
-                .bind(record.actor_id)
-                .bind(record.offer_actor_id)
-                .bind(record.item_id)
-                .bind(record.offer_timestamp_secs)
-                .bind(record.offer_counter)
-                .bind(record.amount)
-                .bind(record.remaining_amount)
-                .bind(record.price)
-                .bind(record.side)
-                .execute(database.data().pool())
-                .await
-                .context("Failed to insert market history snapshot into the database")?;
-            }
+        database.block_on(async {
+            sqlx::query(
+                "INSERT INTO market_history (
+                    recorded_at_secs, action, actor_id, offer_actor_id, item_id,
+                    offer_timestamp_secs, offer_counter, amount, remaining_amount, price, side
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            )
+            .bind(record.recorded_at_secs)
+            .bind(record.action)
+            .bind(record.actor_id)
+            .bind(record.offer_actor_id)
+            .bind(record.item_id)
+            .bind(record.offer_timestamp_secs)
+            .bind(record.offer_counter)
+            .bind(record.amount)
+            .bind(record.remaining_amount)
+            .bind(record.price)
+            .bind(record.side)
+            .execute(database.data().pool())
+            .await
+            .context("Failed to append market history entry")?;
 
             Ok(())
         })
@@ -391,10 +359,7 @@ impl TryFrom<MarketActorRow> for MarketActorName {
     type Error = anyhow::Error;
 
     fn try_from(row: MarketActorRow) -> Result<Self> {
-        Ok(Self::new(
-            row.id.try_field("market_actors.id")?,
-            row.name,
-        ))
+        Ok(Self::new(row.id.try_field("market_actors.id")?, row.name))
     }
 }
 
@@ -404,23 +369,20 @@ struct MarketItemRow {
     name: String,
 }
 
-impl From<&MarketItem> for MarketItemRow {
-    fn from(item: &MarketItem) -> Self {
+impl From<&(u16, String)> for MarketItemRow {
+    fn from(item: &(u16, String)) -> Self {
         Self {
-            id: i64::from(item.id()),
-            name: item.name().to_owned(),
+            id: i64::from(item.0),
+            name: item.1.clone(),
         }
     }
 }
 
-impl TryFrom<MarketItemRow> for MarketItem {
+impl TryFrom<MarketItemRow> for (u16, String) {
     type Error = anyhow::Error;
 
     fn try_from(row: MarketItemRow) -> Result<Self> {
-        Ok(Self::new(
-            row.id.try_field("market_items.id")?,
-            row.name,
-        ))
+        Ok((row.id.try_field("market_items.id")?, row.name))
     }
 }
 
@@ -479,9 +441,7 @@ impl TryFrom<MarketOfferRow> for MarketOffer {
     }
 }
 
-#[derive(sqlx::FromRow)]
 struct MarketHistoryRow {
-    id: i64,
     recorded_at_secs: i64,
     action: String,
     actor_id: Option<i64>,
@@ -501,7 +461,6 @@ impl TryFrom<&MarketHistoryEntry> for MarketHistoryRow {
     fn try_from(entry: &MarketHistoryEntry) -> Result<Self> {
         let offer_id = entry.offer_id();
         Ok(Self {
-            id: entry.id().try_field("market_history.id")?,
             recorded_at_secs: entry
                 .recorded_at()
                 .try_i64_secs_field("market_history.recorded_at_secs")?,
@@ -525,49 +484,5 @@ impl TryFrom<&MarketHistoryEntry> for MarketHistoryRow {
                 .transpose()?,
             side: entry.side().map(|side| side.to_string()),
         })
-    }
-}
-
-impl TryFrom<MarketHistoryRow> for MarketHistoryEntry {
-    type Error = anyhow::Error;
-
-    fn try_from(row: MarketHistoryRow) -> Result<Self> {
-        Ok(Self::new(
-            row.id.try_field("market_history.id")?,
-            std::time::UNIX_EPOCH
-                + std::time::Duration::from_secs(
-                    row.recorded_at_secs
-                        .try_field("market_history.recorded_at_secs")?,
-                ),
-            row.action.parse::<MarketHistoryAction>()?,
-            row.actor_id
-                .map(|value| value.try_field("market_history.actor_id"))
-                .transpose()?,
-            row.offer_actor_id
-                .map(|value| value.try_field("market_history.offer_actor_id"))
-                .transpose()?,
-            row.item_id
-                .map(|value| value.try_field("market_history.item_id"))
-                .transpose()?,
-            match (row.offer_timestamp_secs, row.offer_counter) {
-                (Some(timestamp_secs), Some(counter)) => Some(MarketOfferId::new(
-                    std::time::UNIX_EPOCH
-                        + std::time::Duration::from_secs(
-                            timestamp_secs.try_field("market_history.offer_timestamp_secs")?,
-                        ),
-                    counter.try_field("market_history.offer_counter")?,
-                )),
-                (None, None) => None,
-                _ => anyhow::bail!("market_history offer id columns must be both null or both set"),
-            },
-            row.amount.try_field("market_history.amount")?,
-            row.remaining_amount
-                .map(|value| value.try_field("market_history.remaining_amount"))
-                .transpose()?,
-            row.price
-                .map(|value| value.try_field("market_history.price"))
-                .transpose()?,
-            row.side.map(|value| value.parse()).transpose()?,
-        ))
     }
 }

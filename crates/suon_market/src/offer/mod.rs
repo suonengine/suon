@@ -1,39 +1,26 @@
-mod events;
+mod accept;
+mod cancel;
+mod create;
 mod logic;
 mod model;
 mod tables;
 
-use std::time::SystemTime;
-
 use bevy::prelude::*;
-use log::{debug, warn};
-use suon_database::prelude::*;
-use suon_network::prelude::Packet;
-use suon_protocol_client::prelude::{
-    AcceptMarketOfferPacket, CancelMarketOfferPacket, CreateMarketOfferPacket,
-};
-
-use crate::{
-    browse::MarketActorRef,
-    history::{MarketHistoryAction, MarketHistoryEntry, MarketHistorySequence, MarketHistoryTable},
-    persistence::{MarketDirty, MarketSettings},
-};
 
 pub use self::{
-    events::{
-        MarketOfferAcceptIntent, MarketOfferAcceptRejected, MarketOfferAccepted,
-        MarketOfferCancelIntent, MarketOfferCancelRejected, MarketOfferCancelled,
+    accept::{MarketOfferAcceptIntent, MarketOfferAcceptRejected, MarketOfferAccepted},
+    cancel::{MarketOfferCancelIntent, MarketOfferCancelRejected, MarketOfferCancelled},
+    create::{
         MarketOfferCreateError, MarketOfferCreateIntent, MarketOfferCreateRejected,
         MarketOfferCreated,
     },
     model::{
-        MarketActorName, MarketItem, MarketOffer, MarketOfferId, MarketTradeSide,
-        ParseMarketTradeSideError,
+        MarketActorName, MarketOffer, MarketOfferId, MarketTradeSide, ParseMarketTradeSideError,
     },
     tables::{MarketActorsTable, MarketItemsTable, MarketOffersTable},
 };
 
-pub(crate) use self::logic::{accept_offer, cancel_offer, MarketOfferSequence, MarketRateLimiter};
+pub(crate) use self::logic::{MarketOfferSequence, MarketRateLimiter, accept_offer, cancel_offer};
 
 pub(crate) struct MarketOfferPlugin;
 
@@ -41,268 +28,13 @@ impl Plugin for MarketOfferPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MarketOfferSequence>();
         app.init_resource::<MarketRateLimiter>();
-        app.add_observer(on_create_market_offer_packet)
-            .add_observer(on_cancel_market_offer_packet)
-            .add_observer(on_accept_market_offer_packet)
-            .add_observer(on_create_market_offer_intent)
-            .add_observer(on_cancel_market_offer_intent)
-            .add_observer(on_accept_market_offer_intent);
+        app.add_observer(create::on_create_market_offer_packet)
+            .add_observer(cancel::on_cancel_market_offer_packet)
+            .add_observer(accept::on_accept_market_offer_packet)
+            .add_observer(create::on_create_market_offer_intent)
+            .add_observer(cancel::on_cancel_market_offer_intent)
+            .add_observer(accept::on_accept_market_offer_intent);
     }
-}
-
-fn on_create_market_offer_packet(
-    event: On<Packet<CreateMarketOfferPacket>>,
-    mut commands: Commands,
-    actor_refs: Query<&MarketActorRef>,
-) {
-    let client = event.entity();
-    let packet = event.packet();
-    let actor_id = actor_refs.get(client).ok().map(MarketActorRef::actor_id);
-
-    commands.trigger(MarketOfferCreateIntent {
-        client,
-        actor_id,
-        item_id: packet.item_id,
-        amount: packet.amount,
-        price: packet.price,
-        side: MarketTradeSide::from(packet.offer_kind),
-        is_anonymous: packet.is_anonymous,
-    });
-}
-
-fn on_cancel_market_offer_packet(
-    event: On<Packet<CancelMarketOfferPacket>>,
-    mut commands: Commands,
-    actor_refs: Query<&MarketActorRef>,
-) {
-    let client = event.entity();
-    let packet = event.packet();
-    let actor_id = actor_refs.get(client).ok().map(MarketActorRef::actor_id);
-
-    commands.trigger(MarketOfferCancelIntent {
-        client,
-        actor_id,
-        offer_id: MarketOfferId::new(packet.timestamp, packet.offer_counter),
-    });
-}
-
-fn on_accept_market_offer_packet(
-    event: On<Packet<AcceptMarketOfferPacket>>,
-    mut commands: Commands,
-    actor_refs: Query<&MarketActorRef>,
-) {
-    let client = event.entity();
-    let packet = event.packet();
-    let actor_id = actor_refs.get(client).ok().map(MarketActorRef::actor_id);
-
-    commands.trigger(MarketOfferAcceptIntent {
-        client,
-        actor_id,
-        offer_id: MarketOfferId::new(packet.timestamp, packet.offer_counter),
-        accepted_amount: packet.amount,
-    });
-}
-
-#[allow(clippy::too_many_arguments)]
-fn on_create_market_offer_intent(
-    event: On<MarketOfferCreateIntent>,
-    mut commands: Commands,
-    settings: Res<MarketSettings>,
-    mut market_offers: DatabaseMut<MarketOffersTable>,
-    mut history: DatabaseMut<MarketHistoryTable>,
-    mut rate_limiter: ResMut<MarketRateLimiter>,
-    mut offer_sequence: ResMut<MarketOfferSequence>,
-    mut history_sequence: ResMut<MarketHistorySequence>,
-    mut dirty: ResMut<MarketDirty>,
-) {
-    let Some(actor_id) = event.actor_id else {
-        commands.trigger(MarketOfferCreateRejected {
-            client: event.client,
-            actor_id: None,
-            item_id: event.item_id,
-            error: MarketOfferCreateError::MissingActor,
-        });
-        return;
-    };
-
-    let active_offers = market_offers
-        .iter()
-        .filter(|offer| offer.actor_id() == actor_id)
-        .count();
-
-    let now = SystemTime::now();
-    let validation_error = match settings.policy().validate_offer_creation(
-        actor_id,
-        event.item_id,
-        active_offers,
-        &mut rate_limiter,
-        now,
-    ) {
-        Ok(()) => None,
-        Err("actor is blocked from market offers") => Some(MarketOfferCreateError::ActorBlocked),
-        Err("item is blocked from market offers") => Some(MarketOfferCreateError::ItemBlocked),
-        Err("active market offer limit reached") => {
-            Some(MarketOfferCreateError::ActiveOfferLimitReached)
-        }
-        Err("market offer rate limit reached") => Some(MarketOfferCreateError::RateLimitReached),
-        Err(reason) => {
-            warn!(
-                "Rejecting market offer creation for actor {} on client {:?}: {}",
-                actor_id,
-                event.client,
-                reason
-            );
-            Some(MarketOfferCreateError::RateLimitReached)
-        }
-    };
-
-    if let Some(error) = validation_error {
-        commands.trigger(MarketOfferCreateRejected {
-            client: event.client,
-            actor_id: Some(actor_id),
-            item_id: event.item_id,
-            error,
-        });
-        return;
-    }
-
-    let offer = MarketOffer::new(
-        MarketOfferId::new(now, offer_sequence.next()),
-        event.item_id,
-        actor_id,
-        event.amount,
-        event.price,
-        event.side,
-        event.is_anonymous,
-    );
-
-    market_offers.create_offer(offer.clone());
-    history.append(MarketHistoryEntry::new(
-        history_sequence.next(),
-        now,
-        MarketHistoryAction::Create,
-        Some(actor_id),
-        Some(actor_id),
-        Some(offer.item_id()),
-        Some(offer.id()),
-        offer.amount(),
-        None,
-        Some(offer.price()),
-        Some(offer.side()),
-    ));
-    debug!(
-        "Created market offer {:?} for actor {} and item {}",
-        offer.id(),
-        offer.actor_id(),
-        offer.item_id()
-    );
-    dirty.mark();
-    commands.trigger(MarketOfferCreated {
-        client: event.client,
-        actor_id: Some(actor_id),
-        offer,
-    });
-}
-
-#[allow(clippy::too_many_arguments)]
-fn on_cancel_market_offer_intent(
-    event: On<MarketOfferCancelIntent>,
-    mut commands: Commands,
-    mut offers: DatabaseMut<MarketOffersTable>,
-    mut history: DatabaseMut<MarketHistoryTable>,
-    mut history_sequence: ResMut<MarketHistorySequence>,
-    mut dirty: ResMut<MarketDirty>,
-) {
-    let offer = offers.get(&event.offer_id).cloned();
-    let outcome = MarketOfferCancelled {
-        client: event.client,
-        actor_id: event.actor_id,
-        offer_id: event.offer_id,
-        offer,
-    };
-
-    if outcome.offer().is_none() {
-        commands.trigger(MarketOfferCancelRejected {
-            client: event.client,
-            actor_id: event.actor_id,
-            offer_id: event.offer_id,
-        });
-        return;
-    }
-
-    cancel_offer(&outcome, &mut offers);
-
-    if let Some(offer) = outcome.offer() {
-        history.append(MarketHistoryEntry::new(
-            history_sequence.next(),
-            SystemTime::now(),
-            MarketHistoryAction::Cancel,
-            event.actor_id,
-            Some(offer.actor_id()),
-            Some(offer.item_id()),
-            Some(offer.id()),
-            offer.amount(),
-            None,
-            Some(offer.price()),
-            Some(offer.side()),
-        ));
-    }
-
-    dirty.mark();
-    commands.trigger(outcome);
-}
-
-#[allow(clippy::too_many_arguments)]
-fn on_accept_market_offer_intent(
-    event: On<MarketOfferAcceptIntent>,
-    mut commands: Commands,
-    mut offers: DatabaseMut<MarketOffersTable>,
-    mut history: DatabaseMut<MarketHistoryTable>,
-    mut history_sequence: ResMut<MarketHistorySequence>,
-    mut dirty: ResMut<MarketDirty>,
-) {
-    let previous_offer = offers.get(&event.offer_id).cloned();
-    let updated_offer = accept_offer(
-        event.offer_id,
-        event.accepted_amount,
-        previous_offer.clone(),
-        &mut offers,
-    );
-
-    if previous_offer.is_none() {
-        commands.trigger(MarketOfferAcceptRejected {
-            client: event.client,
-            actor_id: event.actor_id,
-            offer_id: event.offer_id,
-        });
-        return;
-    }
-
-    if let Some(previous_offer) = previous_offer.as_ref() {
-        history.append(MarketHistoryEntry::new(
-            history_sequence.next(),
-            SystemTime::now(),
-            MarketHistoryAction::Accept,
-            event.actor_id,
-            Some(previous_offer.actor_id()),
-            Some(previous_offer.item_id()),
-            Some(previous_offer.id()),
-            event.accepted_amount,
-            updated_offer.as_ref().map(MarketOffer::amount),
-            Some(previous_offer.price()),
-            Some(previous_offer.side()),
-        ));
-    }
-
-    dirty.mark();
-    commands.trigger(MarketOfferAccepted {
-        client: event.client,
-        actor_id: event.actor_id,
-        offer_id: event.offer_id,
-        accepted_amount: event.accepted_amount,
-        previous_offer,
-        updated_offer,
-    });
 }
 
 #[cfg(test)]
@@ -361,9 +93,10 @@ mod tests {
         );
         let mut limiter = MarketRateLimiter::default();
 
-        let first = settings
-            .policy()
-            .validate_offer_creation(77, 2160, 0, &mut limiter, UNIX_EPOCH);
+        let first =
+            settings
+                .policy()
+                .validate_offer_creation(77, 2160, 0, &mut limiter, UNIX_EPOCH);
         let second = settings.policy().validate_offer_creation(
             77,
             2160,

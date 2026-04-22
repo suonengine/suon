@@ -1,9 +1,5 @@
 use std::time::SystemTime;
 
-use bevy::prelude::*;
-use suon_database::prelude::SnapshotTable;
-use suon_macros::Table;
-
 use crate::{
     history::MarketHistoryAction,
     offer::{MarketOfferId, MarketTradeSide},
@@ -12,7 +8,6 @@ use crate::{
 /// Immutable market history entry stored as an audit log.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MarketHistoryEntry {
-    id: u64,
     recorded_at: SystemTime,
     action: MarketHistoryAction,
     actor_id: Option<u32>,
@@ -29,7 +24,6 @@ impl MarketHistoryEntry {
     /// Creates a new immutable market-history entry.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        id: u64,
         recorded_at: SystemTime,
         action: MarketHistoryAction,
         actor_id: Option<u32>,
@@ -42,7 +36,6 @@ impl MarketHistoryEntry {
         side: Option<MarketTradeSide>,
     ) -> Self {
         Self {
-            id,
             recorded_at,
             action,
             actor_id,
@@ -54,11 +47,6 @@ impl MarketHistoryEntry {
             price,
             side,
         }
-    }
-
-    /// Returns the unique history-entry identifier.
-    pub fn id(&self) -> u64 {
-        self.id
     }
 
     /// Returns when the history entry was recorded.
@@ -109,71 +97,5 @@ impl MarketHistoryEntry {
     /// Returns the recorded trade side, when relevant.
     pub fn side(&self) -> Option<MarketTradeSide> {
         self.side
-    }
-}
-
-/// Append-only table containing market history entries.
-#[derive(Debug, Default, Table)]
-pub struct MarketHistoryTable {
-    entries: Vec<MarketHistoryEntry>,
-}
-
-impl MarketHistoryTable {
-    /// Replaces the full history snapshot.
-    pub fn replace(&mut self, rows: impl IntoIterator<Item = MarketHistoryEntry>) {
-        self.entries = rows.into_iter().collect();
-    }
-
-    /// Appends a new history entry to the audit log.
-    pub fn append(&mut self, row: MarketHistoryEntry) {
-        self.entries.push(row);
-    }
-
-    /// Returns an iterator over the cached history entries.
-    pub fn iter(&self) -> impl Iterator<Item = &MarketHistoryEntry> {
-        self.entries.iter()
-    }
-
-    /// Returns the number of cached history entries.
-    pub fn len(&self) -> usize {
-        self.entries.len()
-    }
-
-    /// Returns whether the history table has no entries.
-    pub fn is_empty(&self) -> bool {
-        self.entries.is_empty()
-    }
-
-    /// Returns a detached snapshot of all history entries.
-    pub fn rows(&self) -> Vec<MarketHistoryEntry> {
-        self.entries.clone()
-    }
-}
-
-impl SnapshotTable for MarketHistoryTable {
-    type Row = MarketHistoryEntry;
-
-    fn replace_rows(&mut self, rows: Vec<Self::Row>) {
-        MarketHistoryTable::replace(self, rows);
-    }
-
-    fn rows(&self) -> Vec<Self::Row> {
-        MarketHistoryTable::rows(self)
-    }
-}
-
-#[derive(Debug, Resource, Default)]
-pub(crate) struct MarketHistorySequence {
-    next_id: u64,
-}
-
-impl MarketHistorySequence {
-    pub(crate) fn seed_from_history(&mut self, history: &MarketHistoryTable) {
-        self.next_id = history.iter().map(MarketHistoryEntry::id).max().unwrap_or(0);
-    }
-
-    pub(crate) fn next(&mut self) -> u64 {
-        self.next_id = self.next_id.saturating_add(1);
-        self.next_id
     }
 }

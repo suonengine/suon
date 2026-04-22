@@ -29,33 +29,6 @@ impl MarketActorName {
     }
 }
 
-/// A market item snapshot loaded for market lookups.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MarketItem {
-    id: u16,
-    name: String,
-}
-
-impl MarketItem {
-    /// Creates a new market-item snapshot.
-    pub fn new(id: u16, name: impl Into<String>) -> Self {
-        Self {
-            id,
-            name: name.into(),
-        }
-    }
-
-    /// Returns the item identifier.
-    pub fn id(&self) -> u16 {
-        self.id
-    }
-
-    /// Returns the item display name.
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-}
-
 /// Whether a market offer is buying or selling.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MarketTradeSide {

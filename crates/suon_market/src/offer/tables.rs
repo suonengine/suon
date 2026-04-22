@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use suon_database::prelude::SnapshotTable;
 use suon_macros::Table;
 
-use crate::offer::{MarketActorName, MarketItem, MarketOffer, MarketOfferId};
+use crate::offer::{MarketActorName, MarketOffer, MarketOfferId};
 
 /// Table containing actor names keyed by actor id.
 #[derive(Debug, Default, Table)]
@@ -69,16 +69,13 @@ pub struct MarketItemsTable {
 
 impl MarketItemsTable {
     /// Replaces the full item snapshot.
-    pub fn replace(&mut self, rows: impl IntoIterator<Item = MarketItem>) {
-        self.by_id = rows
-            .into_iter()
-            .map(|row| (row.id(), row.name().to_owned()))
-            .collect();
+    pub fn replace(&mut self, rows: impl IntoIterator<Item = (u16, String)>) {
+        self.by_id = rows.into_iter().collect();
     }
 
     /// Inserts or replaces a single item row.
-    pub fn insert(&mut self, row: MarketItem) -> Option<String> {
-        self.by_id.insert(row.id(), row.name().to_owned())
+    pub fn insert(&mut self, item_id: u16, name: impl Into<String>) -> Option<String> {
+        self.by_id.insert(item_id, name.into())
     }
 
     /// Returns the cached item name for the identifier.
@@ -97,16 +94,16 @@ impl MarketItemsTable {
     }
 
     /// Returns a detached snapshot of all item rows.
-    pub fn rows(&self) -> Vec<MarketItem> {
+    pub fn rows(&self) -> Vec<(u16, String)> {
         self.by_id
             .iter()
-            .map(|(id, name)| MarketItem::new(*id, name.clone()))
+            .map(|(id, name)| (*id, name.clone()))
             .collect()
     }
 }
 
 impl SnapshotTable for MarketItemsTable {
-    type Row = MarketItem;
+    type Row = (u16, String);
 
     fn replace_rows(&mut self, rows: Vec<Self::Row>) {
         MarketItemsTable::replace(self, rows);

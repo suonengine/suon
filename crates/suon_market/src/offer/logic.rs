@@ -70,7 +70,7 @@ pub(crate) fn cancel_offer(event: &MarketOfferCancelled, offers: &mut MarketOffe
     if event.offer().is_none() {
         debug!(
             "Skipping market offer cancellation for {:?}: offer {:?} was not cached",
-            event.client(),
+            event.entity(),
             event.offer_id()
         );
         return;
