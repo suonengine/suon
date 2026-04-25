@@ -1,4 +1,8 @@
 //! Startup systems for initializing database resources.
+//!
+//! These systems keep the database crate usable as a drop-in Bevy plugin: if
+//! the app already provides validated settings they are preserved, otherwise
+//! the crate loads or creates the documented settings file on disk.
 
 use bevy::prelude::*;
 #[cfg(test)]

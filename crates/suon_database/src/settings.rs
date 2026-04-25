@@ -1,46 +1,32 @@
-//! Generic settings shared by database-backed persistence providers.
+//! Generic settings shared by Diesel-backed persistence providers.
 
 use anyhow::Context;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
-use sqlx::any::AnyPoolOptions;
 use std::{
     fs::{self, File},
     io::Write,
-    path::Path,
+    path::{Path, PathBuf},
     time::Duration,
 };
 use suon_serde::{DocumentedToml, prelude::*};
 
-/// Generic persistence settings used by database-backed providers.
+/// Generic persistence settings used by Diesel-backed providers.
 #[derive(Resource, Serialize, Deserialize, DocumentedToml, Clone, Debug, PartialEq)]
 pub struct DatabaseSettings {
     /// Database connection URL.
     /// Supported backends: SQLite, PostgreSQL, MySQL, and MariaDB.
-    /// Examples: `sqlite://suon.db`, `postgres://user:password@localhost/suon`,
-    /// `mysql://user:password@localhost/suon`, `mariadb://user:password@localhost/suon`
     database_url: String,
 
-    /// Minimum number of connections kept ready by the backing pool.
-    min_connections: u32,
+    /// Busy timeout applied to SQLite connections.
+    #[serde(rename = "sqlite_busy_timeout_ms", with = "as_millis")]
+    sqlite_busy_timeout: Duration,
 
-    /// Maximum number of concurrent connections allowed by the backing pool.
-    max_connections: u32,
+    /// Enables foreign-key enforcement on SQLite.
+    sqlite_foreign_keys: bool,
 
-    /// Maximum time spent waiting to acquire a connection from the pool.
-    #[serde(rename = "acquire_timeout_secs", with = "as_secs")]
-    acquire_timeout: Duration,
-
-    /// Maximum idle time before an unused connection is recycled.
-    #[serde(default, rename = "idle_timeout_secs", with = "as_secs::option")]
-    idle_timeout: Option<Duration>,
-
-    /// Maximum lifetime before a connection is recycled.
-    #[serde(default, rename = "max_lifetime_secs", with = "as_secs::option")]
-    max_lifetime: Option<Duration>,
-
-    /// Whether the pool should validate a connection before handing it out.
-    test_before_acquire: bool,
+    /// Enables write-ahead logging on file-based SQLite databases.
+    sqlite_enable_wal: bool,
 
     /// Whether mappers should initialize the schema during startup.
     auto_initialize_schema: bool,
@@ -60,77 +46,73 @@ impl DatabaseSettings {
         DatabaseSettingsBuilder::default()
     }
 
-    /// URL used by the backing database driver, for example `sqlite://market.db`.
+    /// Database URL used by Diesel.
     pub fn database_url(&self) -> &str {
         &self.database_url
     }
 
-    /// Minimum number of connections kept ready by the backing pool.
-    pub fn min_connections(&self) -> u32 {
-        self.min_connections
+    /// Database URL normalized for the target backend.
+    pub fn normalized_database_url(&self) -> String {
+        normalize_database_url(&self.database_url)
     }
 
-    /// Maximum number of concurrent connections allowed by the backing pool.
-    pub fn max_connections(&self) -> u32 {
-        self.max_connections
+    /// Busy timeout applied to SQLite connections.
+    pub fn sqlite_busy_timeout(&self) -> Duration {
+        self.sqlite_busy_timeout
     }
 
-    /// Maximum time spent waiting to acquire a connection from the pool.
-    pub fn acquire_timeout(&self) -> Duration {
-        self.acquire_timeout
+    /// Whether SQLite foreign keys should be enabled.
+    pub fn sqlite_foreign_keys(&self) -> bool {
+        self.sqlite_foreign_keys
     }
 
-    /// Maximum idle time before an unused connection is recycled.
-    pub fn idle_timeout(&self) -> Option<Duration> {
-        self.idle_timeout
+    /// Whether write-ahead logging should be enabled for file-based SQLite databases.
+    pub fn sqlite_enable_wal(&self) -> bool {
+        self.sqlite_enable_wal
     }
 
-    /// Maximum lifetime before a connection is recycled.
-    pub fn max_lifetime(&self) -> Option<Duration> {
-        self.max_lifetime
-    }
-
-    /// Whether the pool should validate a connection before handing it out.
-    pub fn test_before_acquire(&self) -> bool {
-        self.test_before_acquire
-    }
-
-    /// Whether mappers should initialize the schema during startup.
+    /// Whether mappers should initialize schema during startup.
     pub fn auto_initialize_schema(&self) -> bool {
         self.auto_initialize_schema
+    }
+
+    /// Returns the filesystem path when the URL targets a SQLite file database.
+    pub fn sqlite_path(&self) -> Option<PathBuf> {
+        sqlite_path_from_url(&self.database_url)
+    }
+
+    /// Returns whether the URL targets an in-memory SQLite database.
+    pub fn is_in_memory_sqlite(&self) -> bool {
+        matches!(
+            parse_database_target(&self.database_url),
+            DatabaseTarget::SqliteMemory
+        )
     }
 
     /// Returns a log-safe summary of the database settings.
     pub fn summary(&self) -> String {
         format!(
-            "backend={}, target={}, pool_min={}, pool_max={}, acquire_timeout_secs={}, \
-             idle_timeout_secs={}, max_lifetime_secs={}, test_before_acquire={}, \
-             auto_initialize_schema={}",
-            self.backend_name(),
+            "backend={}, target={}, sqlite_busy_timeout_ms={}, sqlite_foreign_keys={}, \
+             sqlite_enable_wal={}, auto_initialize_schema={}",
+            backend_name(&self.database_url),
             self.redacted_target(),
-            self.min_connections,
-            self.max_connections,
-            self.acquire_timeout.as_secs(),
-            option_or_disabled(self.idle_timeout),
-            option_or_disabled(self.max_lifetime),
-            self.test_before_acquire,
+            self.sqlite_busy_timeout.as_millis(),
+            self.sqlite_foreign_keys,
+            self.sqlite_enable_wal,
             self.auto_initialize_schema
         )
     }
 
-    fn backend_name(&self) -> &str {
-        self.database_url
-            .split_once(':')
-            .map(|(scheme, _)| scheme)
-            .unwrap_or("unknown")
-    }
-
     fn redacted_target(&self) -> String {
-        if self.database_url.starts_with("sqlite:") {
-            return redact_sqlite_target(&self.database_url);
+        match parse_database_target(&self.database_url) {
+            DatabaseTarget::SqliteMemory => ":memory:".to_string(),
+            DatabaseTarget::SqliteFile(path) => path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .map_or_else(|| "<sqlite-file>".to_string(), ToString::to_string),
+            DatabaseTarget::Server => "<redacted>".to_string(),
+            DatabaseTarget::Invalid => "<invalid>".to_string(),
         }
-
-        "<redacted>".to_string()
     }
 
     fn load_or_default_at(path: &Path) -> anyhow::Result<Self> {
@@ -151,73 +133,30 @@ impl DatabaseSettings {
         Self::create_at(path)
     }
 
-    fn load_at(path: &Path) -> anyhow::Result<Self> {
-        debug!(
-            "Attempting to read database configuration from '{}'",
-            path.display()
-        );
-
+    pub(crate) fn load_at(path: &Path) -> anyhow::Result<Self> {
         let config = fs::read_to_string(path).context("Failed to read database settings file")?;
-
-        info!(
-            "Successfully read database configuration file '{}'",
-            path.display()
-        );
-
         let settings: Self =
             toml::from_str(&config).context("Failed to parse database settings as TOML")?;
-
-        let settings = DatabaseSettingsBuilder::from(&settings).build()?;
-
-        trace!("Loaded database settings: {:?}", settings);
-
-        Ok(settings)
+        DatabaseSettingsBuilder::from(&settings).build()
     }
 
-    fn create_at(path: &Path) -> anyhow::Result<Self> {
+    pub(crate) fn create_at(path: &Path) -> anyhow::Result<Self> {
         let default_config = Self::default();
-
-        info!(
-            "Creating default database configuration file '{}'",
-            path.display()
-        );
-
         Self::write_at(path, &default_config)?;
-
-        info!(
-            "Default database configuration written to '{}'. Reloading from file.",
-            path.display()
-        );
-
         Self::load_at(path)
     }
 
     fn write_at(path: &Path, settings: &Self) -> anyhow::Result<()> {
-        debug!("Rendering documented database configuration");
-
         let config = write_documented_toml(settings)
             .context("Failed to serialize default database settings")?;
 
         if let Some(parent) = path.parent() {
-            debug!(
-                "Ensuring database settings directory '{}' exists",
-                parent.display()
-            );
             fs::create_dir_all(parent).context("Failed to create settings directory")?;
         }
 
-        debug!(
-            "Creating database configuration file at '{}'",
-            path.display()
-        );
-
         let mut file = File::create(path).context("Failed to create the database settings file")?;
-
-        debug!("Writing database configuration to file");
-
         file.write_all(config.as_bytes())
             .context("Failed to write the database settings file")?;
-
         file.sync_all()
             .context("Failed to flush the database settings file")?;
 
@@ -225,134 +164,99 @@ impl DatabaseSettings {
     }
 }
 
-#[derive(Debug)]
-pub(crate) struct DatabaseConnectOptions {
-    pub(crate) database_url: String,
-    pub(crate) pool_options: AnyPoolOptions,
+/// Parsed target classification used to produce log-safe setting summaries.
+enum DatabaseTarget {
+    SqliteMemory,
+    SqliteFile(PathBuf),
+    Server,
+    Invalid,
 }
 
-impl DatabaseConnectOptions {
-    /// Creates validated connection options from raw database settings.
-    pub(crate) fn from_settings(settings: &DatabaseSettings) -> anyhow::Result<Self> {
-        let settings = DatabaseSettingsBuilder::from(settings).build()?;
+/// Classifies a database URL into a coarse backend target category.
+fn parse_database_target(database_url: &str) -> DatabaseTarget {
+    if matches!(database_url, "sqlite::memory:" | "sqlite://:memory:") {
+        return DatabaseTarget::SqliteMemory;
+    }
 
-        let pool_options = AnyPoolOptions::new()
-            .min_connections(settings.min_connections)
-            .max_connections(settings.max_connections)
-            .acquire_timeout(settings.acquire_timeout)
-            .idle_timeout(settings.idle_timeout)
-            .max_lifetime(settings.max_lifetime)
-            .test_before_acquire(settings.test_before_acquire);
+    if let Some(path) = sqlite_path_from_url(database_url) {
+        return DatabaseTarget::SqliteFile(path);
+    }
 
-        Ok(Self {
-            database_url: database_url_with_sqlite_create_mode(&settings.database_url),
-            pool_options,
-        })
+    if matches_scheme(
+        database_url,
+        &["postgres://", "postgresql://", "mysql://", "mariadb://"],
+    ) {
+        return DatabaseTarget::Server;
+    }
+
+    DatabaseTarget::Invalid
+}
+
+/// Returns whether the URL begins with any of the provided schemes.
+fn matches_scheme(database_url: &str, schemes: &[&str]) -> bool {
+    schemes
+        .iter()
+        .any(|scheme| database_url.starts_with(scheme))
+}
+
+/// Returns a short backend label safe to expose in logs.
+fn backend_name(database_url: &str) -> &str {
+    if database_url.starts_with("sqlite:") {
+        "sqlite"
+    } else if matches_scheme(database_url, &["postgres://", "postgresql://"]) {
+        "postgres"
+    } else if matches_scheme(database_url, &["mysql://", "mariadb://"]) {
+        "mysql"
+    } else {
+        "unknown"
     }
 }
 
-fn database_url_with_sqlite_create_mode(database_url: &str) -> String {
+/// Normalizes backend aliases into the form expected by Diesel clients.
+fn normalize_database_url(database_url: &str) -> String {
+    if let Some(stripped) = database_url.strip_prefix("mariadb://") {
+        return format!("mysql://{stripped}");
+    }
+
+    database_url.to_string()
+}
+
+/// Extracts the backing filesystem path from a SQLite URL when present.
+fn sqlite_path_from_url(database_url: &str) -> Option<PathBuf> {
     if !database_url.starts_with("sqlite:") {
-        return database_url.to_string();
+        return None;
     }
 
-    let database_and_params = database_url
+    let target = database_url
         .trim_start_matches("sqlite://")
         .trim_start_matches("sqlite:");
-    let mut parts = database_and_params.splitn(2, '?');
-    let database = parts.next().unwrap_or_default();
-    let params = parts.next();
-
-    if database == ":memory:" {
-        return database_url.to_string();
-    }
-
-    if params.is_some_and(|params| {
-        params.split('&').any(|pair| {
-            pair.split_once('=')
-                .map_or(pair == "mode", |(key, _)| key == "mode")
-        })
-    }) {
-        return database_url.to_string();
-    }
-
-    let separator = if database_url.contains('?') { '&' } else { '?' };
-    format!("{database_url}{separator}mode=rwc")
-}
-
-fn redact_sqlite_target(database_url: &str) -> String {
-    let database_and_params = database_url
-        .trim_start_matches("sqlite://")
-        .trim_start_matches("sqlite:");
-    let database = database_and_params
+    let target = target
         .split_once('?')
-        .map(|(database, _)| database)
-        .unwrap_or(database_and_params);
+        .map(|(path, _)| path)
+        .unwrap_or(target);
 
-    if database == ":memory:" {
-        return ":memory:".to_string();
-    }
-
-    if database.is_empty() {
-        return "<default>".to_string();
-    }
-
-    Path::new(database)
-        .file_name()
-        .and_then(|name| name.to_str())
-        .map_or_else(|| "<sqlite-file>".to_string(), ToString::to_string)
-}
-
-fn option_or_disabled(value: Option<Duration>) -> String {
-    value.map_or_else(
-        || "disabled".to_string(),
-        |value| value.as_secs().to_string(),
-    )
-}
-
-impl Default for DatabaseSettings {
-    fn default() -> Self {
-        Self {
-            database_url: "sqlite://suon.db?mode=rwc".to_string(),
-            min_connections: 1,
-            max_connections: 4,
-            acquire_timeout: Duration::from_secs(30),
-            idle_timeout: Some(Duration::from_secs(300)),
-            max_lifetime: Some(Duration::from_secs(1800)),
-            test_before_acquire: true,
-            auto_initialize_schema: true,
-        }
+    match target {
+        "" | ":memory:" => None,
+        value => Some(PathBuf::from(value)),
     }
 }
 
 /// Public builder used to create validated [`DatabaseSettings`] values.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DatabaseSettingsBuilder {
-    /// Database connection URL.
-    /// Supported backends: SQLite, PostgreSQL, MySQL, and MariaDB.
-    /// Examples: `sqlite://suon.db`, `postgres://user:password@localhost/suon`,
-    /// `mysql://user:password@localhost/suon`, `mariadb://user:password@localhost/suon`
+    /// Database URL.
     pub database_url: String,
 
-    /// Minimum number of connections kept ready by the backing pool.
-    pub min_connections: u32,
+    /// Busy timeout applied to SQLite connections.
+    pub sqlite_busy_timeout: Duration,
 
-    /// Maximum number of concurrent connections allowed by the backing pool.
-    pub max_connections: u32,
+    /// Whether SQLite foreign keys should be enabled.
+    pub sqlite_foreign_keys: bool,
 
-    /// Maximum time spent waiting to acquire a connection from the pool.
-    pub acquire_timeout: Duration,
+    /// Whether write-ahead logging should be enabled for file-based SQLite databases.
+    pub sqlite_enable_wal: bool,
 
-    /// Maximum idle time before an unused connection is recycled.
-    pub idle_timeout: Option<Duration>,
-
-    /// Maximum lifetime before a connection is recycled.
-    pub max_lifetime: Option<Duration>,
-
-    /// Whether the pool should validate a connection before handing it out.
-    pub test_before_acquire: bool,
-
-    /// Whether mappers should initialize the schema during startup.
+    /// Whether mappers should initialize schema during startup.
     pub auto_initialize_schema: bool,
 }
 
@@ -369,31 +273,31 @@ impl DatabaseSettingsBuilder {
             "DatabaseSettings.database_url must not be empty"
         );
         anyhow::ensure!(
-            self.max_connections > 0,
-            "DatabaseSettings.max_connections must be greater than zero"
+            matches_scheme(
+                &self.database_url,
+                &[
+                    "sqlite:",
+                    "postgres://",
+                    "postgresql://",
+                    "mysql://",
+                    "mariadb://"
+                ]
+            ),
+            "DatabaseSettings.database_url must use sqlite:, postgres://, postgresql://, \
+             mysql://, or mariadb://"
         );
         anyhow::ensure!(
-            self.min_connections <= self.max_connections,
-            "DatabaseSettings.min_connections must not exceed DatabaseSettings.max_connections"
-        );
-        anyhow::ensure!(
-            self.acquire_timeout > Duration::ZERO,
-            "DatabaseSettings.acquire_timeout must be greater than zero"
+            self.sqlite_busy_timeout > Duration::ZERO,
+            "DatabaseSettings.sqlite_busy_timeout must be greater than zero"
         );
 
-        let settings = DatabaseSettings {
+        Ok(DatabaseSettings {
             database_url: self.database_url,
-            min_connections: self.min_connections,
-            max_connections: self.max_connections,
-            acquire_timeout: self.acquire_timeout,
-            idle_timeout: self.idle_timeout,
-            max_lifetime: self.max_lifetime,
-            test_before_acquire: self.test_before_acquire,
+            sqlite_busy_timeout: self.sqlite_busy_timeout,
+            sqlite_foreign_keys: self.sqlite_foreign_keys,
+            sqlite_enable_wal: self.sqlite_enable_wal,
             auto_initialize_schema: self.auto_initialize_schema,
-        };
-
-        debug!("Database settings validated successfully.");
-        Ok(settings)
+        })
     }
 }
 
@@ -401,12 +305,9 @@ impl From<&DatabaseSettings> for DatabaseSettingsBuilder {
     fn from(settings: &DatabaseSettings) -> Self {
         Self {
             database_url: settings.database_url.clone(),
-            min_connections: settings.min_connections,
-            max_connections: settings.max_connections,
-            acquire_timeout: settings.acquire_timeout,
-            idle_timeout: settings.idle_timeout,
-            max_lifetime: settings.max_lifetime,
-            test_before_acquire: settings.test_before_acquire,
+            sqlite_busy_timeout: settings.sqlite_busy_timeout,
+            sqlite_foreign_keys: settings.sqlite_foreign_keys,
+            sqlite_enable_wal: settings.sqlite_enable_wal,
             auto_initialize_schema: settings.auto_initialize_schema,
         }
     }
@@ -418,20 +319,29 @@ impl Default for DatabaseSettingsBuilder {
 
         Self {
             database_url: settings.database_url,
-            min_connections: settings.min_connections,
-            max_connections: settings.max_connections,
-            acquire_timeout: settings.acquire_timeout,
-            idle_timeout: settings.idle_timeout,
-            max_lifetime: settings.max_lifetime,
-            test_before_acquire: settings.test_before_acquire,
+            sqlite_busy_timeout: settings.sqlite_busy_timeout,
+            sqlite_foreign_keys: settings.sqlite_foreign_keys,
+            sqlite_enable_wal: settings.sqlite_enable_wal,
             auto_initialize_schema: settings.auto_initialize_schema,
+        }
+    }
+}
+
+impl Default for DatabaseSettings {
+    fn default() -> Self {
+        Self {
+            database_url: "sqlite://suon.db".to_string(),
+            sqlite_busy_timeout: Duration::from_secs(30),
+            sqlite_foreign_keys: true,
+            sqlite_enable_wal: true,
+            auto_initialize_schema: true,
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{DatabaseConnectOptions, DatabaseSettings, DatabaseSettingsBuilder};
+    use super::{DatabaseSettings, DatabaseSettingsBuilder};
     use std::{
         env, fs,
         path::PathBuf,
@@ -451,30 +361,22 @@ mod tests {
     #[test]
     fn database_settings_roundtrip_through_toml() {
         let settings = DatabaseSettings::default();
-
         let serialized =
             toml::to_string(&settings).expect("default database settings should serialize");
-
         let deserialized: DatabaseSettings =
             toml::from_str(&serialized).expect("serialized settings should parse back");
 
-        assert_eq!(
-            deserialized, settings,
-            "DatabaseSettings should round-trip through TOML without losing information"
-        );
+        assert_eq!(deserialized, settings);
     }
 
     #[test]
     fn should_provide_predictable_default_database_settings() {
         let settings = DatabaseSettings::default();
 
-        assert_eq!(settings.database_url(), "sqlite://suon.db?mode=rwc");
-        assert_eq!(settings.max_connections(), 4);
-        assert_eq!(settings.min_connections(), 1);
-        assert_eq!(settings.acquire_timeout(), Duration::from_secs(30));
-        assert_eq!(settings.idle_timeout(), Some(Duration::from_secs(300)));
-        assert_eq!(settings.max_lifetime(), Some(Duration::from_secs(1800)));
-        assert!(settings.test_before_acquire());
+        assert_eq!(settings.database_url(), "sqlite://suon.db");
+        assert_eq!(settings.sqlite_busy_timeout(), Duration::from_secs(30));
+        assert!(settings.sqlite_foreign_keys());
+        assert!(settings.sqlite_enable_wal());
         assert!(settings.auto_initialize_schema());
     }
 
@@ -491,101 +393,27 @@ mod tests {
     }
 
     #[test]
-    fn should_support_clone_debug_and_partial_eq_for_settings() {
-        let settings = DatabaseSettings::default();
-        let cloned = settings.clone();
-
-        assert_eq!(cloned, settings);
-        assert!(format!("{cloned:?}").contains("sqlite://suon.db?mode=rwc"));
-    }
-
-    #[test]
-    fn should_build_pool_options_from_timeout_settings() {
-        let settings = DatabaseSettingsBuilder {
-            acquire_timeout: Duration::from_secs(9),
-            idle_timeout: Some(Duration::from_secs(12)),
-            max_lifetime: Some(Duration::from_secs(18)),
-            ..DatabaseSettingsBuilder::default()
-        }
-        .build()
-        .expect("builder should create valid timeout settings");
-
-        let options = DatabaseConnectOptions::from_settings(&settings)
-            .expect("from_settings should convert timeout fields into pool options");
-
-        assert_eq!(options.database_url, "sqlite://suon.db?mode=rwc");
-    }
-
-    #[test]
-    fn should_add_create_mode_to_legacy_sqlite_file_urls() {
-        let settings = DatabaseSettingsBuilder {
-            database_url: "sqlite://legacy.db".to_string(),
-            ..DatabaseSettingsBuilder::default()
-        }
-        .build()
-        .expect("builder should accept legacy sqlite urls");
-
-        let options = DatabaseConnectOptions::from_settings(&settings)
-            .expect("from_settings should convert sqlite file urls into connection options");
-
-        assert_eq!(options.database_url, "sqlite://legacy.db?mode=rwc");
-    }
-
-    #[test]
-    fn should_preserve_explicit_sqlite_modes_and_memory_urls() {
-        for database_url in [
-            "sqlite::memory:",
-            "sqlite://:memory:",
-            "sqlite://readonly.db?mode=ro",
-        ] {
-            let settings = DatabaseSettingsBuilder {
-                database_url: database_url.to_string(),
+    fn should_parse_supported_database_urls() {
+        assert!(
+            DatabaseSettingsBuilder {
+                database_url: "sqlite::memory:".to_string(),
                 ..DatabaseSettingsBuilder::default()
             }
             .build()
-            .expect("builder should accept sqlite urls");
+            .expect("memory database should be valid")
+            .is_in_memory_sqlite()
+        );
 
-            let options = DatabaseConnectOptions::from_settings(&settings)
-                .expect("from_settings should convert sqlite urls into connection options");
-
-            assert_eq!(options.database_url, database_url);
-        }
-    }
-
-    #[test]
-    fn should_preserve_non_sqlite_any_pool_urls() {
-        for database_url in [
-            "postgres://suon:secret@localhost/suon",
-            "mysql://suon:secret@localhost/suon",
-        ] {
-            let settings = DatabaseSettingsBuilder {
-                database_url: database_url.to_string(),
+        assert_eq!(
+            DatabaseSettingsBuilder {
+                database_url: "mariadb://user:secret@localhost/suon".to_string(),
                 ..DatabaseSettingsBuilder::default()
             }
             .build()
-            .expect("builder should accept non-empty AnyPool urls");
-
-            let options = DatabaseConnectOptions::from_settings(&settings)
-                .expect("from_settings should preserve non-sqlite URLs");
-
-            assert_eq!(options.database_url, database_url);
-        }
-    }
-
-    #[test]
-    fn should_allow_optional_pool_timeouts_to_be_disabled() {
-        let settings = DatabaseSettingsBuilder {
-            idle_timeout: None,
-            max_lifetime: None,
-            ..DatabaseSettingsBuilder::default()
-        }
-        .build()
-        .expect("builder should allow optional pool recycling settings to be disabled");
-
-        let options = DatabaseConnectOptions::from_settings(&settings)
-            .expect("from_settings should allow optional pool recycling settings to be disabled");
-
-        assert!(format!("{:?}", options.pool_options).contains("PoolOptions"));
+            .expect("mariadb should be valid")
+            .normalized_database_url(),
+            "mysql://user:secret@localhost/suon"
+        );
     }
 
     #[test]
@@ -605,64 +433,34 @@ mod tests {
     }
 
     #[test]
-    fn validate_should_reject_zero_max_connections() {
+    fn validate_should_reject_unsupported_urls() {
         let error = DatabaseSettingsBuilder {
-            max_connections: 0,
+            database_url: "sqlserver://localhost/suon".to_string(),
             ..DatabaseSettingsBuilder::default()
         }
         .build()
-        .expect_err("validate should reject zero max connections");
-
-        assert!(
-            error
-                .to_string()
-                .contains("DatabaseSettings.max_connections must be greater than zero")
-        );
-    }
-
-    #[test]
-    fn validate_should_reject_min_connections_above_max_connections() {
-        let error = DatabaseSettingsBuilder {
-            min_connections: 5,
-            max_connections: 4,
-            ..DatabaseSettingsBuilder::default()
-        }
-        .build()
-        .expect_err("validate should reject min connections above max connections");
+        .expect_err("validate should reject unsupported urls");
 
         assert!(error.to_string().contains(
-            "DatabaseSettings.min_connections must not exceed DatabaseSettings.max_connections"
+            "DatabaseSettings.database_url must use sqlite:, postgres://, postgresql://, \
+             mysql://, or mariadb://"
         ));
     }
 
     #[test]
-    fn validate_should_reject_zero_acquire_timeout() {
+    fn validate_should_reject_zero_busy_timeout() {
         let error = DatabaseSettingsBuilder {
-            acquire_timeout: Duration::ZERO,
+            sqlite_busy_timeout: Duration::ZERO,
             ..DatabaseSettingsBuilder::default()
         }
         .build()
-        .expect_err("validate should reject zero acquire timeouts");
+        .expect_err("validate should reject zero busy timeouts");
 
         assert!(
             error
                 .to_string()
-                .contains("DatabaseSettings.acquire_timeout must be greater than zero")
+                .contains("DatabaseSettings.sqlite_busy_timeout must be greater than zero")
         );
-    }
-
-    #[test]
-    fn builder_should_create_settings_from_public_fields() {
-        let settings = DatabaseSettingsBuilder {
-            database_url: "sqlite://builder.db".to_string(),
-            max_connections: 8,
-            ..DatabaseSettingsBuilder::default()
-        }
-        .build()
-        .expect("builder should produce validated settings");
-
-        assert_eq!(settings.database_url(), "sqlite://builder.db");
-        assert_eq!(settings.max_connections(), 8);
     }
 
     #[test]
@@ -678,10 +476,7 @@ mod tests {
 
         let written =
             fs::read_to_string(&config_path).expect("the documented settings file should exist");
-        assert!(
-            written.contains("# Generic persistence settings used by database-backed providers.")
-        );
-        assert!(written.contains("acquire_timeout_secs = 30"));
+        assert!(written.contains("sqlite_busy_timeout_ms = 30000"));
     }
 
     #[test]
@@ -691,13 +486,10 @@ mod tests {
 
         let config_path = temp_dir.join("Settings.toml");
         let config = r#"
-database_url = "sqlite://loaded.db"
-min_connections = 2
-max_connections = 6
-acquire_timeout_secs = 15
-idle_timeout_secs = 120
-max_lifetime_secs = 900
-test_before_acquire = false
+database_url = "postgres://loaded"
+sqlite_busy_timeout_ms = 1500
+sqlite_foreign_keys = false
+sqlite_enable_wal = false
 auto_initialize_schema = false
 "#;
 
@@ -706,13 +498,10 @@ auto_initialize_schema = false
         let loaded = DatabaseSettings::load_at(&config_path)
             .expect("load_at should deserialize existing TOML settings");
 
-        assert_eq!(loaded.database_url(), "sqlite://loaded.db");
-        assert_eq!(loaded.min_connections(), 2);
-        assert_eq!(loaded.max_connections(), 6);
-        assert_eq!(loaded.acquire_timeout(), Duration::from_secs(15));
-        assert_eq!(loaded.idle_timeout(), Some(Duration::from_secs(120)));
-        assert_eq!(loaded.max_lifetime(), Some(Duration::from_secs(900)));
-        assert!(!loaded.test_before_acquire());
+        assert_eq!(loaded.database_url(), "postgres://loaded");
+        assert_eq!(loaded.sqlite_busy_timeout(), Duration::from_millis(1500));
+        assert!(!loaded.sqlite_foreign_keys());
+        assert!(!loaded.sqlite_enable_wal());
         assert!(!loaded.auto_initialize_schema());
     }
 }

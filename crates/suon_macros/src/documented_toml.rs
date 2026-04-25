@@ -1,5 +1,11 @@
+//! Derive support for TOML documentation metadata exported by `suon_serde`.
+//!
+//! The derive reads Rust doc comments and serde rename metadata from a struct
+//! and turns them into `suon_serde::DocumentedToml`, which is later rendered
+//! into user-facing configuration files with inline comments.
+
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{ToTokens, quote};
 use syn::{Data, DeriveInput, Field, Fields, Type, parse_macro_input};
 
 pub fn derive_documented_toml(input: TokenStream) -> TokenStream {
@@ -48,6 +54,7 @@ pub fn derive_documented_toml(input: TokenStream) -> TokenStream {
     .into()
 }
 
+/// Collects trimmed Rust doc comment lines from an item or field.
 fn doc_lines(attrs: &[syn::Attribute]) -> Vec<String> {
     attrs
         .iter()
@@ -65,6 +72,7 @@ fn doc_lines(attrs: &[syn::Attribute]) -> Vec<String> {
         .collect()
 }
 
+/// Infers the documented TOML field kind from the Rust field type.
 fn field_kind(field: &Field) -> proc_macro2::TokenStream {
     match &field.ty {
         Type::Path(path) => classify_path(
@@ -75,6 +83,7 @@ fn field_kind(field: &Field) -> proc_macro2::TokenStream {
     }
 }
 
+/// Returns the serde-visible field name when `rename = "...“` is present.
 fn field_serde_name(field: &Field) -> Option<String> {
     for attr in &field.attrs {
         if !attr.path().is_ident("serde") {
@@ -100,6 +109,7 @@ fn field_serde_name(field: &Field) -> Option<String> {
     None
 }
 
+/// Classifies common container and nested settings types used in TOML docs.
 fn classify_path(name: String, ty: &Type) -> proc_macro2::TokenStream {
     if name == "Option" {
         if let Some(inner) = first_generic_type(ty)
@@ -144,6 +154,7 @@ fn classify_path(name: String, ty: &Type) -> proc_macro2::TokenStream {
     }
 }
 
+/// Returns the first generic type parameter from a type such as `Option<T>`.
 fn first_generic_type(ty: &Type) -> Option<Type> {
     let Type::Path(type_path) = ty else {
         return None;
@@ -155,11 +166,12 @@ fn first_generic_type(ty: &Type) -> Option<Type> {
     };
 
     arguments.args.iter().find_map(|argument| match argument {
-        syn::GenericArgument::Type(inner) => Some(inner.clone()),
+        syn::GenericArgument::Type(inner) => syn::parse2(inner.to_token_stream()).ok(),
         _ => None,
     })
 }
 
+/// Returns the last identifier segment for a path type.
 fn type_name(ty: &Type) -> Option<String> {
     let Type::Path(path) = ty else {
         return None;
@@ -168,6 +180,8 @@ fn type_name(ty: &Type) -> Option<String> {
     Some(path.path.segments.last()?.ident.to_string())
 }
 
+/// Heuristic used to decide whether a type should be rendered as a nested TOML
+/// table in generated documentation.
 fn is_nested_type(name: &str) -> bool {
     matches!(
         name,

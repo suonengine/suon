@@ -1,13 +1,16 @@
 # suon_database
 
-Typed database tables and snapshot persistence for the Suon MMORPG framework.
+Typed database tables, Diesel connection helpers, and snapshot persistence for
+the Suon MMORPG framework.
 
 `suon_database` provides:
 
 - Typed Bevy resources for domain tables
 - Focused `SystemParam`s for reading and writing table data
 - Snapshot-based persistence contracts for loading and saving tables
-- Backend-neutral database connections powered by Bevy task utilities
+- Diesel-backed connections powered by Bevy task utilities
+- A small prelude of SQL types and query execution helpers used by persistence
+  crates
 
 ## Installation
 
@@ -65,9 +68,11 @@ Each type that implements `Table` is stored in its own `Tables<T>` resource. Sys
 work with that data through `Database<T>` and `DatabaseMut<T>`, which dereference
 directly to the inner table and keep call sites concise.
 
-For persistence, `DatabaseConnection<D>` combines backend-specific data with Bevy task-backed
-async execution helpers. `SnapshotTable` defines how a table exposes rows, while `TableMapper<T, D>`
-handles backend-specific schema and row translation.
+For persistence, `DatabaseConnection<D>` combines backend-specific data with
+Bevy task-backed async execution helpers. `SnapshotTable` defines how a table
+exposes rows, while `TableMapper<T, D>` handles backend-specific schema and row
+translation. Actual row models and queries are expected to use Diesel's native
+`table!`, `Queryable`, `Selectable`, and `Insertable` patterns directly.
 
 ### ECS Tables
 
@@ -89,12 +94,12 @@ handles backend-specific schema and row translation.
 | `DatabaseConnection<D>` | Backend-specific data plus task-backed async helpers |
 | `DatabaseData` | Marker trait for backend payloads |
 | `PoolData` | Trait for backends that expose a pool handle |
-| `DatabasePool` | Default SQL payload backed by `sqlx::AnyPool` |
-| `DatabaseSettings` | Connection and pool configuration |
+| `DatabasePool` | Default Diesel SQLite payload |
+| `DatabaseSettings` | SQLite connection and pragma configuration |
 
-### SQL Connections
+### Diesel Connections
 
-Workspace SQL integrations use `DatabaseConnection<DatabasePool>`. A minimal setup looks like this:
+Workspace persistence integrations use `DatabaseConnection<DatabasePool>`. A minimal setup looks like this:
 
 ```rust
 # use anyhow::Result;

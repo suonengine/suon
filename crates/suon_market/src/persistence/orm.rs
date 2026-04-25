@@ -57,6 +57,8 @@ impl MarketOrmResource {
 impl Deref for MarketOrmResource {
     type Target = dyn MarketOrm;
 
+    /// Dereferences directly to the active ORM provider so systems can call the
+    /// persistence API without reaching for `.provider()`.
     fn deref(&self) -> &Self::Target {
         self.0.as_ref()
     }

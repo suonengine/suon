@@ -195,7 +195,7 @@ mod tests {
         );
 
         let written = fs::read_to_string(&path).expect("the settings file should be readable");
-        assert!(written.contains("# Configuration for the Suon root plugin bootstrap."));
+        assert!(written.contains("# Core runtime settings for a Suon server process."));
         assert!(written.contains("event_loop_hz = 60.0"));
 
         fs::remove_file(&path).expect("The temp settings file should be removed");

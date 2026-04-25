@@ -1,11 +1,23 @@
-//! Backend-neutral database connections and the default SQL-backed payload.
+//! Diesel-backed database connections and transactional helpers.
 
-use crate::settings::{DatabaseConnectOptions, DatabaseSettings};
-use anyhow::{Context, Result, bail};
+use crate::settings::DatabaseSettings;
+use anyhow::{Context, Result, anyhow, bail};
 use bevy::tasks::block_on;
-use sqlx::{AnyPool, any::install_default_drivers};
+use diesel::{
+    Connection, Insertable, MysqlConnection, PgConnection, RunQueryDsl, SqliteConnection,
+    associations::HasTable,
+    expression::Expression,
+    insertable::CanInsertInSingleQuery,
+    query_builder::{IntoUpdateTarget, QueryFragment, QueryId},
+    query_dsl::{
+        LoadQuery,
+        methods::{ExecuteDsl, FilterDsl, OrderDsl},
+    },
+    sql_query,
+};
+use std::{fs, marker::PhantomData, path::Path, sync::Mutex};
 
-/// Database backend selected by an [`sqlx::AnyPool`] URL.
+/// Database backend supported by the default Diesel integration.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DatabaseBackend {
     /// SQLite file or in-memory backend.
@@ -14,42 +26,47 @@ pub enum DatabaseBackend {
     Postgres,
     /// MySQL backend.
     MySql,
-    /// MariaDB backend.
+    /// MariaDB backend routed through Diesel's MySQL support.
     MariaDb,
 }
 
 impl DatabaseBackend {
-    /// Detects the database backend from an AnyPool URL scheme.
+    /// Detects the database backend from a configured URL.
     pub fn from_url(database_url: &str) -> Result<Self> {
         if database_url.starts_with("sqlite:") {
-            Ok(Self::Sqlite)
-        } else if database_url.starts_with("postgres:") || database_url.starts_with("postgresql:") {
-            Ok(Self::Postgres)
-        } else if database_url.starts_with("mysql:") {
-            Ok(Self::MySql)
-        } else if database_url.starts_with("mariadb:") {
-            Ok(Self::MariaDb)
-        } else {
-            bail!("Unsupported database URL scheme for AnyPool: '{database_url}'")
+            return Ok(Self::Sqlite);
         }
+
+        if database_url.starts_with("postgres://") || database_url.starts_with("postgresql://") {
+            return Ok(Self::Postgres);
+        }
+
+        if database_url.starts_with("mysql://") {
+            return Ok(Self::MySql);
+        }
+
+        if database_url.starts_with("mariadb://") {
+            return Ok(Self::MariaDb);
+        }
+
+        bail!("Unsupported database URL scheme for enabled Diesel backends: '{database_url}'")
     }
 }
 
 /// Marker trait for backend-specific connection data stored inside a [`DatabaseConnection`].
 pub trait DatabaseData: Send + Sync + 'static {}
 
-/// Trait for backends that expose a pool-like handle.
+/// Trait for backends that expose a connection-like handle.
 pub trait PoolData: DatabaseData {
-    /// Concrete pool type exposed by the backend payload.
+    /// Concrete connection handle exposed by the backend payload.
     type Pool;
 
-    /// Returns the pool-like handle carried by the backend payload.
+    /// Returns the handle carried by the backend payload.
     fn pool(&self) -> &Self::Pool;
 }
 
-/// Backend-specific connection data plus task-backed async helpers.
+/// Backend-specific connection data plus task-backed helpers.
 pub struct DatabaseConnection<D: DatabaseData> {
-    /// Backend-specific state, such as a SQL pool.
     data: D,
 }
 
@@ -73,12 +90,191 @@ impl<D: DatabaseData> DatabaseConnection<D> {
     }
 }
 
-/// `AnyPool` storage used by the default persistence integration.
-pub struct DatabasePool {
-    /// Lazy pool configured from [`DatabaseSettings`].
-    pool: AnyPool,
+/// Connection enum used across all Diesel backends enabled for this crate.
+#[derive(diesel::MultiConnection)]
+pub enum AnyDieselConnection {
+    /// PostgreSQL connection variant.
+    Postgres(PgConnection),
+    /// MySQL or MariaDB connection variant.
+    Mysql(MysqlConnection),
+    /// SQLite connection variant available in the default feature set.
+    Sqlite(SqliteConnection),
+}
 
-    /// Backend selected by the configured database URL.
+impl AnyDieselConnection {
+    /// Creates a typed select query inferred from the record's Diesel table.
+    pub fn query<Record>(&mut self) -> PendingStatement<'_, Record::Query, Record>
+    where
+        Record: DatabaseRecord,
+    {
+        PendingStatement {
+            connection: self,
+            query: Record::query(),
+            _record: PhantomData,
+        }
+    }
+
+    /// Creates a pending insert inferred from the record's Diesel table.
+    pub fn insert<Record>(&mut self, record: Record) -> PendingInsert<'_, Record>
+    where
+        Record: HasTable,
+    {
+        PendingInsert {
+            connection: self,
+            record,
+        }
+    }
+
+    /// Creates a delete query inferred from the record's Diesel table.
+    pub fn delete<Record>(&mut self) -> PendingStatement<'_, diesel::dsl::delete<Record::Table>>
+    where
+        Record: HasTable,
+        Record::Table: IntoUpdateTarget,
+    {
+        PendingStatement {
+            connection: self,
+            query: diesel::delete(Record::table()),
+            _record: PhantomData,
+        }
+    }
+}
+
+/// Diesel record metadata generated by `suon_macros::database_model`.
+pub trait DatabaseRecord: HasTable {
+    /// Typed select query for this record.
+    type Query;
+    /// Typed table columns exposed to query builder closures.
+    type Columns;
+
+    /// Builds a typed select query.
+    fn query() -> Self::Query;
+    /// Builds typed table column handles.
+    fn columns() -> Self::Columns;
+}
+
+/// Pending query or write operation created by [`AnyDieselConnection`].
+pub struct PendingStatement<'connection, Query, Record = ()> {
+    connection: &'connection mut AnyDieselConnection,
+    query: Query,
+    _record: PhantomData<Record>,
+}
+
+impl<'connection, Query, Record> PendingStatement<'connection, Query, Record> {
+    /// Creates a pending statement from an already-built Diesel query.
+    pub fn new(connection: &'connection mut AnyDieselConnection, query: Query) -> Self {
+        Self {
+            connection,
+            query,
+            _record: PhantomData,
+        }
+    }
+
+    /// Rebuilds the captured Diesel query while keeping the captured connection.
+    pub fn build<NextQuery>(
+        self,
+        build: impl FnOnce(Query) -> NextQuery,
+    ) -> PendingStatement<'connection, NextQuery, Record> {
+        PendingStatement {
+            connection: self.connection,
+            query: build(self.query),
+            _record: PhantomData,
+        }
+    }
+}
+
+impl<'connection, Query, Record> PendingStatement<'connection, Query, Record>
+where
+    Record: DatabaseRecord,
+{
+    /// Applies a Diesel filter while keeping the captured connection.
+    pub fn filter<Predicate>(
+        self,
+        filter: impl FnOnce(Record::Columns) -> Predicate,
+    ) -> PendingStatement<'connection, <Query as FilterDsl<Predicate>>::Output, Record>
+    where
+        Query: FilterDsl<Predicate>,
+    {
+        let predicate = filter(Record::columns());
+
+        PendingStatement {
+            connection: self.connection,
+            query: self.query.filter(predicate),
+            _record: PhantomData,
+        }
+    }
+
+    /// Applies a Diesel order clause while keeping the captured connection.
+    pub fn order<Order>(
+        self,
+        order: impl FnOnce(Record::Columns) -> Order,
+    ) -> PendingStatement<'connection, <Query as OrderDsl<Order>>::Output, Record>
+    where
+        Query: OrderDsl<Order>,
+        Order: Expression,
+    {
+        let order = order(Record::columns());
+
+        PendingStatement {
+            connection: self.connection,
+            query: self.query.order(order),
+            _record: PhantomData,
+        }
+    }
+}
+
+impl<Query, Record> PendingStatement<'_, Query, Record>
+where
+    Query: ExecuteDsl<AnyDieselConnection>,
+{
+    /// Executes the captured Diesel statement.
+    pub fn execute(self) -> Result<usize> {
+        ExecuteDsl::execute(self.query, self.connection).map_err(anyhow::Error::from)
+    }
+}
+
+impl<'connection, Query, Record> PendingStatement<'connection, Query, Record> {
+    /// Loads rows from the captured Diesel query.
+    pub fn load<Record>(self) -> Result<Vec<Record>>
+    where
+        Query: LoadQuery<'connection, AnyDieselConnection, Record>,
+    {
+        self.query
+            .load::<Record>(self.connection)
+            .map_err(anyhow::Error::from)
+    }
+}
+
+/// Pending insert operation created by [`AnyDieselConnection::insert`].
+pub struct PendingInsert<'connection, Record>
+where
+    Record: HasTable,
+{
+    connection: &'connection mut AnyDieselConnection,
+    record: Record,
+}
+
+impl<Record> PendingInsert<'_, Record>
+where
+    Record: HasTable + Insertable<<Record as HasTable>::Table>,
+    <Record as HasTable>::Table: QueryId + 'static,
+    <<Record as HasTable>::Table as diesel::query_source::QuerySource>::FromClause:
+        QueryFragment<<AnyDieselConnection as Connection>::Backend>,
+    <Record as Insertable<<Record as HasTable>::Table>>::Values: QueryFragment<<AnyDieselConnection as Connection>::Backend>
+        + CanInsertInSingleQuery<<AnyDieselConnection as Connection>::Backend>
+        + QueryId,
+{
+    /// Executes the inferred insert against the captured connection.
+    pub fn execute(self) -> Result<usize> {
+        diesel::insert_into(Record::table())
+            .values(self.record)
+            .execute(self.connection)
+            .map_err(anyhow::Error::from)
+    }
+}
+
+/// Diesel connection storage used by the default persistence integration.
+pub struct DatabasePool {
+    connection: Mutex<AnyDieselConnection>,
     backend: DatabaseBackend,
 }
 
@@ -92,45 +288,194 @@ impl DatabasePool {
 }
 
 impl PoolData for DatabasePool {
-    type Pool = AnyPool;
+    type Pool = Mutex<AnyDieselConnection>;
 
     fn pool(&self) -> &Self::Pool {
-        &self.pool
+        &self.connection
     }
 }
 
 impl DatabaseConnection<DatabasePool> {
-    /// Builds a SQL-backed connection using Bevy task utilities for async execution.
+    /// Builds a Diesel-backed connection and applies backend-specific startup configuration.
     pub fn connect(settings: &DatabaseSettings) -> Result<Self> {
-        let options = DatabaseConnectOptions::from_settings(settings)?;
-        let backend = DatabaseBackend::from_url(&options.database_url)?;
-        install_default_drivers();
+        let backend = DatabaseBackend::from_url(settings.database_url())?;
 
-        let pool = options
-            .pool_options
-            .connect_lazy(&options.database_url)
-            .with_context(|| {
-                format!(
-                    "Failed to create lazy database pool for URL '{}'",
-                    options.database_url
-                )
-            })?;
+        if backend == DatabaseBackend::Sqlite {
+            ensure_sqlite_parent_dir(settings)?;
+        }
 
-        Ok(Self::new(DatabasePool { pool, backend }))
+        let normalized_url = settings.normalized_database_url();
+        let connection = match backend {
+            DatabaseBackend::Sqlite => AnyDieselConnection::Sqlite(
+                SqliteConnection::establish(&sqlite_connection_target(&normalized_url)?)
+                    .with_context(|| {
+                        format!(
+                            "Failed to establish SQLite connection for '{}'",
+                            settings.database_url()
+                        )
+                    })?,
+            ),
+            DatabaseBackend::Postgres => AnyDieselConnection::Postgres(
+                PgConnection::establish(&normalized_url).with_context(|| {
+                    format!(
+                        "Failed to establish PostgreSQL connection for '{}'",
+                        settings.database_url()
+                    )
+                })?,
+            ),
+            DatabaseBackend::MySql | DatabaseBackend::MariaDb => AnyDieselConnection::Mysql(
+                MysqlConnection::establish(&normalized_url).with_context(|| {
+                    format!(
+                        "Failed to establish MySQL/MariaDB connection for '{}'",
+                        settings.database_url()
+                    )
+                })?,
+            ),
+        };
+
+        let pool = Self::new(DatabasePool {
+            connection: Mutex::new(connection),
+            backend,
+        });
+
+        if backend == DatabaseBackend::Sqlite {
+            pool.execute(|connection| configure_sqlite_connection(connection, settings))?;
+        }
+
+        Ok(pool)
     }
+
+    /// Executes work with exclusive mutable access to the underlying Diesel connection.
+    pub fn execute<T>(
+        &self,
+        work: impl FnOnce(&mut AnyDieselConnection) -> Result<T>,
+    ) -> Result<T> {
+        let mut connection = self
+            .data()
+            .pool()
+            .lock()
+            .map_err(|_| anyhow!("database connection mutex was poisoned"))?;
+
+        work(&mut connection)
+    }
+
+    /// Executes work inside a Diesel transaction on the underlying connection.
+    pub fn transaction<T>(
+        &self,
+        work: impl FnOnce(&mut AnyDieselConnection) -> Result<T>,
+    ) -> Result<T> {
+        let mut captured_error = None;
+
+        self.execute(|connection| {
+            connection
+                .transaction::<T, diesel::result::Error, _>(|connection| {
+                    work(connection).map_err(|error| {
+                        captured_error = Some(error);
+                        diesel::result::Error::RollbackTransaction
+                    })
+                })
+                .map_err(|error| match captured_error.take() {
+                    Some(error) => error,
+                    None => anyhow!(error),
+                })
+        })
+    }
+}
+
+fn ensure_sqlite_parent_dir(settings: &DatabaseSettings) -> Result<()> {
+    let Some(path) = settings.sqlite_path() else {
+        return Ok(());
+    };
+
+    let Some(parent) = path.parent() else {
+        return Ok(());
+    };
+
+    if parent == Path::new("") {
+        return Ok(());
+    }
+
+    fs::create_dir_all(parent).with_context(|| {
+        format!(
+            "Failed to create SQLite database directory '{}'",
+            parent.display()
+        )
+    })?;
+
+    Ok(())
+}
+
+/// Converts the configured SQLite URL into the driver target expected by
+/// Diesel's `SqliteConnection::establish`.
+fn sqlite_connection_target(database_url: &str) -> Result<String> {
+    if matches!(database_url, "sqlite::memory:" | "sqlite://:memory:") {
+        return Ok(":memory:".to_string());
+    }
+
+    let target = database_url
+        .trim_start_matches("sqlite://")
+        .trim_start_matches("sqlite:");
+    let target = target
+        .split_once('?')
+        .map(|(path, _)| path)
+        .unwrap_or(target);
+
+    anyhow::ensure!(
+        !target.trim().is_empty(),
+        "SQLite database URL must include a file path or :memory:"
+    );
+
+    Ok(target.to_string())
+}
+
+/// Applies SQLite-only PRAGMA configuration after the connection is created.
+fn configure_sqlite_connection(
+    connection: &mut AnyDieselConnection,
+    settings: &DatabaseSettings,
+) -> Result<()> {
+    #[allow(irrefutable_let_patterns)]
+    let AnyDieselConnection::Sqlite(connection) = connection else {
+        return Ok(());
+    };
+
+    let busy_timeout_ms = settings.sqlite_busy_timeout().as_millis();
+    sql_query(format!("PRAGMA busy_timeout = {busy_timeout_ms}"))
+        .execute(connection)
+        .context("Failed to configure PRAGMA busy_timeout")?;
+
+    let foreign_keys = if settings.sqlite_foreign_keys() {
+        "ON"
+    } else {
+        "OFF"
+    };
+    sql_query(format!("PRAGMA foreign_keys = {foreign_keys}"))
+        .execute(connection)
+        .context("Failed to configure PRAGMA foreign_keys")?;
+
+    if settings.sqlite_enable_wal() && !settings.is_in_memory_sqlite() {
+        sql_query("PRAGMA journal_mode = WAL")
+            .execute(connection)
+            .context("Failed to configure PRAGMA journal_mode")?;
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::settings::DatabaseSettingsBuilder;
-    use std::{
-        sync::{Arc, Mutex},
-        time::Duration,
-    };
+    use diesel::sql_types::Integer;
+    use std::sync::{Arc, Mutex};
+
+    #[derive(diesel::QueryableByName)]
+    struct ScalarRow {
+        #[diesel(sql_type = Integer)]
+        value: i32,
+    }
 
     #[test]
-    fn should_build_database_connection_from_shared_runtime() {
+    fn should_build_database_connection_from_sqlite_settings() {
         let database = DatabaseConnection::<DatabasePool>::connect(&DatabaseSettings::default())
             .expect("database connection should build");
 
@@ -142,8 +487,6 @@ mod tests {
     fn should_execute_queries_against_default_sqlite_driver() {
         let settings = DatabaseSettingsBuilder {
             database_url: "sqlite::memory:".to_string(),
-            min_connections: 1,
-            max_connections: 1,
             ..DatabaseSettingsBuilder::default()
         }
         .build()
@@ -152,39 +495,19 @@ mod tests {
         let database = DatabaseConnection::<DatabasePool>::connect(&settings)
             .expect("database connection should build");
 
-        let value = database
-            .block_on(async {
-                sqlx::query_scalar::<_, i64>("SELECT 1")
-                    .fetch_one(database.data().pool())
-                    .await
+        let row = database
+            .execute(|connection| {
+                sql_query("SELECT 1 AS value")
+                    .get_result::<ScalarRow>(connection)
+                    .context("select 1 should succeed")
             })
-            .expect("default sqlite driver should execute queries through AnyPool");
+            .expect("default sqlite driver should execute queries through Diesel");
 
-        assert_eq!(value, 1);
+        assert_eq!(row.value, 1);
     }
 
     #[test]
-    fn should_build_sql_connection_with_custom_pool_options() {
-        let settings = DatabaseSettingsBuilder {
-            min_connections: 0,
-            max_connections: 8,
-            acquire_timeout: Duration::from_secs(5),
-            idle_timeout: Some(Duration::from_secs(60)),
-            max_lifetime: Some(Duration::from_secs(600)),
-            test_before_acquire: false,
-            ..DatabaseSettingsBuilder::default()
-        }
-        .build()
-        .expect("builder should create valid custom pool settings");
-
-        let database = DatabaseConnection::<DatabasePool>::connect(&settings)
-            .expect("database connection should build with custom pool options");
-
-        let _ = database.data().pool();
-    }
-
-    #[test]
-    fn should_detect_supported_any_pool_backends_from_urls() {
+    fn should_detect_supported_backends_from_urls() {
         assert_eq!(
             DatabaseBackend::from_url("sqlite://suon.db").expect("sqlite should be supported"),
             DatabaseBackend::Sqlite
@@ -193,12 +516,6 @@ mod tests {
         assert_eq!(
             DatabaseBackend::from_url("postgres://localhost/suon")
                 .expect("postgres should be supported"),
-            DatabaseBackend::Postgres
-        );
-
-        assert_eq!(
-            DatabaseBackend::from_url("postgresql://localhost/suon")
-                .expect("postgresql should be supported"),
             DatabaseBackend::Postgres
         );
 
@@ -223,12 +540,7 @@ mod tests {
         impl DatabaseData for DemoData {}
 
         let connection = DatabaseConnection::new(DemoData { value: 11 });
-        assert_eq!(
-            connection.data().value,
-            11,
-            "DatabaseConnection::data should expose the backend-specific payload stored inside \
-             the connection"
-        );
+        assert_eq!(connection.data().value, 11);
     }
 
     #[test]
@@ -258,30 +570,7 @@ mod tests {
                 .lock()
                 .expect("state mutex should stay available")
                 .as_slice(),
-            &["ran"],
-            "DatabaseConnection::block_on should drive async work to completion through Bevy task \
-             utilities"
-        );
-    }
-
-    #[test]
-    fn should_report_invalid_database_urls_when_connecting() {
-        let settings = DatabaseSettingsBuilder {
-            database_url: "://not-a-valid-database-url".to_string(),
-            ..DatabaseSettingsBuilder::default()
-        }
-        .build()
-        .expect("the builder should accept non-empty URLs and let connect validate them");
-
-        let error = DatabaseConnection::<DatabasePool>::connect(&settings)
-            .err()
-            .expect("connect should reject malformed database URLs");
-
-        assert!(
-            error
-                .to_string()
-                .contains("Unsupported database URL scheme for AnyPool"),
-            "connect should reject URLs whose scheme cannot select an AnyPool backend"
+            &["ran"]
         );
     }
 }

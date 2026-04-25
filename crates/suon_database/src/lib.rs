@@ -2,22 +2,22 @@
 //!
 //! This crate combines two layers:
 //! - typed ECS table resources for gameplay systems
-//! - task-backed persistence helpers for loading and saving those tables
+//! - Diesel-backed connection infrastructure shared by persistence crates
 //!
 //! # Modules
 //!
 //! - [`prelude::DatabaseConnection`], [`prelude::DatabaseData`], and
 //!   [`prelude::DatabasePool`] for
-//!   backend-neutral connections and the default SQL pool
+//!   Diesel-backed SQLite connections and the default connection wrapper
 //! - database startup systems for loading settings into the Bevy world
 //! - [`prelude::SnapshotTable`], [`prelude::SnapshotTableExt`], and
 //!   [`prelude::TableMapper`] for table snapshot loading and saving contracts
 //! - [`prelude::DatabaseSettings`] and [`prelude::DatabaseSettingsBuilder`] for
-//!   generic connection settings
+//!   SQLite connection settings
 //! - [`prelude::FieldTryIntoExt`],
 //!   [`prelude::SystemTimeDatabaseConvertExt`], and
 //!   integer conversion helpers for loss-checked integer and time
-//!   conversions used by mappers
+//!   conversions used by Diesel row mappers
 //!
 //! # Examples
 //! ```no_run
@@ -52,12 +52,24 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 pub mod prelude {
     pub use super::{
         AppTablesExt, Database, DatabaseMut, DatabasePlugin, Table, Tables,
-        connection::{DatabaseBackend, DatabaseConnection, DatabaseData, DatabasePool, PoolData},
+        connection::{
+            AnyDieselConnection, DatabaseBackend, DatabaseConnection, DatabaseData, DatabasePool,
+            DatabaseRecord, PendingStatement, PoolData,
+        },
         convert::{FieldTryIntoExt, SystemTimeDatabaseConvertExt},
         settings::{DatabaseSettings, DatabaseSettingsBuilder},
         snapshot::{SnapshotTable, SnapshotTableExt, TableMapper},
     };
+    pub use diesel::{
+        RunQueryDsl, sql_query,
+        sql_types::{BigInt, Bool, Double, Float, Integer, Nullable, SmallInt, Text, Timestamp},
+    };
 }
+
+pub use connection::{
+    AnyDieselConnection, DatabaseBackend, DatabaseConnection, DatabasePool, DatabaseRecord,
+    PendingStatement,
+};
 
 /// Plugin that loads database settings into the Bevy world during startup.
 pub struct DatabasePlugin;

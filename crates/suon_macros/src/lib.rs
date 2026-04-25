@@ -10,6 +10,7 @@
 //! }
 //! ```
 
+mod database_model;
 mod documented_toml;
 mod lua_component;
 mod lua_hook;
@@ -84,6 +85,28 @@ pub fn derive_lua_hook(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_derive(DocumentedToml)]
+/// Derives `suon_serde::DocumentedToml` for configuration structs documented
+/// through Rust doc comments and serde metadata.
 pub fn derive_documented_toml(input: TokenStream) -> TokenStream {
     documented_toml::derive_documented_toml(input)
+}
+
+#[proc_macro_attribute]
+/// Generates Diesel `table!`, `Queryable`, `Selectable`, `Insertable`, and
+/// backend-specific `CREATE TABLE IF NOT EXISTS` helpers from a Rust struct.
+///
+/// # Usage
+/// ```ignore
+/// use suon_macros::database_model;
+///
+/// #[database_model(table = "market_actors")]
+/// #[derive(Debug, Clone)]
+/// struct MarketActorRecord {
+///     #[database(primary_key)]
+///     id: i64,
+///     name: String,
+/// }
+/// ```
+pub fn database_model(attr: TokenStream, item: TokenStream) -> TokenStream {
+    database_model::database_model(attr, item)
 }

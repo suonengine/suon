@@ -1,3 +1,9 @@
+//! Persistence entry points for market startup, flushing, and ORM adapters.
+//!
+//! The market crate keeps its persistence split into small modules:
+//! settings/bootstrap, dirty tracking, flush orchestration, and the concrete
+//! Diesel-backed ORM implementation.
+
 mod database;
 mod dirty;
 mod flush;
@@ -18,6 +24,8 @@ pub use self::{
     },
 };
 
+/// Internal plugin that wires market persistence settings, startup loading, and
+/// autosave behavior into the Bevy app.
 pub(crate) struct MarketPersistencePlugin;
 
 impl Plugin for MarketPersistencePlugin {

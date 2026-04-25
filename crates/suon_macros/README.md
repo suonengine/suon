@@ -4,9 +4,9 @@ Procedural macros shared across the Suon MMORPG workspace.
 
 `suon_macros` provides three derive macros:
 
-- `#[derive(Table)]` — implements the `Table` trait for database table structs
-- `#[derive(LuaComponent)]` — derives `Component` and registers a Lua-accessible component
-- `#[derive(LuaHook)]` — derives a typed Lua hook payload
+- `#[derive(Table)]` implements the `Table` trait for ECS table structs
+- `#[derive(LuaComponent)]` derives `Component` and registers a Lua-accessible component
+- `#[derive(LuaHook)]` derives a typed Lua hook payload
 
 ## Installation
 
@@ -35,7 +35,7 @@ Derives both `Component` and the `LuaComponent` trait needed by `suon_lua`. The 
 is automatically registered with the `ScriptRegistry` the first time it is inserted into
 any entity.
 
-**Do not** add `#[derive(Component)]` alongside this macro — it is already derived.
+**Do not** add `#[derive(Component)]` alongside this macro because it is already derived.
 
 ```rust,ignore
 use serde::{Deserialize, Serialize};
@@ -62,7 +62,7 @@ struct Mana {
 ## `#[derive(LuaHook)]`
 
 Derives the `Hook` trait for a struct used as a typed hook payload. The default Lua method
-name is `on{StructName}` — override it with `#[lua(name = "...")]`.
+name is `on{StructName}`. Override it with `#[lua(name = "...")]`.
 
 ```rust,ignore
 use serde::Serialize;

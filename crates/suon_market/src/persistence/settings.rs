@@ -1,3 +1,8 @@
+//! Configuration models for market persistence and policy controls.
+//!
+//! These settings are rendered through `DocumentedToml`, so the doc comments
+//! here become the inline help text users see in `MarketSettings.toml`.
+
 use anyhow::Context;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -80,6 +85,7 @@ impl MarketSettings {
         Self::load_at(path)
     }
 
+    /// Writes the documented market settings file to disk.
     fn write_at(path: &Path, settings: &Self) -> anyhow::Result<()> {
         let config = write_documented_toml(settings)
             .context("Failed to serialize default market settings")?;
@@ -243,6 +249,8 @@ impl MarketPolicySettings {
         rate_limiter: &mut MarketRateLimiter,
         now: SystemTime,
     ) -> Result<(), &'static str> {
+        // Keep the checks ordered from static deny-lists to dynamic limits so
+        // callers get the most direct rejection reason first.
         if self.blocked_actor_ids.contains(&actor_id) {
             return Err("actor is blocked from market offers");
         }

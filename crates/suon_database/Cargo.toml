@@ -13,6 +13,9 @@ repository.workspace = true
 # Short crates.io summary describing what the package is.
 description = "Database abstraction layer for the Suon MMORPG framework"
 
+[features]
+default = []
+
 [dependencies]
 # External crates used directly by this crate.
 anyhow.workspace = true
@@ -23,12 +26,9 @@ bevy = { workspace = true, features = [
   "async_executor",
 ] }
 serde = { workspace = true, features = ["derive"] }
-sqlx = { workspace = true, features = [
-  "any",
-  "mysql",
-  "postgres",
-  "runtime-async-std-rustls",
-  "sqlite",
-] }
+diesel = { workspace = true, features = ["sqlite", "postgres", "mysql"] }
 toml = { workspace = true, features = ["parse", "display", "serde"] }
 suon_serde.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+libsqlite3-sys = { workspace = true, features = ["bundled"] }

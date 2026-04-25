@@ -11,6 +11,13 @@ repository.workspace = true
 
 description = "Market domain plugin, cache tables, and packet observers for the Suon MMORPG framework"
 
+[features]
+default = []
+sqlite = []
+postgres = []
+mysql = []
+all-backends = []
+
 [dependencies]
 anyhow.workspace = true
 bevy = { workspace = true, features = [
@@ -24,11 +31,7 @@ log = { workspace = true, features = [
   "release_max_level_warn",
 ] }
 serde = { workspace = true, features = ["derive"] }
-sqlx = { workspace = true, features = [
-  "any",
-  "derive",
-  "runtime-async-std-rustls",
-] }
+diesel.workspace = true
 toml = { workspace = true, features = ["parse", "display", "serde"] }
 
 suon_database.workspace = true
