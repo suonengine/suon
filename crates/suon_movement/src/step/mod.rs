@@ -123,6 +123,7 @@ fn apply_step_intent(
 
     let Ok((floor, position)) = positions.get(entity) else {
         debug!("Rejecting step intent for {entity:?}: missing Floor or Position");
+
         commands.trigger(StepRejected {
             entity,
             to: event.to,
@@ -137,6 +138,7 @@ fn apply_step_intent(
             "Rejecting step intent for {entity:?}: direction {:?} keeps position {:?}",
             event.to, position
         );
+
         commands.trigger(StepRejected {
             entity,
             to: event.to,
@@ -147,6 +149,7 @@ fn apply_step_intent(
 
     let Some(chunk) = chunks.get(position) else {
         warn!("Rejecting step intent for {entity:?}: current position {position:?} has no chunk");
+
         commands.trigger(StepRejected {
             entity,
             to: event.to,
@@ -160,6 +163,7 @@ fn apply_step_intent(
             "Rejecting step intent for {entity:?}: target position {target_position:?} has no \
              chunk"
         );
+
         commands.trigger(StepRejected {
             entity,
             to: event.to,
@@ -172,6 +176,7 @@ fn apply_step_intent(
         warn!(
             "Rejecting step intent for {entity:?}: target chunk {target_chunk:?} has no Occupancy"
         );
+
         commands.trigger(StepRejected {
             entity,
             to: event.to,
@@ -185,6 +190,7 @@ fn apply_step_intent(
             "Rejecting step intent for {entity:?}: target {:?} on floor {:?} is occupied",
             target_position, floor
         );
+
         commands.trigger(StepRejected {
             entity,
             to: event.to,
@@ -214,6 +220,7 @@ fn apply_step_intent(
 
     if chunk != target_chunk {
         trace!("Step for {entity:?} crossed chunk boundary: {chunk:?} -> {target_chunk:?}");
+
         commands.entity(entity).trigger(|entity| StepAcrossChunk {
             from: chunk,
             to: target_chunk,

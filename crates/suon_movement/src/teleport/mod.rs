@@ -93,6 +93,7 @@ fn apply_teleport_intent(
 
     let Ok((position, floor)) = positions.get(entity) else {
         debug!("Rejecting teleport intent for {entity:?}: missing Position");
+
         commands.trigger(TeleportRejected {
             entity,
             to: event.to,
@@ -116,6 +117,7 @@ fn apply_teleport_intent(
              change state",
             target_position, target_floor
         );
+
         commands.trigger(TeleportRejected {
             entity,
             to: event.to,
@@ -129,6 +131,7 @@ fn apply_teleport_intent(
         warn!(
             "Rejecting teleport intent for {entity:?}: current position {position:?} has no chunk"
         );
+
         commands.trigger(TeleportRejected {
             entity,
             to: event.to,
@@ -143,6 +146,7 @@ fn apply_teleport_intent(
             "Rejecting teleport intent for {entity:?}: target position {target_position:?} has no \
              chunk"
         );
+
         commands.trigger(TeleportRejected {
             entity,
             to: event.to,
@@ -186,6 +190,7 @@ fn apply_teleport_intent(
 
     if chunk != target_chunk {
         trace!("Teleport for {entity:?} crossed chunk boundary: {chunk:?} -> {target_chunk:?}");
+
         commands
             .entity(entity)
             .trigger(|entity| TeleportAcrossChunk {
