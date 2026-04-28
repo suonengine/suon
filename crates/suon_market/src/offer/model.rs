@@ -34,6 +34,7 @@ impl MarketActorName {
 pub enum MarketTradeSide {
     /// The offer buys items from other actors.
     Buy,
+
     /// The offer sells items to other actors.
     Sell,
 }

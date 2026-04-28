@@ -1,21 +1,15 @@
 use bevy::prelude::*;
 use suon_movement::prelude::{Step, Teleport};
-use suon_network::prelude::Packet;
-use suon_protocol_client::prelude::LeaveMarketPacket;
 
-use crate::browse::MarketSession;
+use crate::session::{CloseMarketSessionIntent, MarketSession};
 
-/// Removes the open market session when the client explicitly leaves the market.
-pub(super) fn on_leave_market_packet(
-    event: On<Packet<LeaveMarketPacket>>,
+/// Removes the open market session when a close intent is received.
+pub(super) fn on_close_market_session_intent(
+    event: On<CloseMarketSessionIntent>,
     mut commands: Commands,
     sessions: Query<(), With<MarketSession>>,
 ) {
-    let entity = event.entity();
-
-    if sessions.contains(entity) {
-        commands.entity(entity).remove::<MarketSession>();
-    }
+    close_market_session(event.entity, &mut commands, &sessions);
 }
 
 /// Removes the open market session after a successful step.
@@ -24,11 +18,7 @@ pub(super) fn on_step_close_market_session(
     mut commands: Commands,
     sessions: Query<(), With<MarketSession>>,
 ) {
-    let entity = event.event_target();
-
-    if sessions.contains(entity) {
-        commands.entity(entity).remove::<MarketSession>();
-    }
+    close_market_session(event.event_target(), &mut commands, &sessions);
 }
 
 /// Removes the open market session after a successful teleport.
@@ -37,8 +27,14 @@ pub(super) fn on_teleport_close_market_session(
     mut commands: Commands,
     sessions: Query<(), With<MarketSession>>,
 ) {
-    let entity = event.event_target();
+    close_market_session(event.event_target(), &mut commands, &sessions);
+}
 
+fn close_market_session(
+    entity: Entity,
+    commands: &mut Commands,
+    sessions: &Query<(), With<MarketSession>>,
+) {
     if sessions.contains(entity) {
         commands.entity(entity).remove::<MarketSession>();
     }

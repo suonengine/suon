@@ -15,13 +15,12 @@ pub mod prelude {
     pub use crate::client::{
         Decodable, DecodableError, PacketKind,
         prelude::{
-            AcceptMarketOfferPacket, AcceptTradePacket, BrowseMarketPacket,
-            CancelMarketOfferPacket, CancelStepsPacket, ChangeSharedPartyExperiencePacket,
-            CloseTradePacket, CreateBuddyPacket, CreateMarketOfferPacket, DeleteBuddyPacket,
-            FacePacket, InspectTradePacket, InviteToPartyPacket, JoinPartyPacket, KeepAlivePacket,
-            LeaveMarketPacket, LeavePartyPacket, MarketBrowseKind, MarketOfferKind,
-            PassPartyLeadershipPacket, PingLatencyPacket, RequestTradePacket,
-            RevokePartyInvitePacket, StepPacket, StepsPacket, UpdateBuddyPacket,
+            AcceptTradePacket, CancelStepsPacket, ChangeSharedPartyExperiencePacket,
+            CloseTradePacket, CreateBuddyPacket, DeleteBuddyPacket, FacePacket, InspectTradePacket,
+            InviteToPartyPacket, JoinPartyPacket, KeepAlivePacket, LeavePartyPacket,
+            MarketBrowseKind, MarketOfferKind, MarketPacket, PassPartyLeadershipPacket,
+            PingLatencyPacket, RequestTradePacket, RevokePartyInvitePacket, StepPacket,
+            StepsPacket, UpdateBuddyPacket,
         },
     };
 }

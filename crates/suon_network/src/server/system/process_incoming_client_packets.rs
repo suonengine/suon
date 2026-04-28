@@ -1,9 +1,8 @@
 use bevy::prelude::*;
 use suon_protocol_client::prelude::{
-    AcceptMarketOfferPacket, AcceptTradePacket, BrowseMarketPacket, CancelMarketOfferPacket,
-    CancelStepsPacket, ChangeSharedPartyExperiencePacket, CloseTradePacket, CreateBuddyPacket,
-    CreateMarketOfferPacket, Decodable, DeleteBuddyPacket, FacePacket, InspectTradePacket,
-    InviteToPartyPacket, JoinPartyPacket, KeepAlivePacket, LeaveMarketPacket, LeavePartyPacket,
+    AcceptTradePacket, CancelStepsPacket, ChangeSharedPartyExperiencePacket, CloseTradePacket,
+    CreateBuddyPacket, Decodable, DeleteBuddyPacket, FacePacket, InspectTradePacket,
+    InviteToPartyPacket, JoinPartyPacket, KeepAlivePacket, LeavePartyPacket, MarketPacket,
     PacketKind, PassPartyLeadershipPacket, PingLatencyPacket, RequestTradePacket,
     RevokePartyInvitePacket, StepPacket, StepsPacket, UpdateBuddyPacket,
 };
@@ -117,11 +116,7 @@ pub(crate) fn process_incoming_client_packets(
                 PassPartyLeadershipPacket,
                 LeavePartyPacket,
                 ChangeSharedPartyExperiencePacket,
-                LeaveMarketPacket,
-                BrowseMarketPacket,
-                CreateMarketOfferPacket,
-                CancelMarketOfferPacket,
-                AcceptMarketOfferPacket,
+                MarketPacket,
             );
         }
     }

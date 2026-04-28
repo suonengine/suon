@@ -1,26 +1,19 @@
-mod actor;
+mod event;
 mod intent;
-mod lifecycle;
-mod packet;
-mod session;
+mod system;
 
 use bevy::prelude::*;
 
 pub use self::{
-    actor::MarketActorRef,
-    intent::{BrowseMarket, BrowseMarketIntent, BrowseMarketRejected},
-    session::MarketSession,
+    event::{BrowseMarket, BrowseMarketRejected},
+    intent::BrowseMarketIntent,
 };
 
 pub(crate) struct MarketBrowsePlugin;
 
 impl Plugin for MarketBrowsePlugin {
     fn build(&self, app: &mut App) {
-        app.add_observer(lifecycle::on_leave_market_packet)
-            .add_observer(lifecycle::on_step_close_market_session)
-            .add_observer(lifecycle::on_teleport_close_market_session)
-            .add_observer(packet::on_browse_market_packet)
-            .add_observer(session::on_browse_market_intent);
+        app.add_observer(system::on_browse_market_intent);
     }
 }
 
@@ -32,13 +25,15 @@ mod tests {
     use suon_position::prelude::{Floor, Position};
     use suon_protocol_client::prelude::MarketBrowseKind;
 
+    use crate::session::{MarketSession, MarketSessionPlugin};
+
     #[test]
     fn should_close_market_session_when_step_event_is_received() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
         app.add_plugins(ChunkPlugins);
         app.add_plugins(MovementPlugins);
-        app.add_plugins(MarketBrowsePlugin);
+        app.add_plugins(MarketSessionPlugin);
 
         const START: Position = Position { x: 10, y: 10 };
         const TARGET: Position = Position { x: 11, y: 10 };
@@ -72,7 +67,7 @@ mod tests {
         app.add_plugins(MinimalPlugins);
         app.add_plugins(ChunkPlugins);
         app.add_plugins(MovementPlugins);
-        app.add_plugins(MarketBrowsePlugin);
+        app.add_plugins(MarketSessionPlugin);
 
         const START: Position = Position { x: 20, y: 20 };
         const TARGET: Position = Position { x: 25, y: 20 };

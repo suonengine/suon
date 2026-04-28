@@ -1,19 +1,19 @@
-mod accept;
-mod cancel;
-mod create;
+mod event;
+mod intent;
 mod logic;
 mod model;
+mod system;
 mod tables;
 
 use bevy::prelude::*;
 
 pub use self::{
-    accept::{MarketOfferAcceptIntent, MarketOfferAcceptRejected, MarketOfferAccepted},
-    cancel::{MarketOfferCancelIntent, MarketOfferCancelRejected, MarketOfferCancelled},
-    create::{
-        MarketOfferCreateError, MarketOfferCreateIntent, MarketOfferCreateRejected,
-        MarketOfferCreated,
+    event::{
+        MarketOfferAcceptError, MarketOfferAcceptRejected, MarketOfferAccepted,
+        MarketOfferCancelError, MarketOfferCancelRejected, MarketOfferCancelled,
+        MarketOfferCreateError, MarketOfferCreateRejected, MarketOfferCreated,
     },
+    intent::{MarketOfferAcceptIntent, MarketOfferCancelIntent, MarketOfferCreateIntent},
     model::{
         MarketActorName, MarketOffer, MarketOfferId, MarketTradeSide, ParseMarketTradeSideError,
     },
@@ -28,12 +28,9 @@ impl Plugin for MarketOfferPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MarketOfferSequence>();
         app.init_resource::<MarketRateLimiter>();
-        app.add_observer(create::on_create_market_offer_packet)
-            .add_observer(cancel::on_cancel_market_offer_packet)
-            .add_observer(accept::on_accept_market_offer_packet)
-            .add_observer(create::on_create_market_offer_intent)
-            .add_observer(cancel::on_cancel_market_offer_intent)
-            .add_observer(accept::on_accept_market_offer_intent);
+        app.add_observer(system::on_create_market_offer_intent)
+            .add_observer(system::on_cancel_market_offer_intent)
+            .add_observer(system::on_accept_market_offer_intent);
     }
 }
 
@@ -92,7 +89,7 @@ mod tests {
             UNIX_EPOCH,
         );
 
-        assert_eq!(result, Err("actor is blocked from market offers"));
+        assert_eq!(result, Err(MarketOfferCreateError::ActorBlocked));
     }
 
     #[test]
@@ -121,6 +118,6 @@ mod tests {
         );
 
         assert!(first.is_ok());
-        assert_eq!(second, Err("market offer rate limit reached"));
+        assert_eq!(second, Err(MarketOfferCreateError::RateLimitReached));
     }
 }

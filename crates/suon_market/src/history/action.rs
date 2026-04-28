@@ -3,8 +3,10 @@
 pub enum MarketHistoryAction {
     /// A new offer was created.
     Create,
+
     /// An existing offer was cancelled.
     Cancel,
+
     /// An existing offer was accepted, fully or partially.
     Accept,
 }
