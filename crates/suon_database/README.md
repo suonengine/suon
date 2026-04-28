@@ -1,16 +1,21 @@
 # suon_database
 
-Typed database tables, Diesel connection helpers, and snapshot persistence for
-the Suon MMORPG framework.
+Diesel-backed database integration for Bevy apps in the Suon MMORPG framework.
 
-`suon_database` provides:
+`suon_database` is the **facilitator** between Bevy systems and a relational
+database. It does not hide Diesel — instead it gives every typed table a
+predictable shape (`Db<T>` for read access, `DbMut<T>` for writes) and a small
+trait surface that hooks the table into the persistence pipeline.
 
-- Typed Bevy resources for domain tables
-- Focused `SystemParam`s for reading and writing table data
-- Snapshot-based persistence contracts for loading and saving tables
-- Diesel-backed connections powered by Bevy task utilities
-- A small prelude of SQL types and query execution helpers used by persistence
-  crates
+## Highlights
+
+- **One plugin**: `DbPlugin` loads settings and opens the shared connection.
+- **One connection type**: `DbConnection`, a Bevy `Resource`.
+- **Two persistence flavours**:
+  - `DbTable` for snapshot tables (load + bulk save).
+  - `DbAppend` for append-only journals (history / audit logs).
+- **Auto-dirty tracking**: every `DbMut<T>` mutation bumps the table's dirty
+  epoch — no manual `mark_dirty()` calls.
 
 ## Installation
 
@@ -21,7 +26,7 @@ suon_database = { path = "../suon_database" }
 suon_macros = { path = "../suon_macros" }
 ```
 
-## Quick Start
+## In-memory table
 
 ```rust
 use bevy::prelude::*;
@@ -30,7 +35,7 @@ use suon_macros::Table;
 
 #[derive(Table, Default)]
 struct ItemTable {
-    entries: Vec<Item>,
+    items: Vec<Item>,
 }
 
 #[derive(Clone, Debug)]
@@ -39,15 +44,12 @@ struct Item {
     name: String,
 }
 
-fn load_items(mut table: DatabaseMut<ItemTable>) {
-    table.entries.push(Item {
-        id: 1,
-        name: "Sword".into(),
-    });
+fn add_item(mut items: DbMut<ItemTable>) {
+    items.items.push(Item { id: 1, name: "Sword".into() });
 }
 
-fn read_items(table: Database<ItemTable>) {
-    for item in &table.entries {
+fn read_items(items: Db<ItemTable>) {
+    for item in &items.items {
         println!("{}: {}", item.id, item.name);
     }
 }
@@ -55,59 +57,96 @@ fn read_items(table: Database<ItemTable>) {
 fn main() {
     App::new()
         .add_plugins(MinimalPlugins)
-        .init_database_table::<ItemTable>()
-        .add_systems(Startup, load_items)
+        .add_plugins(DbPlugin)
+        .init_db_table::<ItemTable>()
+        .add_systems(Startup, add_item)
         .add_systems(Update, read_items)
         .run();
 }
 ```
 
-## How It Works
+## Snapshot persistence
 
-Each type that implements `Table` is stored in its own `Tables<T>` resource. Systems
-work with that data through `Database<T>` and `DatabaseMut<T>`, which dereference
-directly to the inner table and keep call sites concise.
+Implement `DbTable` to wire a table into the load / save pipeline. The
+extension trait `init_db_persistent::<T>()` auto-loads on `Startup`, periodic
+flushes on `Update`, and drains pending writes on `AppExit`.
 
-For persistence, `DatabaseConnection<D>` combines backend-specific data with
-Bevy task-backed async execution helpers. `SnapshotTable` defines how a table
-exposes rows, while `TableMapper<T, D>` handles backend-specific schema and row
-translation. Actual row models and queries are expected to use Diesel's native
-`table!`, `Queryable`, `Selectable`, and `Insertable` patterns directly.
+```rust,ignore
+use anyhow::Result;
+use suon_database::prelude::*;
+use suon_macros::Table;
 
-### ECS Tables
+#[derive(Table, Default)]
+struct ScoreTable { rows: Vec<(i64, String)> }
 
-| Type | Role |
-|---|---|
-| `Table` | Marks a type as a database table resource |
-| `Tables<T>` | Stores one concrete table as a Bevy resource |
-| `Database<T>` | Read-only `SystemParam` for a table |
-| `DatabaseMut<T>` | Mutable `SystemParam` for a table |
-| `AppTablesExt` | Registers and inserts tables on `App` |
+impl DbTable for ScoreTable {
+    type Row = (i64, String);
 
-### Snapshot Persistence
+    fn replace_rows(&mut self, rows: Vec<Self::Row>) { self.rows = rows; }
+    fn rows(&self) -> Vec<Self::Row> { self.rows.clone() }
 
-| Type | Role |
-|---|---|
-| `SnapshotTable` | Exposes table rows for persistence |
-| `SnapshotTableExt` | Convenience methods for schema, load, and save |
-| `TableMapper<T, D>` | Maps a table to a specific backend |
-| `DatabaseConnection<D>` | Backend-specific data plus task-backed async helpers |
-| `DatabaseData` | Marker trait for backend payloads |
-| `PoolData` | Trait for backends that expose a pool handle |
-| `DatabasePool` | Default Diesel SQLite payload |
-| `DatabaseSettings` | SQLite connection and pragma configuration |
+    fn initialize_schema(_: &DbConnection) -> Result<()> { Ok(()) }
+    fn load(_: &DbConnection) -> Result<Vec<Self::Row>> { todo!() }
+    fn save(_: &DbConnection, _: &[Self::Row]) -> Result<()> { todo!() }
+}
 
-### Diesel Connections
-
-Workspace persistence integrations use `DatabaseConnection<DatabasePool>`. A minimal setup looks like this:
-
-```rust
-# use anyhow::Result;
-# use suon_database::prelude::*;
-# fn demo() -> Result<()> {
-let settings = DatabaseSettings::default();
-let connection = DatabaseConnection::<DatabasePool>::connect(&settings)?;
-# let _ = connection;
-# Ok(())
-# }
+App::new()
+    .add_plugins(MinimalPlugins)
+    .add_plugins(DbPlugin)
+    .init_db_persistent::<ScoreTable>();
 ```
+
+## Append-only journals
+
+For history tables that only insert rows, implement `DbAppend` and register
+the schema with `init_db_journal::<T>()`. Insert calls go through
+`T::append(&connection, &row)` directly inside your systems / observers.
+
+```rust,ignore
+use anyhow::Result;
+use suon_database::prelude::*;
+
+struct LoginAuditEntry { actor_id: u32, when: std::time::SystemTime }
+
+struct LoginAudit;
+
+impl DbAppend for LoginAudit {
+    type Row = LoginAuditEntry;
+    fn append(_: &DbConnection, _: &Self::Row) -> Result<()> { Ok(()) }
+}
+
+App::new()
+    .add_plugins(MinimalPlugins)
+    .add_plugins(DbPlugin)
+    .init_db_journal::<LoginAudit>();
+```
+
+## Per-table connection override
+
+Each table can opt into a separate database via `DbTableSettings::new(...)`
+and `app.insert_db_table_settings::<MyTable>(settings)`. When the override is
+absent, the table uses the shared `DbConnection` from `DbPlugin`.
+
+## Type reference
+
+| Type | Role |
+|---|---|
+| `Table` | Marker trait that turns a struct into a `Tables<T>` resource |
+| `Tables<T>` | Resource holding the table value plus its dirty epoch |
+| `Db<T>` | Read-only system parameter |
+| `DbMut<T>` | Mutable system parameter that auto-bumps the dirty epoch |
+| `DbConnection` | Shared connection resource opened by `DbPlugin` |
+| `DbDriver` | Multi-backend Diesel connection (raw SQL) |
+| `DbBackend` | Active backend label |
+| `DbSettings` | Connection URL + SQLite pragmas |
+| `DbTable` | Snapshot persistence trait |
+| `DbAppend` | Append-only journal trait |
+| `DbTableSettings<T>` | Per-table flush cadence and override |
+| `AppDbExt` | `init_db_table` / `insert_db_table` |
+| `AppDbPersistenceExt` | `init_db_persistent` / `insert_db_table_settings` / `init_db_journal` |
+
+## SQL helpers
+
+The driver exposes typed query builders (`PendingStatement`, `PendingInsert`)
+and the `DbRecord` trait that `#[database_model(...)]` generates. Use the
+`prelude::sql_query` re-export for raw SQL when needed.

@@ -1,19 +1,20 @@
-//! Generic settings shared by Diesel-backed persistence providers.
+//! Database settings shared by Diesel-backed persistence providers.
 
-use anyhow::Context;
-use bevy::prelude::*;
-use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File},
     io::Write,
     path::{Path, PathBuf},
     time::Duration,
 };
+
+use anyhow::Context;
+use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 use suon_serde::{DocumentedToml, prelude::*};
 
-/// Generic persistence settings used by Diesel-backed providers.
+/// Database settings used by [`DbConnection::open`](crate::connection::DbConnection::open).
 #[derive(Resource, Serialize, Deserialize, DocumentedToml, Clone, Debug, PartialEq)]
-pub struct DatabaseSettings {
+pub struct DbSettings {
     /// Database connection URL.
     /// Supported backends: SQLite, PostgreSQL, MySQL, and MariaDB.
     database_url: String,
@@ -28,22 +29,22 @@ pub struct DatabaseSettings {
     /// Enables write-ahead logging on file-based SQLite databases.
     sqlite_enable_wal: bool,
 
-    /// Whether mappers should initialize the schema during startup.
+    /// Whether tables should initialize their schema during startup.
     auto_initialize_schema: bool,
 }
 
-impl DatabaseSettings {
+impl DbSettings {
     /// Path to the configuration file.
-    pub const PATH: &'static str = "settings/DatabaseSettings.toml";
+    pub const PATH: &'static str = "settings/DbSettings.toml";
 
     /// Loads the settings file or creates a default one when it is missing.
     pub fn load_or_default() -> anyhow::Result<Self> {
         Self::load_or_default_at(Path::new(Self::PATH))
     }
 
-    /// Creates a builder initialized with the default database settings.
-    pub fn builder() -> DatabaseSettingsBuilder {
-        DatabaseSettingsBuilder::default()
+    /// Creates a builder initialized with the default settings.
+    pub fn builder() -> DbSettingsBuilder {
+        DbSettingsBuilder::default()
     }
 
     /// Database URL used by Diesel.
@@ -71,7 +72,7 @@ impl DatabaseSettings {
         self.sqlite_enable_wal
     }
 
-    /// Whether mappers should initialize schema during startup.
+    /// Whether tables should initialize schema during startup.
     pub fn auto_initialize_schema(&self) -> bool {
         self.auto_initialize_schema
     }
@@ -89,7 +90,7 @@ impl DatabaseSettings {
         )
     }
 
-    /// Returns a log-safe summary of the database settings.
+    /// Returns a log-safe summary of the settings.
     pub fn summary(&self) -> String {
         format!(
             "backend={}, target={}, sqlite_busy_timeout_ms={}, sqlite_foreign_keys={}, \
@@ -121,7 +122,6 @@ impl DatabaseSettings {
                 "Configuration file '{}' found, attempting to load.",
                 path.display()
             );
-
             return Self::load_at(path);
         }
 
@@ -129,7 +129,6 @@ impl DatabaseSettings {
             "Configuration file '{}' not found. Creating default configuration.",
             path.display()
         );
-
         Self::create_at(path)
     }
 
@@ -137,17 +136,17 @@ impl DatabaseSettings {
         let config = fs::read_to_string(path).context("Failed to read database settings file")?;
         let settings: Self =
             toml::from_str(&config).context("Failed to parse database settings as TOML")?;
-        DatabaseSettingsBuilder::from(&settings).build()
+        DbSettingsBuilder::from(&settings).build()
     }
 
     pub(crate) fn create_at(path: &Path) -> anyhow::Result<Self> {
-        let default_config = Self::default();
-        Self::write_at(path, &default_config)?;
+        let default_settings = Self::default();
+        Self::write_at(path, &default_settings)?;
         Self::load_at(path)
     }
 
     fn write_at(path: &Path, settings: &Self) -> anyhow::Result<()> {
-        let config = write_documented_toml(settings)
+        let serialized = write_documented_toml(settings)
             .context("Failed to serialize default database settings")?;
 
         if let Some(parent) = path.parent() {
@@ -155,7 +154,7 @@ impl DatabaseSettings {
         }
 
         let mut file = File::create(path).context("Failed to create the database settings file")?;
-        file.write_all(config.as_bytes())
+        file.write_all(serialized.as_bytes())
             .context("Failed to write the database settings file")?;
         file.sync_all()
             .context("Failed to flush the database settings file")?;
@@ -172,7 +171,6 @@ enum DatabaseTarget {
     Invalid,
 }
 
-/// Classifies a database URL into a coarse backend target category.
 fn parse_database_target(database_url: &str) -> DatabaseTarget {
     if matches!(database_url, "sqlite::memory:" | "sqlite://:memory:") {
         return DatabaseTarget::SqliteMemory;
@@ -192,14 +190,12 @@ fn parse_database_target(database_url: &str) -> DatabaseTarget {
     DatabaseTarget::Invalid
 }
 
-/// Returns whether the URL begins with any of the provided schemes.
 fn matches_scheme(database_url: &str, schemes: &[&str]) -> bool {
     schemes
         .iter()
         .any(|scheme| database_url.starts_with(scheme))
 }
 
-/// Returns a short backend label safe to expose in logs.
 fn backend_name(database_url: &str) -> &str {
     if database_url.starts_with("sqlite:") {
         "sqlite"
@@ -212,7 +208,6 @@ fn backend_name(database_url: &str) -> &str {
     }
 }
 
-/// Normalizes backend aliases into the form expected by Diesel clients.
 fn normalize_database_url(database_url: &str) -> String {
     if let Some(stripped) = database_url.strip_prefix("mariadb://") {
         return format!("mysql://{stripped}");
@@ -221,7 +216,6 @@ fn normalize_database_url(database_url: &str) -> String {
     database_url.to_string()
 }
 
-/// Extracts the backing filesystem path from a SQLite URL when present.
 fn sqlite_path_from_url(database_url: &str) -> Option<PathBuf> {
     if !database_url.starts_with("sqlite:") {
         return None;
@@ -241,9 +235,9 @@ fn sqlite_path_from_url(database_url: &str) -> Option<PathBuf> {
     }
 }
 
-/// Public builder used to create validated [`DatabaseSettings`] values.
+/// Public builder used to create validated [`DbSettings`] values.
 #[derive(Clone, Debug, PartialEq)]
-pub struct DatabaseSettingsBuilder {
+pub struct DbSettingsBuilder {
     /// Database URL.
     pub database_url: String,
 
@@ -256,22 +250,23 @@ pub struct DatabaseSettingsBuilder {
     /// Whether write-ahead logging should be enabled for file-based SQLite databases.
     pub sqlite_enable_wal: bool,
 
-    /// Whether mappers should initialize schema during startup.
+    /// Whether tables should initialize schema during startup.
     pub auto_initialize_schema: bool,
 }
 
-impl DatabaseSettingsBuilder {
+impl DbSettingsBuilder {
     /// Creates a builder initialized with the default settings values.
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Builds validated database settings from the builder contents.
-    pub fn build(self) -> anyhow::Result<DatabaseSettings> {
+    pub fn build(self) -> anyhow::Result<DbSettings> {
         anyhow::ensure!(
             !self.database_url.trim().is_empty(),
-            "DatabaseSettings.database_url must not be empty"
+            "DbSettings.database_url must not be empty"
         );
+
         anyhow::ensure!(
             matches_scheme(
                 &self.database_url,
@@ -283,15 +278,16 @@ impl DatabaseSettingsBuilder {
                     "mariadb://"
                 ]
             ),
-            "DatabaseSettings.database_url must use sqlite:, postgres://, postgresql://, \
-             mysql://, or mariadb://"
-        );
-        anyhow::ensure!(
-            self.sqlite_busy_timeout > Duration::ZERO,
-            "DatabaseSettings.sqlite_busy_timeout must be greater than zero"
+            "DbSettings.database_url must use sqlite:, postgres://, postgresql://, mysql://, or \
+             mariadb://"
         );
 
-        Ok(DatabaseSettings {
+        anyhow::ensure!(
+            self.sqlite_busy_timeout > Duration::ZERO,
+            "DbSettings.sqlite_busy_timeout must be greater than zero"
+        );
+
+        Ok(DbSettings {
             database_url: self.database_url,
             sqlite_busy_timeout: self.sqlite_busy_timeout,
             sqlite_foreign_keys: self.sqlite_foreign_keys,
@@ -301,8 +297,8 @@ impl DatabaseSettingsBuilder {
     }
 }
 
-impl From<&DatabaseSettings> for DatabaseSettingsBuilder {
-    fn from(settings: &DatabaseSettings) -> Self {
+impl From<&DbSettings> for DbSettingsBuilder {
+    fn from(settings: &DbSettings) -> Self {
         Self {
             database_url: settings.database_url.clone(),
             sqlite_busy_timeout: settings.sqlite_busy_timeout,
@@ -313,9 +309,9 @@ impl From<&DatabaseSettings> for DatabaseSettingsBuilder {
     }
 }
 
-impl Default for DatabaseSettingsBuilder {
+impl Default for DbSettingsBuilder {
     fn default() -> Self {
-        let settings = DatabaseSettings::default();
+        let settings = DbSettings::default();
 
         Self {
             database_url: settings.database_url,
@@ -327,7 +323,7 @@ impl Default for DatabaseSettingsBuilder {
     }
 }
 
-impl Default for DatabaseSettings {
+impl Default for DbSettings {
     fn default() -> Self {
         Self {
             database_url: "sqlite://suon.db".to_string(),
@@ -341,7 +337,7 @@ impl Default for DatabaseSettings {
 
 #[cfg(test)]
 mod tests {
-    use super::{DatabaseSettings, DatabaseSettingsBuilder};
+    use super::*;
     use std::{
         env, fs,
         path::PathBuf,
@@ -359,19 +355,19 @@ mod tests {
     }
 
     #[test]
-    fn database_settings_roundtrip_through_toml() {
-        let settings = DatabaseSettings::default();
+    fn db_settings_roundtrip_through_toml() {
+        let settings = DbSettings::default();
         let serialized =
             toml::to_string(&settings).expect("default database settings should serialize");
-        let deserialized: DatabaseSettings =
+        let deserialized: DbSettings =
             toml::from_str(&serialized).expect("serialized settings should parse back");
 
         assert_eq!(deserialized, settings);
     }
 
     #[test]
-    fn should_provide_predictable_default_database_settings() {
-        let settings = DatabaseSettings::default();
+    fn should_provide_predictable_default_settings() {
+        let settings = DbSettings::default();
 
         assert_eq!(settings.database_url(), "sqlite://suon.db");
         assert_eq!(settings.sqlite_busy_timeout(), Duration::from_secs(30));
@@ -382,22 +378,16 @@ mod tests {
 
     #[test]
     fn should_expose_builder_constructors_with_default_values() {
-        assert_eq!(
-            DatabaseSettings::builder(),
-            DatabaseSettingsBuilder::default()
-        );
-        assert_eq!(
-            DatabaseSettingsBuilder::new(),
-            DatabaseSettingsBuilder::default()
-        );
+        assert_eq!(DbSettings::builder(), DbSettingsBuilder::default());
+        assert_eq!(DbSettingsBuilder::new(), DbSettingsBuilder::default());
     }
 
     #[test]
     fn should_parse_supported_database_urls() {
         assert!(
-            DatabaseSettingsBuilder {
+            DbSettingsBuilder {
                 database_url: "sqlite::memory:".to_string(),
-                ..DatabaseSettingsBuilder::default()
+                ..DbSettingsBuilder::default()
             }
             .build()
             .expect("memory database should be valid")
@@ -405,9 +395,9 @@ mod tests {
         );
 
         assert_eq!(
-            DatabaseSettingsBuilder {
+            DbSettingsBuilder {
                 database_url: "mariadb://user:secret@localhost/suon".to_string(),
-                ..DatabaseSettingsBuilder::default()
+                ..DbSettingsBuilder::default()
             }
             .build()
             .expect("mariadb should be valid")
@@ -418,9 +408,9 @@ mod tests {
 
     #[test]
     fn validate_should_reject_blank_database_urls() {
-        let error = DatabaseSettingsBuilder {
+        let error = DbSettingsBuilder {
             database_url: " ".to_string(),
-            ..DatabaseSettingsBuilder::default()
+            ..DbSettingsBuilder::default()
         }
         .build()
         .expect_err("validate should reject blank database urls");
@@ -428,30 +418,30 @@ mod tests {
         assert!(
             error
                 .to_string()
-                .contains("DatabaseSettings.database_url must not be empty")
+                .contains("DbSettings.database_url must not be empty")
         );
     }
 
     #[test]
     fn validate_should_reject_unsupported_urls() {
-        let error = DatabaseSettingsBuilder {
+        let error = DbSettingsBuilder {
             database_url: "sqlserver://localhost/suon".to_string(),
-            ..DatabaseSettingsBuilder::default()
+            ..DbSettingsBuilder::default()
         }
         .build()
         .expect_err("validate should reject unsupported urls");
 
         assert!(error.to_string().contains(
-            "DatabaseSettings.database_url must use sqlite:, postgres://, postgresql://, \
-             mysql://, or mariadb://"
+            "DbSettings.database_url must use sqlite:, postgres://, postgresql://, mysql://, or \
+             mariadb://"
         ));
     }
 
     #[test]
     fn validate_should_reject_zero_busy_timeout() {
-        let error = DatabaseSettingsBuilder {
+        let error = DbSettingsBuilder {
             sqlite_busy_timeout: Duration::ZERO,
-            ..DatabaseSettingsBuilder::default()
+            ..DbSettingsBuilder::default()
         }
         .build()
         .expect_err("validate should reject zero busy timeouts");
@@ -459,7 +449,7 @@ mod tests {
         assert!(
             error
                 .to_string()
-                .contains("DatabaseSettings.sqlite_busy_timeout must be greater than zero")
+                .contains("DbSettings.sqlite_busy_timeout must be greater than zero")
         );
     }
 
@@ -468,10 +458,10 @@ mod tests {
         let temp_dir = unique_temp_dir();
         let config_path = temp_dir.join("nested").join("Settings.toml");
 
-        let created = DatabaseSettings::create_at(&config_path)
+        let created = DbSettings::create_at(&config_path)
             .expect("create_at should write and then reload the default settings file");
 
-        assert_eq!(created, DatabaseSettings::default());
+        assert_eq!(created, DbSettings::default());
         assert!(config_path.exists());
 
         let written =
@@ -495,7 +485,7 @@ auto_initialize_schema = false
 
         fs::write(&config_path, config).expect("the test configuration file should be written");
 
-        let loaded = DatabaseSettings::load_at(&config_path)
+        let loaded = DbSettings::load_at(&config_path)
             .expect("load_at should deserialize existing TOML settings");
 
         assert_eq!(loaded.database_url(), "postgres://loaded");

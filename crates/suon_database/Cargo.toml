@@ -14,7 +14,10 @@ repository.workspace = true
 description = "Database abstraction layer for the Suon MMORPG framework"
 
 [features]
-default = []
+default = ["sqlite"]
+sqlite = ["diesel/sqlite"]
+postgres = ["diesel/postgres"]
+mysql = ["diesel/mysql"]
 
 [dependencies]
 # External crates used directly by this crate.
@@ -26,7 +29,7 @@ bevy = { workspace = true, features = [
   "async_executor",
 ] }
 serde = { workspace = true, features = ["derive"] }
-diesel = { workspace = true, features = ["sqlite", "postgres", "mysql"] }
+diesel = { workspace = true }
 toml = { workspace = true, features = ["parse", "display", "serde"] }
 suon_serde.workspace = true
 

@@ -1,10 +1,11 @@
-//! Conversion helpers used by persistence mappers.
+//! Conversion helpers used by tables that bridge domain and Diesel types.
 //!
 //! These extension traits keep row-to-domain conversions small while attaching
 //! field names to overflow and epoch-related errors.
 
-use anyhow::{Context, Result};
 use std::time::SystemTime;
+
+use anyhow::{Context, Result};
 
 /// Converts one field value into another type while attaching field context.
 pub trait FieldTryIntoExt: Sized + Copy + std::fmt::Display {
@@ -29,12 +30,13 @@ where
     }
 }
 
-pub trait SystemTimeDatabaseConvertExt {
-    /// Converts a `SystemTime` to UNIX seconds stored as `i64`.
+/// Converts a [`SystemTime`] field into UNIX seconds with field context.
+pub trait SystemTimeDbExt {
+    /// Converts a [`SystemTime`] to UNIX seconds stored as `i64`.
     fn try_i64_secs_field(self, field: &str) -> Result<i64>;
 }
 
-impl SystemTimeDatabaseConvertExt for SystemTime {
+impl SystemTimeDbExt for SystemTime {
     fn try_i64_secs_field(self, field: &str) -> Result<i64> {
         self.duration_since(SystemTime::UNIX_EPOCH)
             .with_context(|| format!("Field '{field}' was before UNIX_EPOCH"))?
@@ -45,46 +47,24 @@ impl SystemTimeDatabaseConvertExt for SystemTime {
 
 #[cfg(test)]
 mod tests {
-    use super::{FieldTryIntoExt, SystemTimeDatabaseConvertExt};
+    use super::{FieldTryIntoExt, SystemTimeDbExt};
     use std::time::SystemTime;
 
     #[test]
     fn should_convert_i64_values_with_field_context() {
-        assert_eq!(
-            42_i64.try_field::<u16>("demo").unwrap(),
-            42,
-            "try_field should preserve in-range i64 to u16 values"
-        );
-
-        assert_eq!(
-            42_i64.try_field::<u32>("demo").unwrap(),
-            42,
-            "try_field should preserve in-range i64 to u32 values"
-        );
-
-        assert_eq!(
-            42_i64.try_field::<u64>("demo").unwrap(),
-            42,
-            "try_field should preserve in-range i64 to u64 values"
-        );
+        assert_eq!(42_i64.try_field::<u16>("demo").unwrap(), 42);
+        assert_eq!(42_i64.try_field::<u32>("demo").unwrap(), 42);
+        assert_eq!(42_i64.try_field::<u64>("demo").unwrap(), 42);
     }
 
     #[test]
     fn should_convert_u64_values_with_field_context() {
-        assert_eq!(
-            42_u64.try_field::<i64>("demo").unwrap(),
-            42,
-            "try_field should preserve in-range u64 to i64 values"
-        );
+        assert_eq!(42_u64.try_field::<i64>("demo").unwrap(), 42);
     }
 
     #[test]
     fn should_convert_system_time_to_unix_seconds() {
-        assert_eq!(
-            std::time::UNIX_EPOCH.try_i64_secs_field("demo").unwrap(),
-            0,
-            "try_i64_secs_field should map UNIX_EPOCH to zero seconds"
-        );
+        assert_eq!(std::time::UNIX_EPOCH.try_i64_secs_field("demo").unwrap(), 0);
     }
 
     #[test]
@@ -93,10 +73,7 @@ mod tests {
             .try_field::<u16>("demo")
             .expect_err("negative values should not convert to u16");
 
-        assert!(
-            error.to_string().contains("demo"),
-            "Overflow errors should include the field name for easier debugging"
-        );
+        assert!(error.to_string().contains("demo"));
     }
 
     #[test]
@@ -105,10 +82,7 @@ mod tests {
             .try_field::<i64>("demo")
             .expect_err("out-of-range u64 values should not convert to i64");
 
-        assert!(
-            error.to_string().contains("demo"),
-            "Overflow errors should include the field name for easier debugging"
-        );
+        assert!(error.to_string().contains("demo"));
     }
 
     #[test]
@@ -119,10 +93,7 @@ mod tests {
             .try_i64_secs_field("demo")
             .expect_err("times before the UNIX epoch should be rejected");
 
-        assert!(
-            error.to_string().contains("demo"),
-            "Epoch conversion errors should include the field name for easier debugging"
-        );
+        assert!(error.to_string().contains("demo"));
     }
 
     #[test]
@@ -135,14 +106,7 @@ mod tests {
             .try_field::<u64>("gold")
             .expect_err("negative values should not convert to u64");
 
-        assert!(
-            u32_error.to_string().contains("health"),
-            "try_field should include the field name in overflow errors"
-        );
-
-        assert!(
-            u64_error.to_string().contains("gold"),
-            "try_field should include the field name in overflow errors"
-        );
+        assert!(u32_error.to_string().contains("health"));
+        assert!(u64_error.to_string().contains("gold"));
     }
 }
