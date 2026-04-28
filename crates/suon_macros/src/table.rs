@@ -50,7 +50,7 @@ fn expand_derive_table(mut derive_input: DeriveInput) -> TokenStream2 {
     let (impl_generics, type_generics, where_clause) = &derive_input.generics.split_for_impl();
 
     // Path to the trait to be implemented.
-    let trait_path = quote! { suon_database::Table };
+    let trait_path = quote! { suon_database::prelude::Table };
 
     // Generate the impl block for the trait.
     quote! {
@@ -71,7 +71,7 @@ mod tests {
         let output = expand_derive_table(input).to_string();
 
         assert!(
-            output.contains("impl < T > suon_database :: Table for Inventory < T >"),
+            output.contains("impl < T > suon_database :: prelude :: Table for Inventory < T >"),
             "The derive macro should generate a Table impl for the annotated type"
         );
 
@@ -105,7 +105,7 @@ mod tests {
         let output = expand_derive_table(input).to_string();
 
         assert!(
-            output.contains("impl suon_database :: Table for Inventory"),
+            output.contains("impl suon_database :: prelude :: Table for Inventory"),
             "The derive macro should support named-field structs"
         );
     }
@@ -119,7 +119,9 @@ mod tests {
         let output = expand_derive_table(input).to_string();
 
         assert!(
-            output.contains("impl < 'a , T > suon_database :: Table for Borrowed < 'a , T >"),
+            output.contains(
+                "impl < 'a , T > suon_database :: prelude :: Table for Borrowed < 'a , T >"
+            ),
             "The derive macro should carry lifetime and type generics into the generated impl"
         );
 

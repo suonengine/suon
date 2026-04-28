@@ -42,11 +42,22 @@ fn expand_database_model(
         to_snake_case(&struct_ident.to_string())
     );
 
+    let primary_key_count = fields
+        .iter()
+        .filter(|field| {
+            parse_field_options(&field.attrs)
+                .map(|options| options.primary_key)
+                .unwrap_or(false)
+        })
+        .count();
+    let composite_primary_key = primary_key_count > 1;
+
     let mut table_fields = Vec::new();
     let mut sqlite_columns = Vec::new();
     let mut postgres_columns = Vec::new();
     let mut mysql_columns = Vec::new();
     let mut primary_keys = Vec::new();
+    let mut primary_key_names = Vec::new();
     let mut column_methods = Vec::new();
     let mut column_struct_fields = Vec::new();
     let mut column_struct_values = Vec::new();
@@ -60,11 +71,12 @@ fn expand_database_model(
             find_column_name(&field.attrs)?.unwrap_or_else(|| field_ident.to_string());
         let options = parse_field_options(&field.attrs)?;
         field.attrs.retain(|attr| !attr.path().is_ident("database"));
-        let column = infer_column(&field.ty, &column_name, options)?;
+        let column = infer_column(&field.ty, &column_name, options, composite_primary_key)?;
 
         if column.primary_key {
             let primary_key = Ident::new(&column_name, Span::call_site());
             primary_keys.push(primary_key.clone());
+            primary_key_names.push(column_name.clone());
         }
 
         let sql_type_tokens = &column.sql_type_tokens;
@@ -91,6 +103,14 @@ fn expand_database_model(
             &item,
             "database_model requires at least one #[database(primary_key)] field",
         ));
+    }
+
+    if composite_primary_key {
+        let constraint = format!("PRIMARY KEY ({})", primary_key_names.join(", "));
+        let constraint_lit = LitStr::new(&constraint, Span::call_site());
+        sqlite_columns.push(constraint_lit.clone());
+        postgres_columns.push(constraint_lit.clone());
+        mysql_columns.push(constraint_lit);
     }
 
     item.attrs.push(
@@ -128,12 +148,12 @@ fn expand_database_model(
             #(#column_struct_fields)*
         }
 
-        impl suon_database::DatabaseRecord for #struct_ident {
+        impl suon_database::prelude::DbRecord for #struct_ident {
             type Query = diesel::helper_types::Select<
                 #table_ident::table,
                 diesel::helper_types::AsSelect<
                     Self,
-                    <suon_database::AnyDieselConnection as diesel::Connection>::Backend,
+                    <suon_database::prelude::DbDriver as diesel::Connection>::Backend,
                 >,
             >;
             type Columns = #columns_ident;
@@ -156,38 +176,38 @@ fn expand_database_model(
 
             /// Creates a typed select query for this model.
             pub fn query(
-                connection: &mut suon_database::AnyDieselConnection,
-            ) -> suon_database::PendingStatement<
+                driver: &mut suon_database::prelude::DbDriver,
+            ) -> suon_database::prelude::PendingStatement<
                 '_,
-                <Self as suon_database::DatabaseRecord>::Query,
+                <Self as suon_database::prelude::DbRecord>::Query,
                 Self,
             > {
-                connection.query::<Self>()
+                driver.query::<Self>()
             }
 
             /// Creates the target table if it does not already exist.
             pub fn ensure_table(
-                connection: &mut suon_database::AnyDieselConnection,
-                backend: suon_database::DatabaseBackend,
+                driver: &mut suon_database::prelude::DbDriver,
+                backend: suon_database::prelude::DbBackend,
             ) -> anyhow::Result<usize> {
                 use diesel::RunQueryDsl;
 
                 diesel::sql_query(Self::create_table_sql(backend))
-                    .execute(connection)
+                    .execute(driver)
                     .map_err(anyhow::Error::from)
             }
 
             /// Returns backend-specific `CREATE TABLE IF NOT EXISTS` DDL.
-            pub fn create_table_sql(backend: suon_database::DatabaseBackend) -> ::std::string::String {
+            pub fn create_table_sql(backend: suon_database::prelude::DbBackend) -> ::std::string::String {
                 #create_sql_fn(backend)
             }
         }
 
-        fn #create_sql_fn(backend: suon_database::DatabaseBackend) -> ::std::string::String {
+        fn #create_sql_fn(backend: suon_database::prelude::DbBackend) -> ::std::string::String {
             let columns = match backend {
-                suon_database::DatabaseBackend::Sqlite => [#(#sqlite_columns),*].join(",\n    "),
-                suon_database::DatabaseBackend::Postgres => [#(#postgres_columns),*].join(",\n    "),
-                suon_database::DatabaseBackend::MySql | suon_database::DatabaseBackend::MariaDb => [#(#mysql_columns),*].join(",\n    "),
+                suon_database::prelude::DbBackend::Sqlite => [#(#sqlite_columns),*].join(",\n    "),
+                suon_database::prelude::DbBackend::Postgres => [#(#postgres_columns),*].join(",\n    "),
+                suon_database::prelude::DbBackend::MySql | suon_database::prelude::DbBackend::MariaDb => [#(#mysql_columns),*].join(",\n    "),
             };
 
             format!(
@@ -296,7 +316,12 @@ struct InferredColumn {
     mysql_sql: String,
 }
 
-fn infer_column(ty: &Type, column_name: &str, options: FieldOptions) -> Result<InferredColumn> {
+fn infer_column(
+    ty: &Type,
+    column_name: &str,
+    options: FieldOptions,
+    composite_primary_key: bool,
+) -> Result<InferredColumn> {
     let (base_ty, nullable) = unwrap_option(ty);
     let base_ident = extract_type_ident(base_ty)?;
     let base_name = base_ident.to_string();
@@ -346,11 +371,12 @@ fn infer_column(ty: &Type, column_name: &str, options: FieldOptions) -> Result<I
         sql_type_tokens
     };
 
+    let inline_primary_key = options.primary_key && !composite_primary_key;
     let sqlite_sql = build_column_sql(
         column_name,
         &sqlite_type,
         nullable,
-        options.primary_key,
+        inline_primary_key,
         options.auto,
         base_name.as_str(),
         DatabaseFlavor::Sqlite,
@@ -359,7 +385,7 @@ fn infer_column(ty: &Type, column_name: &str, options: FieldOptions) -> Result<I
         column_name,
         &postgres_type,
         nullable,
-        options.primary_key,
+        inline_primary_key,
         options.auto,
         base_name.as_str(),
         DatabaseFlavor::Postgres,
@@ -368,7 +394,7 @@ fn infer_column(ty: &Type, column_name: &str, options: FieldOptions) -> Result<I
         column_name,
         &mysql_type,
         nullable,
-        options.primary_key,
+        inline_primary_key,
         options.auto,
         base_name.as_str(),
         DatabaseFlavor::MySql,
