@@ -203,10 +203,10 @@ fn parse_table_name(args: &Punctuated<syn::Meta, Token![,]>) -> Result<LitStr> {
     for arg in args {
         match arg {
             syn::Meta::NameValue(name_value) if name_value.path.is_ident("table") => {
-                if let syn::Expr::Lit(expr_lit) = &name_value.value {
-                    if let syn::Lit::Str(value) = &expr_lit.lit {
-                        return Ok(LitStr::new(&value.value(), value.span()));
-                    }
+                if let syn::Expr::Lit(expr_lit) = &name_value.value
+                    && let syn::Lit::Str(value) = &expr_lit.lit
+                {
+                    return Ok(LitStr::new(&value.value(), value.span()));
                 }
 
                 return Err(Error::new_spanned(
@@ -235,19 +235,19 @@ fn find_column_name(attrs: &[Attribute]) -> Result<Option<String>> {
 
         let metas = attr.parse_args_with(Punctuated::<syn::Meta, Token![,]>::parse_terminated)?;
         for meta in metas {
-            if let syn::Meta::NameValue(name_value) = meta {
-                if name_value.path.is_ident("column_name") {
-                    if let syn::Expr::Lit(ref expr_lit) = name_value.value {
-                        if let syn::Lit::Str(value) = &expr_lit.lit {
-                            return Ok(Some(value.value()));
-                        }
-                    }
-
-                    return Err(Error::new_spanned(
-                        name_value,
-                        "expected column_name = \"column_name\"",
-                    ));
+            if let syn::Meta::NameValue(name_value) = meta
+                && name_value.path.is_ident("column_name")
+            {
+                if let syn::Expr::Lit(ref expr_lit) = name_value.value
+                    && let syn::Lit::Str(value) = &expr_lit.lit
+                {
+                    return Ok(Some(value.value()));
                 }
+
+                return Err(Error::new_spanned(
+                    name_value,
+                    "expected column_name = \"column_name\"",
+                ));
             }
         }
     }
