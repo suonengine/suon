@@ -192,14 +192,14 @@ impl DbConnection {
                     })?,
             ),
             #[cfg(feature = "postgres")]
-            DbBackend::Postgres => DbDriver::Postgres(
-                PgConnection::establish(&normalized_url).with_context(|| {
+            DbBackend::Postgres => {
+                DbDriver::Postgres(PgConnection::establish(&normalized_url).with_context(|| {
                     format!(
                         "Failed to establish PostgreSQL connection for '{}'",
                         settings.database_url()
                     )
-                })?,
-            ),
+                })?)
+            }
             #[cfg(feature = "mysql")]
             DbBackend::MySql | DbBackend::MariaDb => DbDriver::Mysql(
                 MysqlConnection::establish(&normalized_url).with_context(|| {
@@ -401,8 +401,7 @@ mod tests {
 
     #[test]
     fn should_run_select_queries_on_the_default_sqlite_driver() {
-        let connection =
-            DbConnection::open(&in_memory_settings()).expect("connection should open");
+        let connection = DbConnection::open(&in_memory_settings()).expect("connection should open");
 
         let row = connection
             .execute(|driver| {
@@ -417,8 +416,7 @@ mod tests {
 
     #[test]
     fn should_run_futures_through_block_on() {
-        let connection =
-            DbConnection::open(&in_memory_settings()).expect("connection should open");
+        let connection = DbConnection::open(&in_memory_settings()).expect("connection should open");
 
         let value = connection.block_on(async { 42 });
         assert_eq!(value, 42);
@@ -426,8 +424,7 @@ mod tests {
 
     #[test]
     fn should_clone_connection_to_share_driver() {
-        let connection =
-            DbConnection::open(&in_memory_settings()).expect("connection should open");
+        let connection = DbConnection::open(&in_memory_settings()).expect("connection should open");
         let cloned = connection.clone();
 
         connection
@@ -451,8 +448,7 @@ mod tests {
 
     #[test]
     fn should_rollback_failed_transactions() {
-        let connection =
-            DbConnection::open(&in_memory_settings()).expect("connection should open");
+        let connection = DbConnection::open(&in_memory_settings()).expect("connection should open");
 
         connection
             .execute(|driver| {
