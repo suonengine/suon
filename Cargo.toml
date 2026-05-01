@@ -60,6 +60,7 @@ suon_protocol.workspace = true
 suon_market.workspace = true
 suon_protocol_client.workspace = true
 suon_protocol_server.workspace = true
+suon_rng.workspace = true
 suon_serde.workspace = true
 suon_task.workspace = true
 suon_chunk.workspace = true
@@ -113,6 +114,11 @@ syn = { version = "2.0", default-features = false }
 thiserror = { version = "2.0", default-features = false }
 tokio = { version = "1.52", default-features = false }
 toml = { version = "1.1", default-features = false }
+rand_core = { version = "0.10", default-features = false }
+bevy_rand = { version = "0.14", default-features = false, features = [
+  "chacha20",
+  "wyrand",
+] }
 
 # Shared internal crates.
 diesel = { version = "2.3", default-features = false }
@@ -127,6 +133,7 @@ suon_observability = { version = "0.1.0", path = "crates/suon_observability" }
 suon_protocol = { version = "0.1.0", path = "crates/suon_protocol" }
 suon_protocol_client = { version = "0.1.0", path = "crates/suon_protocol_client" }
 suon_protocol_server = { version = "0.1.0", path = "crates/suon_protocol_server" }
+suon_rng = { version = "0.1.0", path = "crates/suon_rng" }
 suon_serde = { version = "0.1.0", path = "crates/suon_serde" }
 suon_task = { version = "0.1.0", path = "crates/suon_task" }
 suon_chunk = { version = "0.1.0", path = "crates/suon_chunk" }

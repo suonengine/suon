@@ -19,6 +19,7 @@ use suon_lua::prelude::*;
 use suon_market::prelude::*;
 use suon_movement::prelude::*;
 use suon_network::prelude::*;
+use suon_rng::prelude::*;
 
 mod settings;
 mod system;
@@ -77,6 +78,7 @@ impl Plugin for SuonPlugin {
                 MovementPlugins,
                 MarketPlugins,
                 NetworkPlugins,
+                RNGPlugin,
             ))
             .add_plugins(LuaPlugin);
     }
