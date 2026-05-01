@@ -7,7 +7,7 @@
 //! pull them via `Res`.
 //!
 //! Tables register themselves separately through
-//! [`AppDbExt::init_db_table`](crate::table::AppDbExt::init_db_table) or
+//! [`AppDbExt::init_dbtable`](crate::table::AppDbExt::init_dbtable) or
 //! [`AppDbPersistenceExt`](crate::persistence::AppDbPersistenceExt) after the
 //! plugin is added.
 
@@ -173,7 +173,7 @@ mod tests {
     #[test]
     fn should_expose_typed_tables_through_db_and_db_mut() {
         let mut app = App::new();
-        app.init_db_table::<PreludeTable>();
+        app.init_dbtable::<PreludeTable>();
 
         app.add_systems(Update, |mut table: DbMut<PreludeTable>| {
             table.value = 11;

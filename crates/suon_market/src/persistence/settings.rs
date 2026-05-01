@@ -15,7 +15,7 @@ use std::{
 use suon_database::prelude::*;
 use suon_serde::{DocumentedToml, prelude::*};
 
-use crate::offer::MarketRateLimiter;
+use crate::offer::{MarketOfferCreateError, MarketRateLimiter};
 
 /// Settings that control market persistence, limits, and safety rules.
 #[derive(Resource, Serialize, Deserialize, DocumentedToml, Clone, Debug, PartialEq, Default)]
@@ -131,8 +131,8 @@ pub struct MarketPersistenceSettings {
     save_on_shutdown: bool,
 
     /// Optional database override for the market module.
-    /// When omitted, the shared `DatabaseSettings` resource is used.
-    database: Option<DatabaseSettings>,
+    /// When omitted, the shared `DbSettings` resource is used.
+    database: Option<DbSettings>,
 }
 
 impl Default for MarketPersistenceSettings {
@@ -150,7 +150,7 @@ impl MarketPersistenceSettings {
     pub fn new(
         flush_interval: Duration,
         save_on_shutdown: bool,
-        database: Option<DatabaseSettings>,
+        database: Option<DbSettings>,
     ) -> Self {
         Self {
             flush_interval,
@@ -170,7 +170,7 @@ impl MarketPersistenceSettings {
     }
 
     /// Returns the configured database override, if one exists.
-    pub fn database_override(&self) -> Option<&DatabaseSettings> {
+    pub fn database_override(&self) -> Option<&DbSettings> {
         self.database.as_ref()
     }
 }
@@ -248,23 +248,23 @@ impl MarketPolicySettings {
         active_offers: usize,
         rate_limiter: &mut MarketRateLimiter,
         now: SystemTime,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), MarketOfferCreateError> {
         // Keep the checks ordered from static deny-lists to dynamic limits so
         // callers get the most direct rejection reason first.
         if self.blocked_actor_ids.contains(&actor_id) {
-            return Err("actor is blocked from market offers");
+            return Err(MarketOfferCreateError::ActorBlocked);
         }
 
         if self.blocked_item_ids.contains(&item_id) {
-            return Err("item is blocked from market offers");
+            return Err(MarketOfferCreateError::ItemBlocked);
         }
 
         if active_offers >= self.max_active_offers_per_actor {
-            return Err("active market offer limit reached");
+            return Err(MarketOfferCreateError::ActiveOfferLimitReached);
         }
 
         if !rate_limiter.record_offer_create(actor_id, now, &self.create_offer_rules) {
-            return Err("market offer rate limit reached");
+            return Err(MarketOfferCreateError::RateLimitReached);
         }
 
         Ok(())

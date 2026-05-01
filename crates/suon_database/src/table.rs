@@ -142,19 +142,19 @@ impl<T: Table> std::ops::DerefMut for DbMut<'_, T> {
 /// Extension trait registering typed tables on a Bevy [`App`].
 pub trait AppDbExt {
     /// Initializes a typed table resource with its default value when missing.
-    fn init_db_table<T: Table + Default>(&mut self) -> &mut Self;
+    fn init_dbtable<T: Table + Default>(&mut self) -> &mut Self;
 
     /// Inserts or replaces a typed table resource with a concrete value.
-    fn insert_db_table<T: Table>(&mut self, table: T) -> &mut Self;
+    fn insert_dbtable<T: Table>(&mut self, table: T) -> &mut Self;
 }
 
 impl AppDbExt for App {
-    fn init_db_table<T: Table + Default>(&mut self) -> &mut Self {
+    fn init_dbtable<T: Table + Default>(&mut self) -> &mut Self {
         self.init_resource::<Tables<T>>();
         self
     }
 
-    fn insert_db_table<T: Table>(&mut self, table: T) -> &mut Self {
+    fn insert_dbtable<T: Table>(&mut self, table: T) -> &mut Self {
         self.insert_resource(Tables::new(table));
         self
     }
@@ -174,11 +174,11 @@ mod tests {
     #[test]
     fn should_initialize_table_resource() {
         let mut app = App::new();
-        app.init_db_table::<MyTable>();
+        app.init_dbtable::<MyTable>();
 
         assert!(
             app.world().contains_resource::<Tables<MyTable>>(),
-            "init_db_table should create a Tables<MyTable> resource",
+            "init_dbtable should create a Tables<MyTable> resource",
         );
     }
 
@@ -239,7 +239,7 @@ mod tests {
     #[test]
     fn should_access_table_through_system_params() {
         let mut app = App::new();
-        app.insert_db_table(MyTable { value: false });
+        app.insert_dbtable(MyTable { value: false });
 
         app.add_systems(PreUpdate, |table: Db<MyTable>| {
             assert!(!table.value, "Db should expose initial values to systems");
@@ -248,14 +248,15 @@ mod tests {
             table.value = true;
         })
         .add_systems(PostUpdate, |table: Db<MyTable>| {
-            assert!(table.value, "Db should observe values written through DbMut");
+            assert!(
+                table.value,
+                "Db should observe values written through DbMut"
+            );
         });
 
         app.update();
 
-        let resource = app
-            .world()
-            .resource::<Tables<MyTable>>();
+        let resource = app.world().resource::<Tables<MyTable>>();
         assert!(resource.value);
         assert!(
             resource.is_dirty(),
@@ -266,8 +267,8 @@ mod tests {
     #[test]
     fn should_overwrite_existing_table_when_inserting_again() {
         let mut app = App::new();
-        app.insert_db_table(MyTable { value: false });
-        app.insert_db_table(MyTable { value: true });
+        app.insert_dbtable(MyTable { value: false });
+        app.insert_dbtable(MyTable { value: true });
 
         let table = app.world().resource::<Tables<MyTable>>();
         assert!(table.value);
@@ -277,8 +278,8 @@ mod tests {
     fn should_chain_app_db_extension_methods() {
         let mut app = App::new();
         let returned = app
-            .init_db_table::<MyTable>()
-            .insert_db_table(MyTable { value: true });
+            .init_dbtable::<MyTable>()
+            .insert_dbtable(MyTable { value: true });
 
         assert!(std::ptr::eq(returned, &app));
     }

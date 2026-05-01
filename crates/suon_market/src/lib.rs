@@ -2,8 +2,8 @@
 //!
 //! This crate sits above the protocol and networking layers. It keeps market
 //! reference data in typed database tables, loads those tables during startup
-//! through an ORM-style provider, and listens to typed market packets through
-//! Bevy observers.
+//! through the `suon_database` persistence pipeline, and listens to typed
+//! market packets through Bevy observers.
 //!
 //! # Examples
 //! ```no_run
@@ -21,13 +21,15 @@ mod browse;
 mod history;
 mod offer;
 mod persistence;
+mod protocol;
+mod session;
+
+pub use persistence::MarketHistoryJournal;
 
 pub mod prelude {
     pub use super::{
         MarketPlugins,
-        browse::{
-            BrowseMarket, BrowseMarketIntent, BrowseMarketRejected, MarketActorRef, MarketSession,
-        },
+        browse::{BrowseMarket, BrowseMarketIntent, BrowseMarketRejected},
         history::{MarketHistoryAction, MarketHistoryEntry, ParseMarketHistoryActionError},
         offer::{
             MarketActorName, MarketActorsTable, MarketItemsTable, MarketOffer,
@@ -38,9 +40,9 @@ pub mod prelude {
             ParseMarketTradeSideError,
         },
         persistence::{
-            MarketOrm, MarketOrmResource, MarketPersistenceSettings, MarketPolicySettings,
-            MarketSettings,
+            MarketHistoryJournal, MarketPersistenceSettings, MarketPolicySettings, MarketSettings,
         },
+        session::{CloseMarketSessionIntent, MarketActorRef, MarketSession},
     };
 }
 
@@ -52,8 +54,10 @@ impl PluginGroup for MarketPlugins {
         PluginGroupBuilder::start::<Self>()
             .add(persistence::MarketPersistencePlugin)
             .add(history::MarketHistoryPlugin)
+            .add(session::MarketSessionPlugin)
             .add(browse::MarketBrowsePlugin)
             .add(offer::MarketOfferPlugin)
+            .add(protocol::MarketProtocolPlugin)
     }
 }
 
@@ -61,81 +65,36 @@ impl PluginGroup for MarketPlugins {
 mod tests {
     use super::*;
     use crate::prelude::{
-        MarketActorName, MarketActorRef, MarketActorsTable, MarketHistoryAction,
-        MarketHistoryEntry, MarketItemsTable, MarketOffer, MarketOfferCancelled, MarketOfferId,
-        MarketOffersTable, MarketOrm, MarketOrmResource, MarketTradeSide,
+        MarketActorName, MarketActorRef, MarketActorsTable, MarketItemsTable, MarketOffer,
+        MarketOfferCancelled, MarketOfferId, MarketOffersTable, MarketTradeSide,
     };
-    use std::{
-        sync::{Arc, Mutex},
-        time::{Duration, UNIX_EPOCH},
-    };
+    use std::time::{Duration, UNIX_EPOCH};
     use suon_database::prelude::*;
     use suon_protocol_client::prelude::MarketBrowseKind;
 
-    #[derive(Debug, Clone, PartialEq, Eq)]
-    enum RecordedAction {
-        Offers(Vec<MarketOffer>),
-        History(MarketHistoryEntry),
-    }
-
-    #[derive(Default)]
-    struct RecordingOrm {
-        actions: Mutex<Vec<RecordedAction>>,
-        actors: Mutex<Vec<MarketActorName>>,
-        items: Mutex<Vec<(u16, String)>>,
-        offers: Mutex<Vec<MarketOffer>>,
-    }
-
-    impl MarketOrm for RecordingOrm {
-        fn load_actors(&self) -> anyhow::Result<Vec<MarketActorName>> {
-            Ok(self
-                .actors
-                .lock()
-                .expect("recording mutex should stay available")
-                .clone())
+    /// Builds a Bevy app pre-wired with the market plugin group on top of an
+    /// in-memory SQLite connection.
+    fn test_app() -> App {
+        let settings = DbSettingsBuilder {
+            database_url: "sqlite::memory:".to_string(),
+            ..DbSettingsBuilder::default()
         }
+        .build()
+        .expect("memory settings should build");
+        let connection =
+            DbConnection::open(&settings).expect("opening sqlite memory should succeed");
 
-        fn load_items(&self) -> anyhow::Result<Vec<(u16, String)>> {
-            Ok(self
-                .items
-                .lock()
-                .expect("recording mutex should stay available")
-                .clone())
-        }
-
-        fn load_offers(&self) -> anyhow::Result<Vec<MarketOffer>> {
-            Ok(self
-                .offers
-                .lock()
-                .expect("recording mutex should stay available")
-                .clone())
-        }
-
-        fn save_offers(&self, offers: &[MarketOffer]) -> anyhow::Result<()> {
-            self.actions
-                .lock()
-                .expect("recording mutex should stay available")
-                .push(RecordedAction::Offers(offers.to_vec()));
-            Ok(())
-        }
-
-        fn insert_history(&self, history: &MarketHistoryEntry) -> anyhow::Result<()> {
-            self.actions
-                .lock()
-                .expect("recording mutex should stay available")
-                .push(RecordedAction::History(history.clone()));
-            Ok(())
-        }
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.insert_resource(settings);
+        app.insert_resource(connection);
+        app.add_plugins(MarketPlugins);
+        app
     }
 
     #[test]
     fn should_build_market_plugin_group() {
-        let orm = Arc::new(RecordingOrm::default());
-        let mut app = App::new();
-
-        app.add_plugins(MinimalPlugins);
-        app.insert_resource(MarketOrmResource::new(orm));
-        app.add_plugins(MarketPlugins);
+        let mut app = test_app();
         app.update();
 
         assert_eq!(std::mem::size_of::<MarketPlugins>(), 0);
@@ -143,12 +102,7 @@ mod tests {
 
     #[test]
     fn should_initialize_market_tables_when_plugins_are_added() {
-        let orm = Arc::new(RecordingOrm::default());
-        let mut app = App::new();
-
-        app.add_plugins(MinimalPlugins);
-        app.insert_resource(MarketOrmResource::new(orm));
-        app.add_plugins(MarketPlugins);
+        let app = test_app();
 
         assert!(app.world().contains_resource::<Tables<MarketActorsTable>>());
         assert!(app.world().contains_resource::<Tables<MarketItemsTable>>());
@@ -156,11 +110,21 @@ mod tests {
     }
 
     #[test]
-    fn should_load_market_tables_from_orm_during_startup() {
-        let orm = Arc::new(RecordingOrm {
-            actors: Mutex::new(vec![MarketActorName::new(7, "Ramon")]),
-            items: Mutex::new(vec![(2160, "Crystal Coin".to_string())]),
-            offers: Mutex::new(vec![MarketOffer::new(
+    fn should_load_market_tables_from_database_during_startup() {
+        let mut app = test_app();
+        let connection = app.world().resource::<DbConnection>().clone();
+
+        MarketActorsTable::initialize_schema(&connection).expect("schema setup should succeed");
+        MarketItemsTable::initialize_schema(&connection).expect("schema setup should succeed");
+        MarketOffersTable::initialize_schema(&connection).expect("schema setup should succeed");
+
+        MarketActorsTable::save(&connection, &[MarketActorName::new(7, "Ramon")])
+            .expect("actor save should succeed");
+        MarketItemsTable::save(&connection, &[(2160, "Crystal Coin".to_string())])
+            .expect("item save should succeed");
+        MarketOffersTable::save(
+            &connection,
+            &[MarketOffer::new(
                 MarketOfferId::new(UNIX_EPOCH, 9),
                 2160,
                 7,
@@ -168,14 +132,10 @@ mod tests {
                 100_000,
                 MarketTradeSide::Sell,
                 false,
-            )]),
-            ..Default::default()
-        });
-        let mut app = App::new();
+            )],
+        )
+        .expect("offer save should succeed");
 
-        app.add_plugins(MinimalPlugins);
-        app.insert_resource(MarketOrmResource::new(orm));
-        app.add_plugins(MarketPlugins);
         app.update();
 
         let actors = app.world().resource::<Tables<MarketActorsTable>>();
@@ -189,12 +149,7 @@ mod tests {
 
     #[test]
     fn should_create_market_offer_inside_market_crate() {
-        let orm = Arc::new(RecordingOrm::default());
-        let mut app = App::new();
-
-        app.add_plugins(MinimalPlugins);
-        app.insert_resource(MarketOrmResource::new(orm.clone()));
-        app.add_plugins(MarketPlugins);
+        let mut app = test_app();
         let offer = MarketOffer::new(
             MarketOfferId::new(UNIX_EPOCH, 1),
             2160,
@@ -212,23 +167,12 @@ mod tests {
 
         let offers = app.world().resource::<Tables<MarketOffersTable>>();
         assert!(offers.get(&offer.id()).is_some());
-        assert!(
-            orm.actions
-                .lock()
-                .expect("recording mutex should stay available")
-                .is_empty()
-        );
     }
 
     #[test]
     fn should_cancel_market_offer_inside_market_crate() {
-        let orm = Arc::new(RecordingOrm::default());
-        let mut app = App::new();
-
-        app.add_plugins(MinimalPlugins);
-        app.insert_resource(MarketOrmResource::new(orm.clone()));
-        app.add_plugins(MarketPlugins);
-        app.insert_database_table(MarketOffersTable::from_iter([MarketOffer::new(
+        let mut app = test_app();
+        app.insert_dbtable(MarketOffersTable::from_iter([MarketOffer::new(
             MarketOfferId::new(UNIX_EPOCH, 1),
             2160,
             77,
@@ -237,6 +181,7 @@ mod tests {
             MarketTradeSide::Sell,
             false,
         )]));
+
         let client = app.world_mut().spawn_empty().id();
         let event = MarketOfferCancelled {
             entity: client,
@@ -259,23 +204,12 @@ mod tests {
 
         let offers = app.world().resource::<Tables<MarketOffersTable>>();
         assert_eq!(offers.len(), 0);
-        assert!(
-            orm.actions
-                .lock()
-                .expect("recording mutex should stay available")
-                .is_empty()
-        );
     }
 
     #[test]
     fn should_accept_market_offer_and_reduce_remaining_amount() {
-        let orm = Arc::new(RecordingOrm::default());
-        let mut app = App::new();
-
-        app.add_plugins(MinimalPlugins);
-        app.insert_resource(MarketOrmResource::new(orm.clone()));
-        app.add_plugins(MarketPlugins);
-        app.insert_database_table(MarketOffersTable::from_iter([MarketOffer::new(
+        let mut app = test_app();
+        app.insert_dbtable(MarketOffersTable::from_iter([MarketOffer::new(
             MarketOfferId::new(UNIX_EPOCH + Duration::from_secs(5), 2),
             2160,
             77,
@@ -314,48 +248,35 @@ mod tests {
     }
 
     #[test]
-    fn should_persist_market_snapshot_on_app_exit() {
-        let orm = Arc::new(RecordingOrm::default());
-        let mut app = App::new();
-
-        app.add_plugins(MinimalPlugins);
-        app.insert_resource(MarketOrmResource::new(orm.clone()));
-        app.add_plugins(MarketPlugins);
-        app.update();
-        app.insert_database_table(MarketOffersTable::from_iter([MarketOffer::new(
-            MarketOfferId::new(UNIX_EPOCH, 3),
-            2160,
-            77,
-            2,
-            11_000,
-            MarketTradeSide::Sell,
-            false,
-        )]));
-        app.world_mut()
-            .resource_mut::<persistence::MarketDirty>()
-            .mark();
-        app.world_mut().write_message(bevy::app::AppExit::Success);
+    fn should_mark_market_snapshot_dirty_on_table_mutation() {
+        let mut app = test_app();
         app.update();
 
-        let actions = orm
-            .actions
-            .lock()
-            .expect("recording mutex should stay available");
+        {
+            let mut offers = app.world_mut().resource_mut::<Tables<MarketOffersTable>>();
+            offers.insert(MarketOffer::new(
+                MarketOfferId::new(UNIX_EPOCH, 3),
+                2160,
+                77,
+                2,
+                11_000,
+                MarketTradeSide::Sell,
+                false,
+            ));
+        }
+
+        let offers = app.world().resource::<Tables<MarketOffersTable>>();
         assert!(
-            actions.iter().any(
-                |action| matches!(action, RecordedAction::Offers(offers) if offers.iter().any(|offer| offer.amount() == 2))
-            )
+            offers.is_dirty(),
+            "mutating a persistent market table should mark it dirty for background saving"
         );
     }
 
     #[test]
     fn should_append_history_from_market_events() {
-        let orm = Arc::new(RecordingOrm::default());
-        let mut app = App::new();
-
-        app.add_plugins(MinimalPlugins);
-        app.insert_resource(MarketOrmResource::new(orm.clone()));
-        app.add_plugins(MarketPlugins);
+        let mut app = test_app();
+        app.update();
+        let connection = app.world().resource::<DbConnection>().clone();
 
         let client = app.world_mut().spawn(MarketActorRef::new(77)).id();
         app.world_mut().trigger(crate::offer::MarketOfferCreated {
@@ -372,21 +293,31 @@ mod tests {
         });
         app.update();
 
-        let actions = orm
-            .actions
-            .lock()
-            .expect("recording mutex should stay available");
-        assert!(actions.iter().any(|action| matches!(
-            action,
-            RecordedAction::History(entry)
-                if entry.action() == MarketHistoryAction::Create
-                    && entry.offer_id() == Some(MarketOfferId::new(UNIX_EPOCH, 4))
-        )));
+        use diesel::{RunQueryDsl, sql_query, sql_types::BigInt};
+
+        #[derive(diesel::QueryableByName)]
+        struct CountRow {
+            #[diesel(sql_type = BigInt)]
+            count: i64,
+        }
+
+        let count = connection
+            .execute(|driver| {
+                sql_query("SELECT COUNT(*) AS count FROM market_history WHERE action = 'create'")
+                    .get_result::<CountRow>(driver)
+                    .map_err(anyhow::Error::from)
+            })
+            .expect("counting history rows should succeed");
+
+        assert_eq!(
+            count.count, 1,
+            "creating an offer should append a history entry"
+        );
     }
 
     #[test]
     fn should_store_market_browse_kind_in_session() {
-        let session = browse::MarketSession::new(Some(MarketBrowseKind::OwnOffers));
+        let session = session::MarketSession::new(Some(MarketBrowseKind::OwnOffers));
         assert_eq!(session.last_browse(), Some(MarketBrowseKind::OwnOffers));
     }
 }

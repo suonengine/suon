@@ -30,7 +30,7 @@
 //! App::new()
 //!     .add_plugins(MinimalPlugins)
 //!     .add_plugins(DbPlugin)
-//!     .init_db_table::<InventoryTable>()
+//!     .init_dbtable::<InventoryTable>()
 //!     .add_systems(Startup, add_item)
 //!     .add_systems(Update, read_inventory)
 //!     .run();

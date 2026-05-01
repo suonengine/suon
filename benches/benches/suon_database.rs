@@ -2,7 +2,7 @@ use ::benches::bench;
 use bevy::prelude::*;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
-use suon_database::{AppTablesExt, Database, DatabaseMut, Table, Tables};
+use suon_database::prelude::{AppDbExt, Db, DbMut, Table, Tables};
 
 #[derive(Default)]
 struct BenchTable {
@@ -17,7 +17,7 @@ fn benchmark_database(c: &mut Criterion) {
     group.bench_function(bench!("init_table"), |b| {
         b.iter(|| {
             let mut app = App::new();
-            app.init_database_table::<BenchTable>();
+            app.init_dbtable::<BenchTable>();
             black_box(
                 app.world()
                     .get_resource::<Tables<BenchTable>>()
@@ -30,7 +30,7 @@ fn benchmark_database(c: &mut Criterion) {
     group.bench_function(bench!("insert_table"), |b| {
         b.iter(|| {
             let mut app = App::new();
-            app.insert_database_table(BenchTable {
+            app.insert_dbtable(BenchTable {
                 value: black_box(42),
             });
 
@@ -47,11 +47,11 @@ fn benchmark_database(c: &mut Criterion) {
         b.iter(|| {
             let mut app = App::new();
             app.add_plugins(MinimalPlugins);
-            app.init_database_table::<BenchTable>();
-            app.add_systems(Update, |mut table: DatabaseMut<BenchTable>| {
+            app.init_dbtable::<BenchTable>();
+            app.add_systems(Update, |mut table: DbMut<BenchTable>| {
                 table.value = black_box(64);
             });
-            app.add_systems(PostUpdate, |table: Database<BenchTable>| {
+            app.add_systems(PostUpdate, |table: Db<BenchTable>| {
                 let _ = black_box(table.value);
             });
             app.update();
@@ -65,8 +65,8 @@ fn benchmark_database(c: &mut Criterion) {
             |b, &value| {
                 b.iter(|| {
                     let mut app = App::new();
-                    app.insert_database_table(BenchTable { value: 0 });
-                    app.insert_database_table(BenchTable {
+                    app.insert_dbtable(BenchTable { value: 0 });
+                    app.insert_dbtable(BenchTable {
                         value: black_box(value),
                     });
 

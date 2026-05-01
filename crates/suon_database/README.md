@@ -58,7 +58,7 @@ fn main() {
     App::new()
         .add_plugins(MinimalPlugins)
         .add_plugins(DbPlugin)
-        .init_db_table::<ItemTable>()
+        .init_dbtable::<ItemTable>()
         .add_systems(Startup, add_item)
         .add_systems(Update, read_items)
         .run();
@@ -68,7 +68,7 @@ fn main() {
 ## Snapshot persistence
 
 Implement `DbTable` to wire a table into the load / save pipeline. The
-extension trait `init_db_persistent::<T>()` auto-loads on `Startup`, periodic
+extension trait `init_dbpersistent::<T>()` auto-loads on `Startup`, periodic
 flushes on `Update`, and drains pending writes on `AppExit`.
 
 ```rust,ignore
@@ -93,13 +93,13 @@ impl DbTable for ScoreTable {
 App::new()
     .add_plugins(MinimalPlugins)
     .add_plugins(DbPlugin)
-    .init_db_persistent::<ScoreTable>();
+    .init_dbpersistent::<ScoreTable>();
 ```
 
 ## Append-only journals
 
 For history tables that only insert rows, implement `DbAppend` and register
-the schema with `init_db_journal::<T>()`. Insert calls go through
+the schema with `init_dbjournal::<T>()`. Insert calls go through
 `T::append(&connection, &row)` directly inside your systems / observers.
 
 ```rust,ignore
@@ -118,13 +118,13 @@ impl DbAppend for LoginAudit {
 App::new()
     .add_plugins(MinimalPlugins)
     .add_plugins(DbPlugin)
-    .init_db_journal::<LoginAudit>();
+    .init_dbjournal::<LoginAudit>();
 ```
 
 ## Per-table connection override
 
 Each table can opt into a separate database via `DbTableSettings::new(...)`
-and `app.insert_db_table_settings::<MyTable>(settings)`. When the override is
+and `app.insert_dbtable_settings::<MyTable>(settings)`. When the override is
 absent, the table uses the shared `DbConnection` from `DbPlugin`.
 
 ## Type reference
@@ -142,8 +142,8 @@ absent, the table uses the shared `DbConnection` from `DbPlugin`.
 | `DbTable` | Snapshot persistence trait |
 | `DbAppend` | Append-only journal trait |
 | `DbTableSettings<T>` | Per-table flush cadence and override |
-| `AppDbExt` | `init_db_table` / `insert_db_table` |
-| `AppDbPersistenceExt` | `init_db_persistent` / `insert_db_table_settings` / `init_db_journal` |
+| `AppDbExt` | `init_dbtable` / `insert_dbtable` |
+| `AppDbPersistenceExt` | `init_dbpersistent` / `insert_dbtable_settings` / `init_dbjournal` |
 
 ## SQL helpers
 

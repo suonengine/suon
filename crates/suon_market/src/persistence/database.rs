@@ -1,8 +1,9 @@
-//! Diesel-backed persistence mappings for the market domain.
+//! Diesel-backed persistence for the market domain.
 //!
-//! Unlike the previous Suon-specific ORM layer, this module follows Diesel's
-//! native model style directly: `table!` schema declarations plus
-//! `Queryable`/`Selectable`/`Insertable` structs.
+//! Each market table implements [`DbTable`] directly: no separate mapper, no
+//! ORM trait. The history journal implements [`DbAppend`]. The persistence
+//! pipeline registered by `suon_database` then loads, saves, and drains
+//! tables automatically based on their dirty epoch.
 
 use anyhow::{Context, Result};
 use diesel::{ExpressionMethods, Insertable};
@@ -15,105 +16,31 @@ use crate::{
         MarketActorName, MarketActorsTable, MarketItemsTable, MarketOffer, MarketOfferId,
         MarketOffersTable, MarketTradeSide,
     },
-    persistence::orm::MarketOrm,
 };
 
-/// Database-backed market ORM that delegates connection concerns to
-/// `suon_database` and keeps market-specific Diesel mappings here.
-pub struct MarketDatabaseOrm {
-    database: DatabaseConnection<DatabasePool>,
-    actors: MarketActorsMapper,
-    items: MarketItemsMapper,
-    offers: MarketOffersMapper,
-    history: MarketHistoryMapper,
-}
+impl DbTable for MarketActorsTable {
+    type Row = MarketActorName;
 
-impl MarketDatabaseOrm {
-    pub fn connect(settings: &DatabaseSettings) -> Result<Self> {
-        let database = DatabaseConnection::<DatabasePool>::connect(settings)?;
-        let orm = Self {
-            database,
-            actors: MarketActorsMapper,
-            items: MarketItemsMapper,
-            offers: MarketOffersMapper,
-            history: MarketHistoryMapper,
-        };
-
-        if settings.auto_initialize_schema() {
-            MarketActorsTable::default().initialize_schema(&orm.database, &orm.actors)?;
-            MarketItemsTable::default().initialize_schema(&orm.database, &orm.items)?;
-            MarketOffersTable::default().initialize_schema(&orm.database, &orm.offers)?;
-            orm.history.initialize_schema(&orm.database)?;
-        }
-
-        Ok(orm)
-    }
-}
-
-impl MarketOrm for MarketDatabaseOrm {
-    fn load_actors(&self) -> Result<Vec<MarketActorName>> {
-        let mut table = MarketActorsTable::default();
-        table.load_from_database(&self.database, &self.actors)?;
-        Ok(table.rows())
+    fn replace_rows(&mut self, rows: Vec<Self::Row>) {
+        MarketActorsTable::replace(self, rows);
     }
 
-    fn load_items(&self) -> Result<Vec<(u16, String)>> {
-        let mut table = MarketItemsTable::default();
-        table.load_from_database(&self.database, &self.items)?;
-        Ok(table.rows())
+    fn rows(&self) -> Vec<Self::Row> {
+        MarketActorsTable::rows(self)
     }
 
-    fn load_offers(&self) -> Result<Vec<MarketOffer>> {
-        let mut table = MarketOffersTable::default();
-        table.load_from_database(&self.database, &self.offers)?;
-        Ok(table.rows())
-    }
-
-    fn save_actors(&self, actors: &[MarketActorName]) -> Result<()> {
-        let mut table = MarketActorsTable::default();
-        table.replace(actors.iter().cloned());
-        table.save_to_database(&self.database, &self.actors)?;
-        Ok(())
-    }
-
-    fn save_items(&self, items: &[(u16, String)]) -> Result<()> {
-        let mut table = MarketItemsTable::default();
-        table.replace(items.iter().cloned());
-        table.save_to_database(&self.database, &self.items)?;
-        Ok(())
-    }
-
-    fn save_offers(&self, offers: &[MarketOffer]) -> Result<()> {
-        let mut table = MarketOffersTable::default();
-        table.replace(offers.iter().cloned());
-        table.save_to_database(&self.database, &self.offers)?;
-        Ok(())
-    }
-
-    fn insert_history(&self, entry: &MarketHistoryEntry) -> Result<()> {
-        self.history.insert_row(&self.database, entry)
-    }
-}
-
-struct MarketActorsMapper;
-
-impl TableMapper<MarketActorsTable, DatabasePool> for MarketActorsMapper {
-    fn initialize_schema(&self, database: &DatabaseConnection<DatabasePool>) -> Result<()> {
-        database.execute(|connection| {
-            MarketActorRecord::ensure_table(connection, database.data().backend())
+    fn initialize_schema(connection: &DbConnection) -> Result<()> {
+        connection.execute(|driver| {
+            MarketActorRecord::ensure_table(driver, driver.backend())
                 .context("Failed to create market_actors table")?;
-
             Ok(())
         })
     }
 
-    fn load_rows(
-        &self,
-        database: &DatabaseConnection<DatabasePool>,
-    ) -> Result<Vec<MarketActorName>> {
-        database
-            .execute(|connection| {
-                connection
+    fn load(connection: &DbConnection) -> Result<Vec<Self::Row>> {
+        connection
+            .execute(|driver| {
+                driver
                     .query::<MarketActorRecord>()
                     .order(|actor| actor.id.asc())
                     .load()
@@ -124,27 +51,20 @@ impl TableMapper<MarketActorsTable, DatabasePool> for MarketActorsMapper {
             .collect()
     }
 
-    fn save_rows(
-        &self,
-        database: &DatabaseConnection<DatabasePool>,
-        rows: &[MarketActorName],
-    ) -> Result<()> {
-        let records = rows
-            .iter()
-            .map(MarketActorRecord::from_domain)
-            .collect::<Vec<_>>();
+    fn save(connection: &DbConnection, rows: &[Self::Row]) -> Result<()> {
+        let records: Vec<_> = rows.iter().map(MarketActorRecord::from_domain).collect();
 
-        database.transaction(|connection| {
-            connection
+        connection.transaction(|driver| {
+            driver
                 .delete::<MarketActorRecord>()
                 .execute()
                 .context("Failed to clear market_actors before snapshot save")?;
 
             for record in &records {
-                connection
+                driver
                     .insert(record)
                     .execute()
-                    .context("Failed to insert actor snapshot rows into the database")?;
+                    .context("Failed to insert actor snapshot row")?;
             }
 
             Ok(())
@@ -152,23 +72,29 @@ impl TableMapper<MarketActorsTable, DatabasePool> for MarketActorsMapper {
     }
 }
 
-/// Mapper responsible for snapshot persistence of market item names.
-struct MarketItemsMapper;
+impl DbTable for MarketItemsTable {
+    type Row = (u16, String);
 
-impl TableMapper<MarketItemsTable, DatabasePool> for MarketItemsMapper {
-    fn initialize_schema(&self, database: &DatabaseConnection<DatabasePool>) -> Result<()> {
-        database.execute(|connection| {
-            MarketItemRecord::ensure_table(connection, database.data().backend())
+    fn replace_rows(&mut self, rows: Vec<Self::Row>) {
+        MarketItemsTable::replace(self, rows);
+    }
+
+    fn rows(&self) -> Vec<Self::Row> {
+        MarketItemsTable::rows(self)
+    }
+
+    fn initialize_schema(connection: &DbConnection) -> Result<()> {
+        connection.execute(|driver| {
+            MarketItemRecord::ensure_table(driver, driver.backend())
                 .context("Failed to create market_items table")?;
-
             Ok(())
         })
     }
 
-    fn load_rows(&self, database: &DatabaseConnection<DatabasePool>) -> Result<Vec<(u16, String)>> {
-        database
-            .execute(|connection| {
-                connection
+    fn load(connection: &DbConnection) -> Result<Vec<Self::Row>> {
+        connection
+            .execute(|driver| {
+                driver
                     .query::<MarketItemRecord>()
                     .order(|item| item.id.asc())
                     .load()
@@ -179,27 +105,20 @@ impl TableMapper<MarketItemsTable, DatabasePool> for MarketItemsMapper {
             .collect()
     }
 
-    fn save_rows(
-        &self,
-        database: &DatabaseConnection<DatabasePool>,
-        rows: &[(u16, String)],
-    ) -> Result<()> {
-        let records = rows
-            .iter()
-            .map(MarketItemRecord::from_domain)
-            .collect::<Vec<_>>();
+    fn save(connection: &DbConnection, rows: &[Self::Row]) -> Result<()> {
+        let records: Vec<_> = rows.iter().map(MarketItemRecord::from_domain).collect();
 
-        database.transaction(|connection| {
-            connection
+        connection.transaction(|driver| {
+            driver
                 .delete::<MarketItemRecord>()
                 .execute()
                 .context("Failed to clear market_items before snapshot save")?;
 
             for record in &records {
-                connection
+                driver
                     .insert(record)
                     .execute()
-                    .context("Failed to insert item snapshot rows into the database")?;
+                    .context("Failed to insert item snapshot row")?;
             }
 
             Ok(())
@@ -207,23 +126,29 @@ impl TableMapper<MarketItemsTable, DatabasePool> for MarketItemsMapper {
     }
 }
 
-/// Mapper responsible for snapshot persistence of active market offers.
-struct MarketOffersMapper;
+impl DbTable for MarketOffersTable {
+    type Row = MarketOffer;
 
-impl TableMapper<MarketOffersTable, DatabasePool> for MarketOffersMapper {
-    fn initialize_schema(&self, database: &DatabaseConnection<DatabasePool>) -> Result<()> {
-        database.execute(|connection| {
-            MarketOfferRecord::ensure_table(connection, database.data().backend())
+    fn replace_rows(&mut self, rows: Vec<Self::Row>) {
+        MarketOffersTable::replace(self, rows);
+    }
+
+    fn rows(&self) -> Vec<Self::Row> {
+        MarketOffersTable::rows(self)
+    }
+
+    fn initialize_schema(connection: &DbConnection) -> Result<()> {
+        connection.execute(|driver| {
+            MarketOfferRecord::ensure_table(driver, driver.backend())
                 .context("Failed to create market_offers table")?;
-
             Ok(())
         })
     }
 
-    fn load_rows(&self, database: &DatabaseConnection<DatabasePool>) -> Result<Vec<MarketOffer>> {
-        database
-            .execute(|connection| {
-                connection
+    fn load(connection: &DbConnection) -> Result<Vec<Self::Row>> {
+        connection
+            .execute(|driver| {
+                driver
                     .query::<MarketOfferRecord>()
                     .order(|offer| (offer.timestamp_secs.asc(), offer.counter.asc()))
                     .load()
@@ -234,27 +159,23 @@ impl TableMapper<MarketOffersTable, DatabasePool> for MarketOffersMapper {
             .collect()
     }
 
-    fn save_rows(
-        &self,
-        database: &DatabaseConnection<DatabasePool>,
-        rows: &[MarketOffer],
-    ) -> Result<()> {
-        let records = rows
+    fn save(connection: &DbConnection, rows: &[Self::Row]) -> Result<()> {
+        let records: Vec<_> = rows
             .iter()
             .map(MarketOfferRecord::from_domain)
-            .collect::<Result<Vec<_>>>()?;
+            .collect::<Result<_>>()?;
 
-        database.transaction(|connection| {
-            connection
+        connection.transaction(|driver| {
+            driver
                 .delete::<MarketOfferRecord>()
                 .execute()
                 .context("Failed to clear market_offers before snapshot save")?;
 
             for record in &records {
-                connection
+                driver
                     .insert(record)
                     .execute()
-                    .context("Failed to insert offer snapshot rows into the database")?;
+                    .context("Failed to insert offer snapshot row")?;
             }
 
             Ok(())
@@ -262,32 +183,28 @@ impl TableMapper<MarketOffersTable, DatabasePool> for MarketOffersMapper {
     }
 }
 
-/// Mapper responsible for append-only history records.
-struct MarketHistoryMapper;
+/// Append-only journal for market history events.
+pub struct MarketHistoryJournal;
 
-impl MarketHistoryMapper {
-    fn initialize_schema(&self, database: &DatabaseConnection<DatabasePool>) -> Result<()> {
-        database.execute(|connection| {
-            MarketHistoryRecord::ensure_table(connection, database.data().backend())
+impl DbAppend for MarketHistoryJournal {
+    type Row = MarketHistoryEntry;
+
+    fn initialize_schema(connection: &DbConnection) -> Result<()> {
+        connection.execute(|driver| {
+            MarketHistoryRecord::ensure_table(driver, driver.backend())
                 .context("Failed to create market_history table")?;
-
             Ok(())
         })
     }
 
-    fn insert_row(
-        &self,
-        database: &DatabaseConnection<DatabasePool>,
-        entry: &MarketHistoryEntry,
-    ) -> Result<()> {
+    fn append(connection: &DbConnection, entry: &Self::Row) -> Result<()> {
         let record = NewMarketHistoryRecord::from_domain(entry)?;
 
-        database.execute(|connection| {
-            connection
+        connection.execute(|driver| {
+            driver
                 .insert(&record)
                 .execute()
                 .context("Failed to append market history entry")?;
-
             Ok(())
         })
     }
@@ -467,12 +384,10 @@ impl NewMarketHistoryRecord {
     }
 }
 
-/// Converts a history action enum into the persisted database representation.
 fn serialize_history_action(action: MarketHistoryAction) -> String {
     action.to_string()
 }
 
-/// Converts a trade side enum into the persisted database representation.
 fn serialize_trade_side(side: MarketTradeSide) -> String {
     side.to_string()
 }

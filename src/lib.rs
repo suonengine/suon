@@ -102,10 +102,10 @@ mod tests {
         let _ = std::mem::size_of::<App>();
         let _ = std::mem::size_of::<Chunks>();
         let _ = std::mem::size_of::<Commands<'static, 'static>>();
-        let _ = std::mem::size_of::<DatabaseMut<'static, PreludeTable>>();
+        let _ = std::mem::size_of::<DbMut<'static, PreludeTable>>();
         let _ = std::mem::size_of::<Encoder>();
         let _ = std::mem::size_of::<Position>();
-        let _ = std::mem::size_of::<DatabaseSettings>();
+        let _ = std::mem::size_of::<DbSettings>();
         let _ = std::mem::size_of::<SuonPlugin>();
         let _ = std::mem::size_of::<XTEAKey>();
     }

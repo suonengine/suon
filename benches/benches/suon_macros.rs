@@ -15,7 +15,7 @@ fn expand_like_derive_table(input: DeriveInput) -> String {
     let (impl_generics, type_generics, where_clause) = ast.generics.split_for_impl();
 
     quote! {
-        impl #impl_generics suon_database::Table for #struct_name #type_generics #where_clause {}
+        impl #impl_generics suon_database::prelude::Table for #struct_name #type_generics #where_clause {}
     }
     .to_string()
 }

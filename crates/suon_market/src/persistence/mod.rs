@@ -1,13 +1,10 @@
-//! Persistence entry points for market startup, flushing, and ORM adapters.
+//! Market persistence wiring.
 //!
-//! The market crate keeps its persistence split into small modules:
-//! settings/bootstrap, dirty tracking, flush orchestration, and the concrete
-//! Diesel-backed ORM implementation.
+//! The market crate keeps its persistence split into small modules: settings,
+//! Diesel-backed table impls, and the startup wiring that bridges market
+//! settings into `suon_database`'s persistent-table pipeline.
 
 mod database;
-mod dirty;
-mod flush;
-mod orm;
 mod settings;
 mod startup;
 
@@ -16,41 +13,32 @@ use suon_database::prelude::*;
 
 use crate::offer::{MarketActorsTable, MarketItemsTable, MarketOffersTable};
 
-pub(crate) use self::{database::MarketDatabaseOrm, dirty::MarketDirty};
 pub use self::{
-    orm::{MarketOrm, MarketOrmResource},
+    database::MarketHistoryJournal,
     settings::{
         MarketOfferCreateRule, MarketPersistenceSettings, MarketPolicySettings, MarketSettings,
     },
 };
 
-/// Internal plugin that wires market persistence settings, startup loading, and
-/// autosave behavior into the Bevy app.
+/// Internal plugin that wires market settings, persistent tables, and the
+/// history journal into the Bevy app.
 pub(crate) struct MarketPersistencePlugin;
 
 impl Plugin for MarketPersistencePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(DatabasePlugin);
-        app.init_database_table::<MarketActorsTable>()
-            .init_database_table::<MarketItemsTable>()
-            .init_database_table::<MarketOffersTable>();
-        app.init_resource::<MarketDirty>();
-        app.add_systems(
-            Startup,
-            (
-                startup::initialize_market_settings,
-                startup::initialize_market_flush_timer,
-                startup::initialize_market_orm,
-                startup::load_market_tables_on_startup,
+        app.add_plugins(DbPlugin)
+            .add_systems(
+                PreStartup,
+                (
+                    startup::initialize_market_settings,
+                    startup::configure_market_db_tables,
+                )
+                    .chain(),
             )
-                .chain(),
-        );
-        app.add_systems(
-            Update,
-            (
-                flush::autosave_market_tables,
-                flush::save_market_tables_on_app_exit,
-            ),
-        );
+            .init_dbpersistent::<MarketActorsTable>()
+            .init_dbpersistent::<MarketItemsTable>()
+            .init_dbpersistent::<MarketOffersTable>()
+            .init_dbjournal::<MarketHistoryJournal>()
+            .add_systems(PostStartup, startup::seed_market_offer_sequence);
     }
 }

@@ -1,6 +1,13 @@
+//! Typed market table resources.
+//!
+//! Each table is a thin wrapper around a `HashMap` that exposes the in-memory
+//! query / mutation methods the rest of the market crate needs. The
+//! `Tables<T>` resource (from `suon_database`) wraps these structs and tracks
+//! dirty mutations transparently — there is no `mark_dirty`/`dirty_epoch`
+//! plumbing on the inner type any more.
+
 use std::collections::HashMap;
 
-use suon_database::prelude::SnapshotTable;
 use suon_macros::Table;
 
 use crate::offer::{MarketActorName, MarketOffer, MarketOfferId};
@@ -49,18 +56,6 @@ impl MarketActorsTable {
     }
 }
 
-impl SnapshotTable for MarketActorsTable {
-    type Row = MarketActorName;
-
-    fn replace_rows(&mut self, rows: Vec<Self::Row>) {
-        MarketActorsTable::replace(self, rows);
-    }
-
-    fn rows(&self) -> Vec<Self::Row> {
-        MarketActorsTable::rows(self)
-    }
-}
-
 /// Table containing market item names keyed by item id.
 #[derive(Debug, Default, Table)]
 pub struct MarketItemsTable {
@@ -99,18 +94,6 @@ impl MarketItemsTable {
             .iter()
             .map(|(id, name)| (*id, name.clone()))
             .collect()
-    }
-}
-
-impl SnapshotTable for MarketItemsTable {
-    type Row = (u16, String);
-
-    fn replace_rows(&mut self, rows: Vec<Self::Row>) {
-        MarketItemsTable::replace(self, rows);
-    }
-
-    fn rows(&self) -> Vec<Self::Row> {
-        MarketItemsTable::rows(self)
     }
 }
 
@@ -164,18 +147,6 @@ impl MarketOffersTable {
     /// Returns a detached snapshot of all offer rows.
     pub fn rows(&self) -> Vec<MarketOffer> {
         self.by_id.values().cloned().collect()
-    }
-}
-
-impl SnapshotTable for MarketOffersTable {
-    type Row = MarketOffer;
-
-    fn replace_rows(&mut self, rows: Vec<Self::Row>) {
-        MarketOffersTable::replace(self, rows);
-    }
-
-    fn rows(&self) -> Vec<Self::Row> {
-        MarketOffersTable::rows(self)
     }
 }
 

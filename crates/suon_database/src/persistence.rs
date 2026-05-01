@@ -14,8 +14,8 @@
 //!
 //! let mut app = App::new();
 //! app.add_plugins(DbPlugin);
-//! // app.init_db_persistent::<MyTable>();
-//! // app.init_db_journal::<MyJournal>();
+//! // app.init_dbpersistent::<MyTable>();
+//! // app.init_dbjournal::<MyJournal>();
 //! ```
 
 use std::{any::type_name, marker::PhantomData, time::Duration};
@@ -182,30 +182,30 @@ pub trait AppDbPersistenceExt: AppDbExt {
     ///
     /// Schedules the load on [`Startup`] and a periodic flush plus
     /// shutdown-drain on [`Update`]. Defaults to [`DbTableSettings::default`].
-    fn init_db_persistent<T: DbTable>(&mut self) -> &mut Self;
+    fn init_dbpersistent<T: DbTable>(&mut self) -> &mut Self;
 
     /// Registers a persistent snapshot table with custom [`DbTableSettings`].
-    fn insert_db_table_settings<T: DbTable>(&mut self, settings: DbTableSettings<T>) -> &mut Self;
+    fn insert_dbtable_settings<T: DbTable>(&mut self, settings: DbTableSettings<T>) -> &mut Self;
 
     /// Registers an append-only journal backed by [`DbAppend`].
     ///
     /// Schedules a one-shot schema initialization on [`Startup`].
-    fn init_db_journal<T: DbAppend>(&mut self) -> &mut Self;
+    fn init_dbjournal<T: DbAppend>(&mut self) -> &mut Self;
 }
 
 impl AppDbPersistenceExt for App {
-    fn init_db_persistent<T: DbTable>(&mut self) -> &mut Self {
+    fn init_dbpersistent<T: DbTable>(&mut self) -> &mut Self {
         register_persistent::<T>(self);
         self
     }
 
-    fn insert_db_table_settings<T: DbTable>(&mut self, settings: DbTableSettings<T>) -> &mut Self {
+    fn insert_dbtable_settings<T: DbTable>(&mut self, settings: DbTableSettings<T>) -> &mut Self {
         register_persistent::<T>(self);
         self.insert_resource(settings);
         self
     }
 
-    fn init_db_journal<T: DbAppend>(&mut self) -> &mut Self {
+    fn init_dbjournal<T: DbAppend>(&mut self) -> &mut Self {
         self.add_systems(Startup, initialize_journal::<T>);
         self
     }
@@ -216,7 +216,7 @@ fn register_persistent<T: DbTable>(app: &mut App) {
         app.init_resource::<DbTableSettings<T>>();
     }
 
-    app.init_db_table::<T>()
+    app.init_dbtable::<T>()
         .init_resource::<DbTableTask<T>>()
         .add_systems(Startup, (open_table_override::<T>, load_table::<T>).chain())
         .add_systems(
@@ -264,10 +264,8 @@ fn load_table<T: DbTable>(
     table_connection: Option<Res<DbTableConnection<T>>>,
     mut tables: ResMut<Tables<T>>,
 ) {
-    let connection = active_connection::<T>(
-        shared_connection.as_deref(),
-        table_connection.as_deref(),
-    );
+    let connection =
+        active_connection::<T>(shared_connection.as_deref(), table_connection.as_deref());
 
     let Some(connection) = connection else {
         warn!(
@@ -334,10 +332,9 @@ fn queue_save<T: DbTable>(
         return;
     }
 
-    let Some(connection) = active_connection::<T>(
-        shared_connection.as_deref(),
-        table_connection.as_deref(),
-    ) else {
+    let Some(connection) =
+        active_connection::<T>(shared_connection.as_deref(), table_connection.as_deref())
+    else {
         warn!(
             "Persistent table {} is dirty but no DbConnection is available",
             type_name::<T>()
@@ -356,10 +353,7 @@ fn queue_save<T: DbTable>(
     task.pending = Some(PendingSave::<T>::new(epoch, task_handle));
 }
 
-fn poll_save<T: DbTable>(
-    mut tables: ResMut<Tables<T>>,
-    mut task: ResMut<DbTableTask<T>>,
-) {
+fn poll_save<T: DbTable>(mut tables: ResMut<Tables<T>>, mut task: ResMut<DbTableTask<T>>) {
     let Some(pending) = task.pending.as_mut() else {
         return;
     };
@@ -374,15 +368,9 @@ fn poll_save<T: DbTable>(
     match result {
         Ok(count) => {
             tables.mark_persisted(epoch);
-            debug!(
-                "Persisted {count} rows for table {}",
-                type_name::<T>()
-            );
+            debug!("Persisted {count} rows for table {}", type_name::<T>());
         }
-        Err(error) => warn!(
-            "Failed to persist table {}: {error:#}",
-            type_name::<T>()
-        ),
+        Err(error) => warn!("Failed to persist table {}: {error:#}", type_name::<T>()),
     }
 }
 
@@ -419,10 +407,9 @@ fn drain_on_exit<T: DbTable>(
         return;
     }
 
-    let Some(connection) = active_connection::<T>(
-        shared_connection.as_deref(),
-        table_connection.as_deref(),
-    ) else {
+    let Some(connection) =
+        active_connection::<T>(shared_connection.as_deref(), table_connection.as_deref())
+    else {
         warn!(
             "App exit requested with dirty {}, but no DbConnection is available",
             type_name::<T>()
@@ -518,7 +505,10 @@ mod tests {
     impl DbRecord for NoteRecord {
         type Query = diesel::helper_types::Select<
             notes::table,
-            diesel::helper_types::AsSelect<Self, <crate::connection::DbDriver as diesel::Connection>::Backend>,
+            diesel::helper_types::AsSelect<
+                Self,
+                <crate::connection::DbDriver as diesel::Connection>::Backend,
+            >,
         >;
         type Columns = ();
 
@@ -532,10 +522,12 @@ mod tests {
 
     fn ensure_notes_schema(connection: &DbConnection) -> Result<()> {
         connection.execute(|driver| {
-            sql_query("CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY, text TEXT NOT NULL)")
-                .execute(driver)
-                .map(|_| ())
-                .map_err(anyhow::Error::from)
+            sql_query(
+                "CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY, text TEXT NOT NULL)",
+            )
+            .execute(driver)
+            .map(|_| ())
+            .map_err(anyhow::Error::from)
         })
     }
 
@@ -672,8 +664,11 @@ mod tests {
         let (connection, _settings) = in_memory_connection();
         ensure_notes_schema(&connection).expect("schema setup should succeed");
 
-        NotesTable::save(&connection, &[(1, "first".to_string()), (2, "second".to_string())])
-            .expect("save should succeed");
+        NotesTable::save(
+            &connection,
+            &[(1, "first".to_string()), (2, "second".to_string())],
+        )
+        .expect("save should succeed");
 
         let loaded = NotesTable::load(&connection).expect("load should succeed");
         assert_eq!(
@@ -704,7 +699,7 @@ mod tests {
     }
 
     #[test]
-    fn init_db_persistent_should_load_table_from_storage_during_startup() {
+    fn init_dbpersistent_should_load_table_from_storage_during_startup() {
         let (connection, settings) = in_memory_connection();
         NotesTable::initialize_schema(&connection).expect("schema setup should succeed");
         NotesTable::save(&connection, &[(7, "preloaded".to_string())])
@@ -714,7 +709,7 @@ mod tests {
         app.add_plugins(MinimalPlugins);
         app.insert_resource(settings);
         app.insert_resource(connection);
-        app.init_db_persistent::<NotesTable>();
+        app.init_dbpersistent::<NotesTable>();
         app.update();
 
         let table = app.world().resource::<Tables<NotesTable>>();
@@ -735,7 +730,7 @@ mod tests {
         app.add_plugins(MinimalPlugins);
         app.insert_resource(settings);
         app.insert_resource(connection);
-        app.init_db_persistent::<NotesTable>();
+        app.init_dbpersistent::<NotesTable>();
 
         app.add_systems(Update, |mut table: DbMut<NotesTable>| {
             table.rows.push((1, "new".to_string()));
