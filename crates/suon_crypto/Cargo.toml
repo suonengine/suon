@@ -1,0 +1,21 @@
+# Package
+[package]
+# Cryptographic helpers for the Suon MMORPG framework.
+name = "suon_crypto"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Short crates.io summary describing what the package is.
+description = "Cryptographic helpers for the Suon MMORPG framework"
+readme = "README.md"
+
+[dependencies]
+# External crates used directly by this crate.
+hmac.workspace = true
+sha1.workspace = true
+thiserror.workspace = true
