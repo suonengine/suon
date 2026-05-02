@@ -191,13 +191,11 @@ fn apply_teleport_intent(
     if chunk != target_chunk {
         trace!("Teleport for {entity:?} crossed chunk boundary: {chunk:?} -> {target_chunk:?}");
 
-        commands
-            .entity(entity)
-            .trigger(|entity| TeleportAcrossChunk {
-                from: chunk,
-                to: target_chunk,
-                entity,
-            });
+        commands.trigger(TeleportAcrossChunk {
+            from: chunk,
+            to: target_chunk,
+            entity,
+        });
     }
 }
 

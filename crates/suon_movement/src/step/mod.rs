@@ -221,7 +221,7 @@ fn apply_step_intent(
     if chunk != target_chunk {
         trace!("Step for {entity:?} crossed chunk boundary: {chunk:?} -> {target_chunk:?}");
 
-        commands.entity(entity).trigger(|entity| StepAcrossChunk {
+        commands.trigger(StepAcrossChunk {
             from: chunk,
             to: target_chunk,
             entity,
