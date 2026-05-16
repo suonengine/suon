@@ -44,6 +44,8 @@
 
 use bevy::{app::PluginGroupBuilder, prelude::*};
 
+mod orientation;
+mod protocol;
 mod step;
 mod teleport;
 
@@ -51,6 +53,8 @@ mod teleport;
 pub mod prelude {
     pub use super::{
         MovementPlugins,
+        orientation::{FaceIntent, Facing},
+        protocol::PlayerLink,
         step::{Step, StepAcrossChunk, StepError, StepIntent, StepRejected, path::StepPath},
         teleport::{
             Teleport, TeleportAcrossChunk, TeleportError, TeleportIntent, TeleportRejected,
@@ -67,6 +71,8 @@ impl PluginGroup for MovementPlugins {
         PluginGroupBuilder::start::<Self>()
             .add(step::StepPlugin)
             .add(teleport::TeleportPlugin)
+            .add(orientation::FacePlugin)
+            .add(protocol::MovementProtocolPlugin)
     }
 }
 

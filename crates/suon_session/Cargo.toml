@@ -1,7 +1,7 @@
 # Package
 [package]
-# Entity movement and grid navigation for the Suon MMORPG framework.
-name = "suon_movement"
+# Game session lifecycle for the Suon MMORPG framework.
+name = "suon_session"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,8 +10,7 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
-# Short crates.io summary describing what the package is.
-description = "Entity movement and grid navigation for the Suon MMORPG framework"
+description = "Game session lifecycle for the Suon MMORPG framework"
 
 [dependencies]
 # External crates used directly by this crate.
@@ -24,6 +23,9 @@ bevy = { workspace = true, features = [
 
 # Internal Suon crates used by this crate.
 suon_chunk.workspace = true
+suon_movement.workspace = true
 suon_network.workspace = true
 suon_position.workspace = true
+suon_protocol.workspace = true
 suon_protocol_client.workspace = true
+suon_protocol_server.workspace = true

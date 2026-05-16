@@ -17,10 +17,10 @@ pub mod prelude {
         prelude::{
             AcceptTradePacket, CancelStepsPacket, ChangeSharedPartyExperiencePacket,
             CloseTradePacket, CreateBuddyPacket, DeleteBuddyPacket, FacePacket, InspectTradePacket,
-            InviteToPartyPacket, JoinPartyPacket, KeepAlivePacket, LeavePartyPacket,
+            InviteToPartyPacket, JoinPartyPacket, KeepAlivePacket,             LeavePartyPacket, LogoutPacket,
             MarketBrowseKind, MarketOfferKind, MarketPacket, PassPartyLeadershipPacket,
-            PingLatencyPacket, RequestTradePacket, RevokePartyInvitePacket, StepPacket,
-            StepsPacket, UpdateBuddyPacket,
+            PingLatencyPacket, RequestTradePacket, RevokePartyInvitePacket, ServerNamePacket,
+            StepPacket, StepsPacket, UpdateBuddyPacket,
         },
     };
 }
@@ -38,5 +38,6 @@ mod tests {
         let _ = std::mem::size_of::<PacketKind>();
 
         assert_decodable::<KeepAlivePacket>();
+        assert_decodable::<LogoutPacket>();
     }
 }

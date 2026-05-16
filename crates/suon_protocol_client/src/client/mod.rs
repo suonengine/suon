@@ -13,11 +13,13 @@ mod invite_to_party;
 mod join_party;
 mod keep_alive;
 mod leave_party;
+mod logout;
 mod movement;
 mod pass_party_leadership;
 mod ping_latency;
 mod request_trade;
 mod revoke_party_invite;
+mod server_name;
 mod steps;
 mod update_buddy;
 
@@ -37,11 +39,13 @@ pub mod prelude {
         join_party::JoinPartyPacket,
         keep_alive::KeepAlivePacket,
         leave_party::LeavePartyPacket,
+        logout::LogoutPacket,
         movement::StepPacket,
         pass_party_leadership::PassPartyLeadershipPacket,
         ping_latency::PingLatencyPacket,
         request_trade::RequestTradePacket,
         revoke_party_invite::RevokePartyInvitePacket,
+        server_name::ServerNamePacket,
         steps::StepsPacket,
         update_buddy::UpdateBuddyPacket,
     };
