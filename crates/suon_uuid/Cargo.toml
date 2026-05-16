@@ -1,0 +1,22 @@
+# Package
+[package]
+# UUID helpers for the Suon MMORPG framework.
+name = "suon_uuid"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Short crates.io summary describing what the package is.
+description = "UUID helpers for the Suon MMORPG framework"
+
+[dependencies]
+# External crates used directly by this crate.
+bevy.workspace = true
+uuid.workspace = true
+
+[lints]
+workspace = true

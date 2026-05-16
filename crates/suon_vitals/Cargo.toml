@@ -1,0 +1,27 @@
+# Package
+[package]
+# Shared vitals components for the Suon MMORPG framework.
+name = "suon_vitals"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Short crates.io summary describing what the package is.
+description = "Shared vitals components for the Suon MMORPG framework"
+readme = "README.md"
+
+[dependencies]
+# External crates used directly by this crate.
+bevy.workspace = true
+log.workspace = true
+
+# Internal Suon crates used directly by this crate.
+suon_macros.workspace = true
+suon_uuid.workspace = true
+
+[lints]
+workspace = true
