@@ -2,9 +2,9 @@ use bevy::prelude::*;
 use suon_protocol_client::prelude::{
     AcceptTradePacket, CancelStepsPacket, ChangeSharedPartyExperiencePacket, CloseTradePacket,
     CreateBuddyPacket, Decodable, DeleteBuddyPacket, FacePacket, InspectTradePacket,
-    InviteToPartyPacket, JoinPartyPacket, KeepAlivePacket, LeavePartyPacket, MarketPacket,
-    PacketKind, PassPartyLeadershipPacket, PingLatencyPacket, RequestTradePacket,
-    RevokePartyInvitePacket, StepPacket, StepsPacket, UpdateBuddyPacket,
+    InviteToPartyPacket, JoinPartyPacket, KeepAlivePacket, LeavePartyPacket, LogoutPacket,
+    MarketPacket, PassPartyLeadershipPacket, PingLatencyPacket, RequestTradePacket,
+    RevokePartyInvitePacket, ServerNamePacket, StepPacket, StepsPacket, UpdateBuddyPacket,
 };
 
 use crate::server::{
@@ -16,64 +16,59 @@ macro_rules! dispatch_packet {
     ($commands:expr, $client:expr, $incoming_packet:expr; $( $packet_ty:ty ),* $(,)?) => {
         {
             let incoming_packet = $incoming_packet;
+            let mut dispatched = false;
 
-            if matches!(incoming_packet.kind, PacketKind::ServerName) {
-                // First packet sent by the client during the connection handshake.
-            } else {
-                let mut dispatched = false;
+            $(
+                if !dispatched && <$packet_ty>::accepts_kind(incoming_packet.kind) {
+                    dispatched = true;
 
-                $(
-                    if !dispatched && <$packet_ty>::accepts_kind(incoming_packet.kind) {
-                        dispatched = true;
+                    (|| {
+                        let kind = incoming_packet.kind;
+                        let timestamp = incoming_packet.timestamp;
+                        let checksum = incoming_packet.checksum;
+                        let mut bytes = incoming_packet.buffer.as_ref();
 
-                        (|| {
-                            let kind = incoming_packet.kind;
-                            let timestamp = incoming_packet.timestamp;
-                            let checksum = incoming_packet.checksum;
-                            let mut bytes = incoming_packet.buffer.as_ref();
-
-                            let packet = match <$packet_ty>::decode_with_kind(kind, &mut bytes) {
-                                Ok(packet) => packet,
-                                Err(err) => {
-                                    error!("Failed to decode packet for client {}: {:?}", $client, err);
-                                    let error = DecodeError::from(err);
-                                    warn!(
-                                        "Failed to dispatch typed packet event for client {} and kind {:?}: {}",
-                                        $client, kind, error
-                                    );
-                                    return None;
-                                }
-                            };
-
-                            if !bytes.is_empty() {
-                                let error = DecodeError::ExtraBytes(bytes.len());
+                        let packet = match <$packet_ty>::decode_with_kind(kind, &mut bytes) {
+                            Ok(packet) => packet,
+                            Err(err) => {
+                                error!("Failed to decode packet for client {}: {:?}", $client, err);
+                                let error = DecodeError::from(err);
                                 warn!(
                                     "Failed to dispatch typed packet event for client {} and kind {:?}: {}",
                                     $client, kind, error
                                 );
                                 return None;
                             }
+                        };
 
-                            debug!("Successfully decoded packet for client {}", $client);
+                        if !bytes.is_empty() {
+                            let error = DecodeError::ExtraBytes(bytes.len());
+                            warn!(
+                                "Failed to dispatch typed packet event for client {} and kind {:?}: {}",
+                                $client, kind, error
+                            );
+                            return None;
+                        }
 
-                            Some(Packet {
-                                entity: $client,
-                                timestamp,
-                                checksum,
-                                packet,
-                            })
-                        })()
-                        .map(|packet| $commands.trigger(packet));
-                    }
-                )*
+                        debug!("Successfully decoded packet for client {}", $client);
 
-                if !dispatched {
-                    trace!(
-                        "Skipping typed dispatch for client packet kind {:?} until a typed event \
-                        is registered",
-                        incoming_packet.kind
-                    );
+                        Some(Packet {
+                            entity: $client,
+                            timestamp,
+                            checksum,
+                            packet,
+                        })
+                    })()
+                    .map(|packet| $commands.trigger(packet));
                 }
+            )*
+
+            if !dispatched {
+                trace!(
+                    "Skipping typed dispatch for client packet kind {:?} until a typed event \
+                    is registered",
+                    incoming_packet.kind
+                );
             }
         }
     };
@@ -97,6 +92,7 @@ pub(crate) fn process_incoming_client_packets(
                 commands,
                 client,
                 incoming_packet;
+                ServerNamePacket,
                 KeepAlivePacket,
                 PingLatencyPacket,
                 StepPacket,
@@ -112,6 +108,7 @@ pub(crate) fn process_incoming_client_packets(
                 UpdateBuddyPacket,
                 InviteToPartyPacket,
                 JoinPartyPacket,
+                LogoutPacket,
                 RevokePartyInvitePacket,
                 PassPartyLeadershipPacket,
                 LeavePartyPacket,
@@ -346,14 +343,23 @@ mod tests {
     }
 
     #[test]
-    fn should_ignore_server_name_packets_during_dispatch() {
+    fn should_dispatch_server_name_packets_as_typed_events() {
         let mut app = build_app();
+
+        fn observe_server_name(
+            event: On<Packet<ServerNamePacket>>,
+            mut observed: ResMut<ObservedPackets>,
+        ) {
+            assert_eq!(event.packet().name, "otserv");
+            observed.0.push("server_name");
+        }
+        app.add_observer(observe_server_name);
 
         let connection = build_connection([IncomingPacket {
             timestamp: Instant::now(),
             checksum: None,
             kind: PacketKind::ServerName,
-            buffer: Bytes::from_static(b"otserv\n"),
+            buffer: Bytes::from_static(&[6, 0, b'o', b't', b's', b'e', b'r', b'v']),
         }]);
 
         app.world_mut().spawn(connection);
@@ -361,8 +367,13 @@ mod tests {
         app.update();
 
         assert!(
-            app.world().resource::<ObservedPackets>().0.is_empty(),
-            "ServerName packets should be ignored by the typed packet dispatcher"
+            !app.world().resource::<ObservedPackets>().0.is_empty(),
+            "ServerName packets should be dispatched as typed events"
+        );
+        assert_eq!(
+            app.world().resource::<ObservedPackets>().0,
+            vec!["server_name"],
+            "ServerName dispatch should produce a ServerNamePacket"
         );
     }
 

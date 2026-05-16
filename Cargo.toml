@@ -63,10 +63,13 @@ suon_protocol_server.workspace = true
 suon_rng.workspace = true
 suon_serde.workspace = true
 suon_task.workspace = true
+suon_uuid.workspace = true
 suon_chunk.workspace = true
 suon_position.workspace = true
+suon_vitals.workspace = true
 suon_xtea.workspace = true
 suon_lua.workspace = true
+suon_session.workspace = true
 
 # Workspace
 [workspace]
@@ -83,12 +86,6 @@ authors = ["Ramon Bernardo <ramonbernardo.contato@gmail.com>"]
 repository = "https://github.com/suonengine/suon"
 homepage = "https://github.com/suonengine/suon"
 documentation = "https://docs.rs/suon"
-
-[workspace.lints.rust]
-# Baseline lint policy shared across the workspace.
-unsafe_op_in_unsafe_fn = "deny"
-unused_lifetimes = "warn"
-unused_attributes = "warn"
 
 [workspace.dependencies]
 # Shared third-party dependencies.
@@ -115,6 +112,10 @@ thiserror = { version = "2.0", default-features = false }
 tokio = { version = "1.52", default-features = false }
 toml = { version = "1.1", default-features = false }
 rand_core = { version = "0.10", default-features = false }
+uuid = { version = "1.23.1", default-features = false, features = [
+  "std",
+  "v7",
+] }
 bevy_rand = { version = "0.14", default-features = false, features = [
   "chacha20",
   "wyrand",
@@ -136,12 +137,15 @@ suon_protocol_server = { version = "0.1.0", path = "crates/suon_protocol_server"
 suon_rng = { version = "0.1.0", path = "crates/suon_rng" }
 suon_serde = { version = "0.1.0", path = "crates/suon_serde" }
 suon_task = { version = "0.1.0", path = "crates/suon_task" }
+suon_uuid = { version = "0.1.0", path = "crates/suon_uuid" }
 suon_chunk = { version = "0.1.0", path = "crates/suon_chunk" }
 suon_position = { version = "0.1.0", path = "crates/suon_position" }
 suon_xtea = { version = "0.1.0", path = "crates/suon_xtea" }
 suon_lua = { version = "0.1.0", path = "crates/suon_lua" }
-
+suon_vitals = { version = "0.1.0", path = "crates/suon_vitals" }
 suon_market = { version = "0.1.0", path = "crates/suon_market" }
+suon_session = { version = "0.1.0", path = "crates/suon_session" }
+
 [profile.dev]
 # Light optimization keeps debug builds responsive without being fully unoptimized.
 opt-level = 1
@@ -167,3 +171,13 @@ incremental = false
 # Remove absolute source paths embedded by rustc (panic messages, debug info).
 # Keeps binaries reproducible and avoids leaking developer machine paths.
 trim-paths = "all"
+
+[workspace.lints.rust]
+# Baseline lint policy shared across the workspace.
+unsafe_op_in_unsafe_fn = "deny"
+unused_lifetimes = "warn"
+unused_attributes = "warn"
+
+[workspace.lints.clippy]
+# Prefer explicit panic context over bare unwraps.
+unwrap_used = "warn"

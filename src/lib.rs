@@ -17,9 +17,11 @@ use std::time::Duration;
 use suon_chunk::prelude::*;
 use suon_lua::prelude::*;
 use suon_market::prelude::*;
+use suon_session::prelude::*;
 use suon_movement::prelude::*;
 use suon_network::prelude::*;
 use suon_rng::prelude::*;
+use suon_uuid::prelude::*;
 
 mod settings;
 mod system;
@@ -35,12 +37,14 @@ pub mod prelude {
     pub use suon_macros::*;
     pub use suon_market::prelude::*;
     pub use suon_movement::prelude::*;
+    pub use suon_session::prelude::*;
     pub use suon_network::prelude::*;
     pub use suon_observability::prelude::*;
     pub use suon_position::prelude::*;
     pub use suon_protocol::prelude::*;
     pub use suon_serde::prelude::*;
     pub use suon_task::prelude::*;
+    pub use suon_uuid::prelude::*;
     pub use suon_xtea::prelude::*;
 }
 
@@ -78,7 +82,9 @@ impl Plugin for SuonPlugin {
                 MovementPlugins,
                 MarketPlugins,
                 NetworkPlugins,
+                SessionPlugins,
                 RNGPlugin,
+                UuidPlugin,
             ))
             .add_plugins(LuaPlugin);
     }
@@ -109,6 +115,8 @@ mod tests {
         let _ = std::mem::size_of::<Position>();
         let _ = std::mem::size_of::<DbSettings>();
         let _ = std::mem::size_of::<SuonPlugin>();
+        let _ = std::mem::size_of::<SessionPlugins>();
+        let _ = std::mem::size_of::<UuidGenerator>();
         let _ = std::mem::size_of::<XTEAKey>();
     }
 }

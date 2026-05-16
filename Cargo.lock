@@ -3486,7 +3486,10 @@ dependencies = [
  "suon_protocol_server",
  "suon_rng",
  "suon_serde",
+ "suon_session",
  "suon_task",
+ "suon_uuid",
+ "suon_vitals",
  "suon_xtea",
  "toml",
  "winresource",
@@ -3573,7 +3576,9 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "suon_chunk",
+ "suon_network",
  "suon_position",
+ "suon_protocol_client",
 ]
 
 [[package]]
@@ -3670,10 +3675,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "suon_session"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "suon_chunk",
+ "suon_movement",
+ "suon_network",
+ "suon_position",
+ "suon_protocol",
+ "suon_protocol_client",
+ "suon_protocol_server",
+]
+
+[[package]]
 name = "suon_task"
 version = "0.1.0"
 dependencies = [
  "bevy",
+]
+
+[[package]]
+name = "suon_uuid"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "uuid",
+]
+
+[[package]]
+name = "suon_vitals"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "log",
+ "suon_macros",
+ "suon_uuid",
 ]
 
 [[package]]
