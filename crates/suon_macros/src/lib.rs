@@ -11,12 +11,32 @@
 //! ```
 
 mod database_model;
+mod debug_unreachable;
 mod documented_toml;
 mod lua_component;
 mod lua_hook;
 mod table;
 
 use proc_macro::TokenStream;
+
+/// In debug builds, panics with the given format message. In release builds, does nothing.
+///
+/// Intended as a drop-in for the `debug_assert!(false, …)` + `return` pattern inside
+/// `let … else` branches that should never be reached at runtime:
+///
+/// ```ignore
+/// let Ok(current) = query.get(entity) else {
+///     suon_macros::debug_unreachable!("observer received {entity:?} without component");
+///     return;
+/// };
+/// ```
+///
+/// Call signatures mirror `format!`: zero arguments, a literal message, or a format
+/// string with arguments are all valid.
+#[proc_macro]
+pub fn debug_unreachable(input: TokenStream) -> TokenStream {
+    debug_unreachable::debug_unreachable(input)
+}
 
 /// Procedural macro to automatically generate code for the `Table` trait.
 ///

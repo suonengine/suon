@@ -2,13 +2,15 @@
 
 Procedural macros shared across the Suon MMORPG workspace.
 
-`suon_macros` provides four derive macros and one attribute macro:
+`suon_macros` provides four derive macros, one attribute macro, and one
+function-like macro:
 
 - `#[derive(Table)]` implements the `Table` trait for typed table structs
 - `#[derive(LuaComponent)]` derives `Component` and registers a Lua-accessible component
 - `#[derive(LuaHook)]` derives a typed Lua hook payload
 - `#[derive(DocumentedToml)]` generates documented TOML serialization
 - `#[database_model(table = "...")]` generates Diesel schema, query, and insert glue
+- `debug_unreachable!(...)` emits a debug-only unreachable assertion
 
 ## Installation
 
@@ -119,3 +121,17 @@ struct Tick;
 
 Struct fields are serialized into positional Lua arguments. A unit struct
 produces a zero-argument hook.
+
+## `debug_unreachable!(...)`
+
+In debug builds, expands to `debug_assert!(false, ...)`. In release builds, it
+does nothing.
+
+```rust,ignore
+let Ok(current) = query.get(entity) else {
+    suon_macros::debug_unreachable!("observer received {entity:?} without component");
+    return;
+};
+```
+
+With no arguments, the default message is `"reached unreachable code"`.
