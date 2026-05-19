@@ -102,6 +102,18 @@ impl Encoder {
         self
     }
 
+    /// Writes a signed 64-bit integer in little-endian format.
+    pub fn put_i64(&mut self, value: i64) -> &mut Self {
+        self.buffer.put_i64_le(value);
+        self
+    }
+
+    /// Writes an unsigned 64-bit integer in little-endian format.
+    pub fn put_u64(&mut self, value: u64) -> &mut Self {
+        self.buffer.put_u64_le(value);
+        self
+    }
+
     /// Writes a UTF-8 string with a 16-bit length prefix.
     ///
     /// The string is encoded as:
@@ -210,6 +222,27 @@ mod tests {
             result.as_ref(),
             &EXPECTED,
             "Encoder should write I32_VALUE and U32_VALUE in little-endian order"
+        );
+    }
+
+    #[test]
+    fn encoder_put_i64_and_u64_writes_little_endian_bytes() {
+        const I64_VALUE: i64 = 0x1234567890ABCDEF;
+        const U64_VALUE: u64 = 0xFEDCBA0987654321;
+
+        let result = Encoder::new()
+            .put_i64(I64_VALUE)
+            .put_u64(U64_VALUE)
+            .finalize();
+
+        const EXPECTED: [u8; 16] = [
+            0xEF, 0xCD, 0xAB, 0x90, 0x78, 0x56, 0x34, 0x12,
+            0x21, 0x43, 0x65, 0x87, 0x09, 0xBA, 0xDC, 0xFE,
+        ];
+        assert_eq!(
+            result.as_ref(),
+            &EXPECTED,
+            "Encoder should write I64_VALUE and U64_VALUE in little-endian order"
         );
     }
 
