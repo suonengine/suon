@@ -121,8 +121,11 @@ impl Encoder {
     }
 
     /// Finalizes the buffer and returns an immutable [`Bytes`] instance suitable for sending.
+    ///
+    /// The internal buffer is reset to empty after this call, making the encoder
+    /// immediately reusable for building a new packet — no heap copy is performed.
     pub fn finalize(&mut self) -> Bytes {
-        self.buffer.clone().freeze()
+        self.buffer.split().freeze()
     }
 }
 
@@ -277,22 +280,20 @@ mod tests {
     }
 
     #[test]
-    fn finalize_should_not_clear_existing_buffer_contents() {
+    fn finalize_should_reset_buffer_and_allow_reuse() {
         let mut encoder = Encoder::new();
         encoder.put_u8(1);
 
         let first = encoder.finalize();
+
+        assert_eq!(first.as_ref(), &[1], "The first packet should contain only the first write");
+
         let second = encoder.put_u8(2).finalize();
 
         assert_eq!(
-            first.as_ref(),
-            &[1],
-            "The first finalize call should snapshot the current buffer"
-        );
-        assert_eq!(
             second.as_ref(),
-            &[1, 2],
-            "Subsequent writes should append to the existing buffer state"
+            &[2],
+            "After finalize the buffer is reset, so the second packet starts fresh"
         );
     }
 }
