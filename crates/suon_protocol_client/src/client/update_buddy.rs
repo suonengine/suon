@@ -43,7 +43,7 @@ impl Decodable for UpdateBuddyPacket {
 
     fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         let guid = bytes.get_u32()?;
-        let description = bytes.get_string()?;
+        let description = bytes.get_str()?.to_owned();
         let icon_id = bytes.get_u32()?.min(MAX_BUDDY_ICON_ID);
         let notify_login = bytes.get_bool()?;
 

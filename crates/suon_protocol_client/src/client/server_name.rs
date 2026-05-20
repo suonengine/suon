@@ -11,7 +11,7 @@ impl Decodable for ServerNamePacket {
     const KIND: PacketKind = PacketKind::ServerName;
 
     fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
-        let name = bytes.get_string()?;
+        let name = bytes.get_str()?.to_owned();
         Ok(ServerNamePacket { name })
     }
 }

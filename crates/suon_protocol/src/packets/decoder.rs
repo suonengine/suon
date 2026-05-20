@@ -36,7 +36,7 @@ pub enum DecoderError {
 ///
 /// assert_eq!((&mut buffer).get_u16().unwrap(), 7);
 /// assert!((&mut buffer).get_bool().unwrap());
-/// assert_eq!((&mut buffer).get_string().unwrap(), "test");
+/// assert_eq!((&mut buffer).get_str().unwrap(), "test");
 /// ```
 pub trait Decoder {
     /// Reads a boolean encoded as a single byte (0 = false, non-zero = true).
@@ -59,20 +59,14 @@ pub trait Decoder {
     fn get_u64(&mut self) -> Result<u64, DecoderError>;
 
     /// Reads a UTF-8 string prefixed with a 16-bit length field.
-    fn get_string(&mut self) -> Result<String, DecoderError>;
+    ///
+    /// The returned reference borrows directly from the underlying wire data —
+    /// no heap allocation is performed.
+    fn get_str(&mut self) -> Result<&str, DecoderError>;
 
     /// Returns the number of unread bytes remaining in the buffer.
     #[must_use]
     fn remaining(&self) -> usize;
-
-    /// Reads a UTF-8 string prefixed with a 16-bit length field, returning a
-    /// borrowed reference instead of an owned [`String`].
-    ///
-    /// Unlike [`get_string`](Decoder::get_string), this avoids allocating a new
-    /// buffer — the returned slice references the original wire data directly.
-    /// The lifetime of the returned reference is tied to the underlying byte
-    /// buffer, not the cursor.
-    fn get_string_ref(&mut self) -> Result<&str, DecoderError>;
 
     /// Reads exactly `count` bytes and returns them as a slice.
     ///
@@ -156,33 +150,11 @@ impl Decoder for &mut &[u8] {
             })
     }
 
-    fn get_string(&mut self) -> Result<String, DecoderError> {
-        let length = self
-            .try_get_u16_le()
-            .map_err(|err| DecoderError::Incomplete {
-                expected: err.requested,
-                available: err.available,
-            })? as usize;
-
-        if self.len() < length {
-            return Err(DecoderError::Incomplete {
-                expected: length,
-                available: self.len(),
-            });
-        }
-
-        let (bytes, ..) = self.split_at(length);
-        let str = std::str::from_utf8(bytes)?;
-        self.advance(length);
-
-        Ok(str.to_owned())
-    }
-
     fn remaining(&self) -> usize {
         self.len()
     }
 
-    fn get_string_ref(&mut self) -> Result<&str, DecoderError> {
+    fn get_str(&mut self) -> Result<&str, DecoderError> {
         let length = self
             .try_get_u16_le()
             .map_err(|err| DecoderError::Incomplete {
@@ -503,7 +475,7 @@ mod tests {
     }
 
     #[test]
-    fn get_string_returns_valid_string() {
+    fn get_str_returns_valid_string() {
         const VALUE: &str = "test string";
 
         let mut datac = Vec::new();
@@ -512,17 +484,17 @@ mod tests {
 
         let mut data: &mut &[u8] = &mut datac.as_slice();
 
-        let value = data.get_string().expect("Should get string");
+        let value = data.get_str().expect("Should get str");
         assert_eq!(value, VALUE, "String should match");
     }
 
     #[test]
-    fn get_string_incomplete_length() {
+    fn get_str_incomplete_length() {
         let data = Vec::new();
 
         let mut data: &mut &[u8] = &mut data.as_slice();
 
-        let err = data.get_string().expect_err("Expected incomplete error");
+        let err = data.get_str().expect_err("Expected incomplete error");
         if let DecoderError::Incomplete {
             expected,
             available,
@@ -536,7 +508,7 @@ mod tests {
     }
 
     #[test]
-    fn get_string_incomplete_data() {
+    fn get_str_incomplete_data() {
         const LENGTH: u16 = 5;
 
         let mut data = Vec::new();
@@ -545,7 +517,7 @@ mod tests {
 
         let mut data: &mut &[u8] = &mut data.as_slice();
 
-        let err = data.get_string().expect_err("Expected incomplete error");
+        let err = data.get_str().expect_err("Expected incomplete error");
         if let DecoderError::Incomplete {
             expected,
             available,
@@ -559,7 +531,7 @@ mod tests {
     }
 
     #[test]
-    fn get_string_ref_returns_borrowed_string() {
+    fn get_str_returns_borrowed_string() {
         const VALUE: &str = "hello suon";
 
         let mut data = Vec::new();
@@ -568,17 +540,17 @@ mod tests {
 
         let mut buf: &mut &[u8] = &mut data.as_slice();
 
-        let value = buf.get_string_ref().expect("Should get str ref");
+        let value = buf.get_str().expect("Should get str ref");
         assert_eq!(value, VALUE, "Content should match");
         assert_eq!(buf.remaining(), 0, "All bytes should be consumed");
     }
 
     #[test]
-    fn get_string_ref_returns_error_on_incomplete_length() {
+    fn get_str_returns_error_on_incomplete_length() {
         let data = Vec::new();
         let mut buf: &mut &[u8] = &mut data.as_slice();
 
-        let err = buf.get_string_ref().expect_err("Expected incomplete error");
+        let err = buf.get_str().expect_err("Expected incomplete error");
         assert_eq!(
             err,
             DecoderError::Incomplete {
@@ -589,13 +561,13 @@ mod tests {
     }
 
     #[test]
-    fn get_string_ref_returns_empty_string_when_length_is_zero() {
+    fn get_str_returns_empty_string_when_length_is_zero() {
         let mut data = Vec::new();
         data.extend_from_slice(&0u16.to_le_bytes());
 
         let mut buf: &mut &[u8] = &mut data.as_slice();
 
-        let value = buf.get_string_ref().expect("Should get empty str ref");
+        let value = buf.get_str().expect("Should get empty str");
         assert_eq!(value, "", "Empty length should decode as empty str");
     }
 
@@ -627,20 +599,8 @@ mod tests {
     }
 
     #[test]
-    fn get_string_returns_empty_string_when_length_is_zero() {
-        const LENGTH: u16 = 0;
-
-        let mut data = Vec::new();
-        data.extend_from_slice(&LENGTH.to_le_bytes());
-
-        let mut buf: &mut &[u8] = &mut data.as_slice();
-
-        let value = buf.get_string().expect("Should get empty string");
-        assert_eq!(value, "", "Empty string length should decode as empty");
-    }
-
     #[test]
-    fn get_string_invalid_utf8() {
+    fn get_str_invalid_utf8() {
         const LENGTH: u16 = 2;
 
         let mut data = Vec::new();
@@ -649,7 +609,7 @@ mod tests {
 
         let mut data: &mut &[u8] = &mut data.as_slice();
 
-        let err = data.get_string().expect_err("Expected invalid UTF8 error");
+        let err = data.get_str().expect_err("Expected invalid UTF8 error");
         assert!(
             matches!(err, DecoderError::InvalidUtf8(..)),
             "Should be InvalidUtf8"
@@ -727,7 +687,7 @@ mod tests {
             I64_NEGATIVE_9876543210
         );
         assert_eq!(buf.get_u64().expect("Should get u64"), U64_9876543210);
-        assert_eq!(buf.get_string().expect("Should get string"), STRING);
+        assert_eq!(buf.get_str().expect("Should get str"), STRING);
         assert_eq!(buf.len(), 0, "Buffer should be empty");
     }
 

@@ -14,7 +14,7 @@
 //! let mut slice = encoded.as_ref();
 //!
 //! assert_eq!((&mut slice).get_u16().unwrap(), 7);
-//! assert_eq!((&mut slice).get_string().unwrap(), "suon");
+//! assert_eq!((&mut slice).get_str().unwrap(), "suon");
 //! ```
 
 mod packets;
@@ -175,7 +175,7 @@ mod tests {
             let bytes = Encoder::new().put_str(value).into_bytes();
             let mut buf: &[u8] = &bytes;
             let mut decoder: &mut &[u8] = &mut buf;
-            assert_eq!(decoder.get_string().unwrap(), value);
+            assert_eq!(decoder.get_str().unwrap(), value);
         }
 
         #[test]
@@ -204,7 +204,7 @@ mod tests {
             assert_eq!(decoder.get_u32().unwrap(), 32);
             assert_eq!(decoder.get_i64().unwrap(), -64);
             assert_eq!(decoder.get_u64().unwrap(), 64);
-            assert_eq!(decoder.get_string().unwrap(), "fim");
+            assert_eq!(decoder.get_str().unwrap(), "fim");
             assert_eq!(decoder.remaining(), 0, "All bytes should be consumed");
         }
     }

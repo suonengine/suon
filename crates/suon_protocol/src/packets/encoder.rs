@@ -349,14 +349,14 @@ mod tests {
     }
 
     #[test]
-    fn default_encoder_is_equal_to_new() {
-        let default_encoder = Encoder::default().into_bytes();
-        let new_encoder = Encoder::new().into_bytes();
+    fn default_encoder_has_same_capacity_as_new() {
+        let default_encoder = Encoder::default();
+        let new_encoder = Encoder::new();
 
         assert_eq!(
-            default_encoder.as_ref(),
-            new_encoder.as_ref(),
-            "Default encoder should produce the same initial buffer as Encoder::new"
+            default_encoder.remaining_capacity(),
+            new_encoder.remaining_capacity(),
+            "Default and new encoders should have the same initial capacity"
         );
     }
 

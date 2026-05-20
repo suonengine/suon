@@ -26,7 +26,7 @@ impl Decodable for CreateBuddyPacket {
 
     fn decode(mut bytes: &mut &[u8]) -> Result<Self, DecodableError> {
         Ok(Self {
-            name: bytes.get_string()?,
+            name: bytes.get_str()?.to_owned(),
         })
     }
 }
