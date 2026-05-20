@@ -38,9 +38,7 @@ pub mod prelude {
 ///     const KIND: PacketKind = PacketKind::Challenge;
 ///
 ///     fn encode(self) -> Option<Bytes> {
-///         let mut encoder = Encoder::new();
-///         encoder.put_str(&self.username);
-///         Some(encoder.finalize())
+///         Some(Encoder::new().put_str(&self.username).into_bytes())
 ///     }
 /// }
 ///
@@ -72,11 +70,11 @@ pub trait Encodable: Sized {
             Encoder::with_capacity(PacketKind::WIRE_SIZE + bytes.len())
                 .put_u8(Self::KIND as u8)
                 .put_bytes(bytes)
-                .finalize()
+                .into_bytes()
         } else {
             Encoder::with_capacity(PacketKind::WIRE_SIZE)
                 .put_u8(Self::KIND as u8)
-                .finalize()
+                .into_bytes()
         }
     }
 }

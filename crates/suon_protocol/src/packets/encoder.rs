@@ -5,7 +5,7 @@ use bytes::{BufMut, Bytes, BytesMut};
 ///
 /// `Encoder` provides convenient methods for writing integers, booleans, strings,
 /// and raw bytes into a contiguous buffer. After populating the buffer, it can be
-/// finalized into an immutable [`Bytes`] instance for transmission.
+/// consumed via [`into_bytes`](Encoder::into_bytes) into an immutable [`Bytes`] instance.
 ///
 /// # Example
 /// ```
@@ -14,7 +14,7 @@ use bytes::{BufMut, Bytes, BytesMut};
 /// let packet_bytes = Encoder::new()
 ///     .put_u8(42)
 ///     .put_str("Hello")
-///     .finalize();
+///     .into_bytes();
 ///
 /// assert_eq!(packet_bytes.as_ref(), &[42, 5, 0, 72, 101, 108, 108, 111]);
 /// ```
@@ -34,7 +34,7 @@ impl Encoder {
     /// ```
     /// use suon_protocol::prelude::*;
     ///
-    /// let bytes = Encoder::new().put_bool(true).finalize();
+    /// let bytes = Encoder::new().put_bool(true).into_bytes();
     ///
     /// assert_eq!(bytes.as_ref(), &[1]);
     /// ```
@@ -50,7 +50,7 @@ impl Encoder {
     /// ```
     /// use suon_protocol::prelude::*;
     ///
-    /// let bytes = Encoder::with_capacity(8).put_u16(0xABCD).finalize();
+    /// let bytes = Encoder::with_capacity(8).put_u16(0xABCD).into_bytes();
     ///
     /// assert_eq!(bytes.as_ref(), &[0xCD, 0xAB]);
     /// ```
@@ -61,55 +61,55 @@ impl Encoder {
     }
 
     /// Writes a boolean as a single byte (0 = false, 1 = true).
-    pub fn put_bool(&mut self, value: bool) -> &mut Self {
+    pub fn put_bool(mut self, value: bool) -> Self {
         self.buffer.put_u8(value as u8);
         self
     }
 
     /// Writes a signed 8-bit integer.
-    pub fn put_i8(&mut self, value: i8) -> &mut Self {
+    pub fn put_i8(mut self, value: i8) -> Self {
         self.buffer.put_i8(value);
         self
     }
 
     /// Writes an unsigned 8-bit integer.
-    pub fn put_u8(&mut self, value: u8) -> &mut Self {
+    pub fn put_u8(mut self, value: u8) -> Self {
         self.buffer.put_u8(value);
         self
     }
 
     /// Writes a signed 16-bit integer in little-endian format.
-    pub fn put_i16(&mut self, value: i16) -> &mut Self {
+    pub fn put_i16(mut self, value: i16) -> Self {
         self.buffer.put_i16_le(value);
         self
     }
 
     /// Writes an unsigned 16-bit integer in little-endian format.
-    pub fn put_u16(&mut self, value: u16) -> &mut Self {
+    pub fn put_u16(mut self, value: u16) -> Self {
         self.buffer.put_u16_le(value);
         self
     }
 
     /// Writes a signed 32-bit integer in little-endian format.
-    pub fn put_i32(&mut self, value: i32) -> &mut Self {
+    pub fn put_i32(mut self, value: i32) -> Self {
         self.buffer.put_i32_le(value);
         self
     }
 
     /// Writes an unsigned 32-bit integer in little-endian format.
-    pub fn put_u32(&mut self, value: u32) -> &mut Self {
+    pub fn put_u32(mut self, value: u32) -> Self {
         self.buffer.put_u32_le(value);
         self
     }
 
     /// Writes a signed 64-bit integer in little-endian format.
-    pub fn put_i64(&mut self, value: i64) -> &mut Self {
+    pub fn put_i64(mut self, value: i64) -> Self {
         self.buffer.put_i64_le(value);
         self
     }
 
     /// Writes an unsigned 64-bit integer in little-endian format.
-    pub fn put_u64(&mut self, value: u64) -> &mut Self {
+    pub fn put_u64(mut self, value: u64) -> Self {
         self.buffer.put_u64_le(value);
         self
     }
@@ -119,7 +119,7 @@ impl Encoder {
     /// The string is encoded as:
     /// 1. A 2-byte little-endian length field.
     /// 2. UTF-8 bytes of the string.
-    pub fn put_str(&mut self, value: &str) -> &mut Self {
+    pub fn put_str(mut self, value: &str) -> Self {
         let bytes = value.as_bytes();
         self.buffer.put_u16_le(bytes.len() as u16);
         self.buffer.put_slice(bytes);
@@ -127,7 +127,7 @@ impl Encoder {
     }
 
     /// Writes a raw byte buffer into the encoder.
-    pub fn put_bytes(&mut self, bytes: Bytes) -> &mut Self {
+    pub fn put_bytes(mut self, bytes: Bytes) -> Self {
         self.buffer.put(bytes);
         self
     }
@@ -138,12 +138,13 @@ impl Encoder {
         self.buffer.capacity() - self.buffer.len()
     }
 
-    /// Finalizes the buffer and returns an immutable [`Bytes`] instance suitable for sending.
+    /// Consumes the encoder and returns the written bytes as an immutable [`Bytes`] instance.
     ///
-    /// The internal buffer is reset to empty after this call, making the encoder
-    /// immediately reusable for building a new packet — no heap copy is performed.
-    pub fn finalize(&mut self) -> Bytes {
-        self.buffer.split().freeze()
+    /// This is a zero-copy operation — no heap allocation is performed
+    /// regardless of packet size.
+    #[must_use]
+    pub fn into_bytes(self) -> Bytes {
+        self.buffer.freeze()
     }
 }
 
@@ -162,7 +163,7 @@ mod tests {
     fn encoder_put_u8_writes_expected_byte() {
         const VALUE: u8 = 42;
 
-        let result = Encoder::new().put_u8(VALUE).finalize();
+        let result = Encoder::new().put_u8(VALUE).into_bytes();
 
         assert_eq!(
             result.as_ref(),
@@ -176,7 +177,7 @@ mod tests {
         const FALSE: bool = false;
         const TRUE: bool = true;
 
-        let result = Encoder::new().put_bool(FALSE).put_bool(TRUE).finalize();
+        let result = Encoder::new().put_bool(FALSE).put_bool(TRUE).into_bytes();
 
         assert_eq!(
             result.as_ref(),
@@ -189,7 +190,7 @@ mod tests {
     fn encoder_put_i16_writes_little_endian_bytes() {
         const VALUE: i16 = 0x1234;
 
-        let result = Encoder::new().put_i16(VALUE).finalize();
+        let result = Encoder::new().put_i16(VALUE).into_bytes();
 
         const EXPECTED: [u8; 2] = [0x34, 0x12];
         assert_eq!(
@@ -203,7 +204,7 @@ mod tests {
     fn encoder_put_u16_writes_little_endian_bytes() {
         const VALUE: u16 = 0xABCD;
 
-        let result = Encoder::new().put_u16(VALUE).finalize();
+        let result = Encoder::new().put_u16(VALUE).into_bytes();
 
         const EXPECTED: [u8; 2] = [0xCD, 0xAB];
         assert_eq!(
@@ -221,7 +222,7 @@ mod tests {
         let result = Encoder::new()
             .put_i32(I32_VALUE)
             .put_u32(U32_VALUE)
-            .finalize();
+            .into_bytes();
 
         const EXPECTED: [u8; 8] = [0x78, 0x56, 0x34, 0x12, 0xEF, 0xCD, 0xAB, 0x90];
         assert_eq!(
@@ -239,7 +240,7 @@ mod tests {
         let result = Encoder::new()
             .put_i64(I64_VALUE)
             .put_u64(U64_VALUE)
-            .finalize();
+            .into_bytes();
 
         const EXPECTED: [u8; 16] = [
             0xEF, 0xCD, 0xAB, 0x90, 0x78, 0x56, 0x34, 0x12, 0x21, 0x43, 0x65, 0x87, 0x09, 0xBA,
@@ -256,7 +257,7 @@ mod tests {
     fn encoder_put_str_writes_length_and_bytes() {
         const VALUE: &str = "AB";
 
-        let result = Encoder::new().put_str(VALUE).finalize();
+        let result = Encoder::new().put_str(VALUE).into_bytes();
 
         const EXPECTED: [u8; 4] = [0x02, 0x00, 0x41, 0x42];
         assert_eq!(
@@ -272,7 +273,7 @@ mod tests {
 
         let result = Encoder::new()
             .put_bytes(Bytes::from_static(BYTES))
-            .finalize();
+            .into_bytes();
 
         assert_eq!(
             result.as_ref(),
@@ -285,7 +286,7 @@ mod tests {
     fn encoder_with_capacity_initializes_correctly() {
         const CAPACITY: usize = 128;
 
-        let encoder = Encoder::with_capacity(CAPACITY).finalize();
+        let encoder = Encoder::with_capacity(CAPACITY).into_bytes();
 
         assert!(
             encoder.is_empty(),
@@ -295,15 +296,14 @@ mod tests {
 
     #[test]
     fn remaining_capacity_decreases_as_data_is_written() {
-        let encoder = Encoder::with_capacity(64);
+        let mut encoder = Encoder::with_capacity(64);
         let initial = encoder.remaining_capacity();
         assert!(
             initial > 0,
             "New encoder should have positive remaining capacity"
         );
 
-        let mut encoder = encoder;
-        encoder.put_u64(u64::MAX);
+        encoder = encoder.put_u64(u64::MAX);
 
         assert_eq!(
             encoder.remaining_capacity(),
@@ -314,8 +314,8 @@ mod tests {
 
     #[test]
     fn default_encoder_is_equal_to_new() {
-        let default_encoder = Encoder::default().finalize();
-        let new_encoder = Encoder::new().finalize();
+        let default_encoder = Encoder::default().into_bytes();
+        let new_encoder = Encoder::new().into_bytes();
 
         assert_eq!(
             default_encoder.as_ref(),
@@ -328,34 +328,12 @@ mod tests {
     fn encoder_put_i8_writes_expected_byte() {
         const VALUE: i8 = -5;
 
-        let result = Encoder::new().put_i8(VALUE).finalize();
+        let result = Encoder::new().put_i8(VALUE).into_bytes();
 
         assert_eq!(
             result.as_ref(),
             &[VALUE as u8],
             "Encoder should write the i8 byte representation correctly"
-        );
-    }
-
-    #[test]
-    fn finalize_should_reset_buffer_and_allow_reuse() {
-        let mut encoder = Encoder::new();
-        encoder.put_u8(1);
-
-        let first = encoder.finalize();
-
-        assert_eq!(
-            first.as_ref(),
-            &[1],
-            "The first packet should contain only the first write"
-        );
-
-        let second = encoder.put_u8(2).finalize();
-
-        assert_eq!(
-            second.as_ref(),
-            &[2],
-            "After finalize the buffer is reset, so the second packet starts fresh"
         );
     }
 }

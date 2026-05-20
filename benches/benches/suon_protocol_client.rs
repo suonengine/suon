@@ -12,7 +12,7 @@ fn benchmark_protocol_client(c: &mut Criterion) {
             .put_bool(true)
             .put_u32(42)
             .put_str(text)
-            .finalize();
+            .into_bytes();
 
         group.bench_with_input(
             BenchmarkId::new(bench!("decode_sequence"), text.len()),

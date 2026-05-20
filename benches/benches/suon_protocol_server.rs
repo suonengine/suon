@@ -14,7 +14,7 @@ impl Encodable for BenchPacket {
     const KIND: PacketKind = PacketKind::PingLatency;
 
     fn encode(self) -> Option<Bytes> {
-        Some(Encoder::new().put_u16(0xCAFE).put_str("suon").finalize())
+        Some(Encoder::new().put_u16(0xCAFE).put_str("suon").into_bytes())
     }
 }
 
@@ -54,7 +54,7 @@ fn benchmark_protocol_server(c: &mut Criterion) {
                     let bytes = Encoder::new()
                         .put_u16(payload_size as u16)
                         .put_bytes(Bytes::from(payload.clone()))
-                        .finalize();
+                        .into_bytes();
                     let mut slice = bytes.as_ref();
                     let mut decoder = &mut slice;
                     let len = decoder.get_u16().expect("length should decode");
