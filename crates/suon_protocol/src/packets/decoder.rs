@@ -65,6 +65,15 @@ pub trait Decoder {
     #[must_use]
     fn remaining(&self) -> usize;
 
+    /// Reads a UTF-8 string prefixed with a 16-bit length field, returning a
+    /// borrowed reference instead of an owned [`String`].
+    ///
+    /// Unlike [`get_string`](Decoder::get_string), this avoids allocating a new
+    /// buffer — the returned slice references the original wire data directly.
+    /// The lifetime of the returned reference is tied to the underlying byte
+    /// buffer, not the cursor.
+    fn get_string_ref(&mut self) -> Result<&str, DecoderError>;
+
     /// Reads exactly `count` bytes and returns them as a slice.
     ///
     /// Returns [`DecoderError::Incomplete`] if fewer than `count` bytes are available.
@@ -171,6 +180,28 @@ impl Decoder for &mut &[u8] {
 
     fn remaining(&self) -> usize {
         self.len()
+    }
+
+    fn get_string_ref(&mut self) -> Result<&str, DecoderError> {
+        let length = self
+            .try_get_u16_le()
+            .map_err(|err| DecoderError::Incomplete {
+                expected: err.requested,
+                available: err.available,
+            })? as usize;
+
+        if self.len() < length {
+            return Err(DecoderError::Incomplete {
+                expected: length,
+                available: self.len(),
+            });
+        }
+
+        let (bytes, ..) = self.split_at(length);
+        let s = std::str::from_utf8(bytes)?;
+        self.advance(length);
+
+        Ok(s)
     }
 
     fn get_raw(&mut self, count: usize) -> Result<&[u8], DecoderError> {
@@ -525,6 +556,36 @@ mod tests {
         } else {
             panic!("Unexpected error: {:?}", err);
         }
+    }
+
+    #[test]
+    fn get_string_ref_returns_borrowed_string() {
+        const VALUE: &str = "hello suon";
+
+        let mut data = Vec::new();
+        data.extend_from_slice(&(VALUE.len() as u16).to_le_bytes());
+        data.extend_from_slice(VALUE.as_bytes());
+
+        let mut buf: &mut &[u8] = &mut data.as_slice();
+
+        let value = buf.get_string_ref().expect("Should get str ref");
+        assert_eq!(value, VALUE, "Content should match");
+        assert_eq!(buf.remaining(), 0, "All bytes should be consumed");
+    }
+
+    #[test]
+    fn get_string_ref_returns_error_on_incomplete_length() {
+        let data = Vec::new();
+        let mut buf: &mut &[u8] = &mut data.as_slice();
+
+        let err = buf.get_string_ref().expect_err("Expected incomplete error");
+        assert_eq!(
+            err,
+            DecoderError::Incomplete {
+                expected: 2,
+                available: 0
+            }
+        );
     }
 
     #[test]
