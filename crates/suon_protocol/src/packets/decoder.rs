@@ -589,6 +589,17 @@ mod tests {
     }
 
     #[test]
+    fn get_string_ref_returns_empty_string_when_length_is_zero() {
+        let mut data = Vec::new();
+        data.extend_from_slice(&0u16.to_le_bytes());
+
+        let mut buf: &mut &[u8] = &mut data.as_slice();
+
+        let value = buf.get_string_ref().expect("Should get empty str ref");
+        assert_eq!(value, "", "Empty length should decode as empty str");
+    }
+
+    #[test]
     fn get_raw_returns_exact_count() {
         let data = vec![10u8, 20, 30, 40, 50];
 
@@ -613,6 +624,19 @@ mod tests {
                 available: 2
             }
         );
+    }
+
+    #[test]
+    fn get_string_returns_empty_string_when_length_is_zero() {
+        const LENGTH: u16 = 0;
+
+        let mut data = Vec::new();
+        data.extend_from_slice(&LENGTH.to_le_bytes());
+
+        let mut buf: &mut &[u8] = &mut data.as_slice();
+
+        let value = buf.get_string().expect("Should get empty string");
+        assert_eq!(value, "", "Empty string length should decode as empty");
     }
 
     #[test]
