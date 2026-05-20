@@ -136,12 +136,28 @@ mod tests {
         }
 
         #[test]
+        fn i64_min_roundtrip() {
+            let bytes = Encoder::new().put_i64(i64::MIN).into_bytes();
+            let mut buf: &[u8] = &bytes;
+            let mut decoder: &mut &[u8] = &mut buf;
+            assert_eq!(decoder.get_i64().unwrap(), i64::MIN);
+        }
+
+        #[test]
         fn u64_roundtrip() {
             let value: u64 = 9876543210;
             let bytes = Encoder::new().put_u64(value).into_bytes();
             let mut buf: &[u8] = &bytes;
             let mut decoder: &mut &[u8] = &mut buf;
             assert_eq!(decoder.get_u64().unwrap(), value);
+        }
+
+        #[test]
+        fn u64_max_roundtrip() {
+            let bytes = Encoder::new().put_u64(u64::MAX).into_bytes();
+            let mut buf: &[u8] = &bytes;
+            let mut decoder: &mut &[u8] = &mut buf;
+            assert_eq!(decoder.get_u64().unwrap(), u64::MAX);
         }
 
         #[test]
