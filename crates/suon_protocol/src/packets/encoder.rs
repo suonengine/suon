@@ -61,54 +61,63 @@ impl Encoder {
     }
 
     /// Writes a boolean as a single byte (0 = false, 1 = true).
+    #[must_use]
     pub fn put_bool(mut self, value: bool) -> Self {
         self.buffer.put_u8(value as u8);
         self
     }
 
     /// Writes a signed 8-bit integer.
+    #[must_use]
     pub fn put_i8(mut self, value: i8) -> Self {
         self.buffer.put_i8(value);
         self
     }
 
     /// Writes an unsigned 8-bit integer.
+    #[must_use]
     pub fn put_u8(mut self, value: u8) -> Self {
         self.buffer.put_u8(value);
         self
     }
 
     /// Writes a signed 16-bit integer in little-endian format.
+    #[must_use]
     pub fn put_i16(mut self, value: i16) -> Self {
         self.buffer.put_i16_le(value);
         self
     }
 
     /// Writes an unsigned 16-bit integer in little-endian format.
+    #[must_use]
     pub fn put_u16(mut self, value: u16) -> Self {
         self.buffer.put_u16_le(value);
         self
     }
 
     /// Writes a signed 32-bit integer in little-endian format.
+    #[must_use]
     pub fn put_i32(mut self, value: i32) -> Self {
         self.buffer.put_i32_le(value);
         self
     }
 
     /// Writes an unsigned 32-bit integer in little-endian format.
+    #[must_use]
     pub fn put_u32(mut self, value: u32) -> Self {
         self.buffer.put_u32_le(value);
         self
     }
 
     /// Writes a signed 64-bit integer in little-endian format.
+    #[must_use]
     pub fn put_i64(mut self, value: i64) -> Self {
         self.buffer.put_i64_le(value);
         self
     }
 
     /// Writes an unsigned 64-bit integer in little-endian format.
+    #[must_use]
     pub fn put_u64(mut self, value: u64) -> Self {
         self.buffer.put_u64_le(value);
         self
@@ -119,6 +128,7 @@ impl Encoder {
     /// The string is encoded as:
     /// 1. A 2-byte little-endian length field.
     /// 2. UTF-8 bytes of the string.
+    #[must_use]
     pub fn put_str(mut self, value: &str) -> Self {
         let bytes = value.as_bytes();
         self.buffer.put_u16_le(bytes.len() as u16);
@@ -127,6 +137,7 @@ impl Encoder {
     }
 
     /// Writes a raw byte buffer into the encoder.
+    #[must_use]
     pub fn put_bytes(mut self, bytes: Bytes) -> Self {
         self.buffer.put(bytes);
         self
@@ -134,6 +145,7 @@ impl Encoder {
 
     /// Returns the remaining capacity (in bytes) before the internal buffer
     /// triggers a reallocation.
+    #[must_use]
     pub fn remaining_capacity(&self) -> usize {
         self.buffer.capacity() - self.buffer.len()
     }
