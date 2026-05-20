@@ -51,6 +51,9 @@ pub trait Decoder {
     /// Reads a UTF-8 string prefixed with a 16-bit length field.
     fn get_string(&mut self) -> Result<String, DecoderError>;
 
+    /// Returns the number of unread bytes remaining in the buffer.
+    fn remaining(&self) -> usize;
+
     /// Returns all remaining bytes in the buffer.
     fn take_remaining(&mut self) -> &[u8];
 }
@@ -147,6 +150,10 @@ impl Decoder for &mut &[u8] {
         self.advance(length);
 
         Ok(str.to_owned())
+    }
+
+    fn remaining(&self) -> usize {
+        self.len()
     }
 
     fn take_remaining(&mut self) -> &[u8] {
@@ -504,6 +511,21 @@ mod tests {
             matches!(err, DecoderError::InvalidUtf8(..)),
             "Should be InvalidUtf8"
         );
+    }
+
+    #[test]
+    fn remaining_returns_count_of_unread_bytes() {
+        let data = vec![1u8, 2, 3, 4];
+
+        let mut buf: &mut &[u8] = &mut data.as_slice();
+
+        assert_eq!(buf.remaining(), 4, "Should report 4 bytes before reading");
+
+        buf.get_u8().unwrap();
+        assert_eq!(buf.remaining(), 3, "Should report 3 after reading one byte");
+
+        let _ = buf.take_remaining();
+        assert_eq!(buf.remaining(), 0, "Should report 0 after consuming all");
     }
 
     #[test]
