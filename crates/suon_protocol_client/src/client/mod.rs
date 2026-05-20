@@ -378,4 +378,23 @@ mod tests {
             "Wire value 222 should decode to the update-buddy client packet kind"
         );
     }
+
+    #[test]
+    fn packet_kind_wire_size_matches_all_variants() {
+        use suon_protocol::prelude::PACKET_KIND_SIZE;
+
+        let max_discriminant = (0u8..=248)
+            .filter_map(|b| PacketKind::try_from(b).ok())
+            .map(|k| k as u16)
+            .max()
+            .expect("at least one PacketKind variant must exist");
+
+        let required_bytes = if max_discriminant > 0xFF { 2 } else { 1 };
+
+        assert_eq!(
+            PACKET_KIND_SIZE, required_bytes,
+            "PACKET_KIND_SIZE ({}) must match the widest PacketKind discriminant ({})",
+            PACKET_KIND_SIZE, max_discriminant
+        );
+    }
 }
