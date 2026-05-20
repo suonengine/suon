@@ -132,6 +132,12 @@ impl Encoder {
         self
     }
 
+    /// Returns the remaining capacity (in bytes) before the internal buffer
+    /// triggers a reallocation.
+    pub fn remaining_capacity(&self) -> usize {
+        self.buffer.capacity() - self.buffer.len()
+    }
+
     /// Finalizes the buffer and returns an immutable [`Bytes`] instance suitable for sending.
     ///
     /// The internal buffer is reset to empty after this call, making the encoder
@@ -284,6 +290,25 @@ mod tests {
         assert!(
             encoder.is_empty(),
             "Encoder with CAPACITY should start with an empty buffer"
+        );
+    }
+
+    #[test]
+    fn remaining_capacity_decreases_as_data_is_written() {
+        let encoder = Encoder::with_capacity(64);
+        let initial = encoder.remaining_capacity();
+        assert!(
+            initial > 0,
+            "New encoder should have positive remaining capacity"
+        );
+
+        let mut encoder = encoder;
+        encoder.put_u64(u64::MAX);
+
+        assert_eq!(
+            encoder.remaining_capacity(),
+            initial - 8,
+            "Writing 8 bytes should reduce remaining capacity by 8"
         );
     }
 
