@@ -95,8 +95,9 @@ pub enum DecodableError {
 ///     fn decode(bytes: &mut &[u8]) -> Result<Self, DecodableError> {
 ///         use suon_protocol::prelude::*;
 ///
-///         let username = (&mut *bytes).get_str()?;
-///         Ok(LoginPacket { username })
+///         let mut decoder: &mut &[u8] = bytes;
+///         let username = decoder.get_str()?;
+///         Ok(LoginPacket { username: username.to_owned() })
 ///     }
 /// }
 ///
