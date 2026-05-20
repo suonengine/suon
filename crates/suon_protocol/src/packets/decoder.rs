@@ -62,9 +62,11 @@ pub trait Decoder {
     fn get_string(&mut self) -> Result<String, DecoderError>;
 
     /// Returns the number of unread bytes remaining in the buffer.
+    #[must_use]
     fn remaining(&self) -> usize;
 
     /// Returns all remaining bytes in the buffer.
+    #[must_use]
     fn take_remaining(&mut self) -> &[u8];
 }
 
