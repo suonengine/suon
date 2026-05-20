@@ -3,6 +3,7 @@ use thiserror::Error;
 
 /// Errors that can occur when decoding a packet from a byte buffer.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum DecoderError {
     /// The buffer does not contain enough bytes to form a complete packet.
     ///
