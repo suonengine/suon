@@ -146,7 +146,7 @@ impl Encoder {
 
     /// Writes a raw byte slice into the encoder without requiring a [`Bytes`] allocation.
     #[must_use]
-    pub fn put_raw(mut self, bytes: &[u8]) -> Self {
+    pub fn put_slice(mut self, bytes: &[u8]) -> Self {
         self.buffer.put_slice(bytes);
         self
     }
