@@ -312,14 +312,15 @@ mod tests {
     }
 
     #[test]
-    fn encoder_with_capacity_initializes_correctly() {
+    fn encoder_with_capacity_initializes_with_correct_capacity() {
         const CAPACITY: usize = 128;
 
-        let encoder = Encoder::with_capacity(CAPACITY).into_bytes();
+        let encoder = Encoder::with_capacity(CAPACITY);
 
-        assert!(
-            encoder.is_empty(),
-            "Encoder with CAPACITY should start with an empty buffer"
+        assert_eq!(
+            encoder.remaining_capacity(),
+            CAPACITY,
+            "Encoder with capacity {CAPACITY} should report that exact remaining capacity"
         );
     }
 
