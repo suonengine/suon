@@ -39,14 +39,23 @@ pub enum DecoderError {
 /// assert_eq!((&mut buffer).get_string().unwrap(), "test");
 /// ```
 pub trait Decoder {
+    /// Reads a boolean encoded as a single byte (0 = false, non-zero = true).
     fn get_bool(&mut self) -> Result<bool, DecoderError>;
+    /// Reads a signed 8-bit integer.
     fn get_i8(&mut self) -> Result<i8, DecoderError>;
+    /// Reads an unsigned 8-bit integer.
     fn get_u8(&mut self) -> Result<u8, DecoderError>;
+    /// Reads a signed 16-bit integer in little-endian format.
     fn get_i16(&mut self) -> Result<i16, DecoderError>;
+    /// Reads an unsigned 16-bit integer in little-endian format.
     fn get_u16(&mut self) -> Result<u16, DecoderError>;
+    /// Reads a signed 32-bit integer in little-endian format.
     fn get_i32(&mut self) -> Result<i32, DecoderError>;
+    /// Reads an unsigned 32-bit integer in little-endian format.
     fn get_u32(&mut self) -> Result<u32, DecoderError>;
+    /// Reads a signed 64-bit integer in little-endian format.
     fn get_i64(&mut self) -> Result<i64, DecoderError>;
+    /// Reads an unsigned 64-bit integer in little-endian format.
     fn get_u64(&mut self) -> Result<u64, DecoderError>;
 
     /// Reads a UTF-8 string prefixed with a 16-bit length field.
