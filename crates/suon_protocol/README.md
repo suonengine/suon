@@ -27,7 +27,7 @@ let bytes = Encoder::new()
     .put_u8(0x01)          // packet kind
     .put_u16(1337)         // field
     .put_str("hello")      // length-prefixed UTF-8 string
-    .finalize();
+    .into_bytes();
 ```
 
 ### Decoding
@@ -52,7 +52,7 @@ specific packet kinds; that knowledge lives in the higher-level protocol crates.
 ### Encoder
 
 `Encoder` accumulates bytes into an internal buffer using a builder pattern. Call
-`finalize()` to get the completed `Bytes` frame.
+`into_bytes()` to get the completed `Bytes` frame.
 
 ### Decoder
 
