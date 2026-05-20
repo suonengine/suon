@@ -145,6 +145,15 @@ mod tests {
         }
 
         #[test]
+        fn raw_slice_roundtrip() {
+            let payload: &[u8] = &[0xDE, 0xAD, 0xBE, 0xEF];
+            let bytes = Encoder::new().put_slice(payload).into_bytes();
+            let mut buf: &[u8] = &bytes;
+            let mut decoder: &mut &[u8] = &mut buf;
+            assert_eq!(decoder.take_remaining(), payload);
+        }
+
+        #[test]
         fn string_roundtrip() {
             let value = "hello suon";
             let bytes = Encoder::new().put_str(value).into_bytes();
