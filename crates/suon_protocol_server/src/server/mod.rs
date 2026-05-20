@@ -25,28 +25,27 @@ pub mod prelude {
 /// - [`Self::encode`]: Encodes the packet payload into a [`Bytes`] buffer.
 ///
 /// # Example
-/// ```
-/// use bytes::Bytes;
-/// use suon_protocol::prelude::*;
-/// use suon_protocol_server::prelude::*;
-///
-/// struct LoginPacket {
-///     username: String,
-/// }
-///
-/// impl Encodable for LoginPacket {
-///     const KIND: PacketKind = PacketKind::Challenge;
-///
-///     fn encode(self) -> Option<Bytes> {
-///         Some(Encoder::new().put_str(&self.username).into_bytes())
-///     }
-/// }
-///
-/// let packet = LoginPacket { username: "Alice".into() };
-/// let encoded = packet.encode_with_kind();
-///
-/// assert_eq!(encoded.as_ref(), &[31, 5, 0, 65, 108, 105, 99, 101]);
-/// ```
+    /// ```
+    /// use suon_protocol::prelude::*;
+    /// use suon_protocol_server::prelude::*;
+    ///
+    /// struct LoginPacket {
+    ///     username: String,
+    /// }
+    ///
+    /// impl Encodable for LoginPacket {
+    ///     const KIND: PacketKind = PacketKind::Challenge;
+    ///
+    ///     fn encode(self) -> Option<Bytes> {
+    ///         Some(Encoder::new().put_str(&self.username).into_bytes())
+    ///     }
+    /// }
+    ///
+    /// let packet = LoginPacket { username: "Alice".into() };
+    /// let encoded = packet.encode_with_kind();
+    ///
+    /// assert_eq!(encoded.as_ref(), &[31, 5, 0, 65, 108, 105, 99, 101]);
+    /// ```
 ///
 /// This trait is typically paired with a corresponding `Decodable` trait to
 /// reconstruct the packet from a received byte stream.

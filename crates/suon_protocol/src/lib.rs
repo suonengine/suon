@@ -23,6 +23,10 @@ pub mod prelude {
         decoder::{Decoder, DecoderError},
         encoder::Encoder,
     };
+
+    /// Re-export of [`bytes::Bytes`] so that downstream crates do not need
+    /// to add `bytes` as a direct dependency when working with packets.
+    pub use bytes::Bytes;
 }
 
 #[cfg(test)]
