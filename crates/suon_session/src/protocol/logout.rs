@@ -10,7 +10,9 @@ pub(super) fn on_logout(
     sessions: Query<&Session>,
 ) {
     let connection = event.entity();
-    let Ok(session) = sessions.get(connection) else { return };
+    let Ok(session) = sessions.get(connection) else {
+        return;
+    };
 
     commands.entity(session.player).despawn();
     commands.entity(connection).remove::<Session>();

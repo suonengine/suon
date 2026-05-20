@@ -2,8 +2,10 @@ use bevy::prelude::*;
 use suon_network::prelude::*;
 use suon_protocol_client::prelude::{CancelStepsPacket, FacePacket, StepPacket, StepsPacket};
 
-use crate::orientation::FaceIntent;
-use crate::prelude::{StepIntent, StepPath};
+use crate::{
+    orientation::FaceIntent,
+    prelude::{StepIntent, StepPath},
+};
 
 /// Maps a connection entity to its player entity.
 ///
@@ -29,7 +31,9 @@ fn on_cancel_steps_packet(
     connections: Query<&PlayerLink>,
 ) {
     let connection = event.entity();
-    let Ok(link) = connections.get(connection) else { return };
+    let Ok(link) = connections.get(connection) else {
+        return;
+    };
     commands.entity(link.0).remove::<StepPath>();
 }
 
@@ -39,7 +43,9 @@ fn on_single_step(
     connections: Query<&PlayerLink>,
 ) {
     let connection = event.entity();
-    let Ok(link) = connections.get(connection) else { return };
+    let Ok(link) = connections.get(connection) else {
+        return;
+    };
     commands.trigger(StepIntent {
         entity: link.0,
         to: event.packet().direction,
@@ -52,7 +58,9 @@ fn on_multi_step(
     connections: Query<&PlayerLink>,
 ) {
     let connection = event.entity();
-    let Ok(link) = connections.get(connection) else { return };
+    let Ok(link) = connections.get(connection) else {
+        return;
+    };
 
     let path = &event.packet().path;
     let mut step_path = StepPath::default();
@@ -63,13 +71,11 @@ fn on_multi_step(
     commands.entity(link.0).insert(step_path);
 }
 
-fn on_face(
-    event: On<Packet<FacePacket>>,
-    mut commands: Commands,
-    connections: Query<&PlayerLink>,
-) {
+fn on_face(event: On<Packet<FacePacket>>, mut commands: Commands, connections: Query<&PlayerLink>) {
     let connection = event.entity();
-    let Ok(link) = connections.get(connection) else { return };
+    let Ok(link) = connections.get(connection) else {
+        return;
+    };
     commands.trigger(FaceIntent {
         entity: link.0,
         to: event.packet().direction,

@@ -17,7 +17,7 @@ pub mod prelude {
         prelude::{
             AcceptTradePacket, CancelStepsPacket, ChangeSharedPartyExperiencePacket,
             CloseTradePacket, CreateBuddyPacket, DeleteBuddyPacket, FacePacket, InspectTradePacket,
-            InviteToPartyPacket, JoinPartyPacket, KeepAlivePacket,             LeavePartyPacket, LogoutPacket,
+            InviteToPartyPacket, JoinPartyPacket, KeepAlivePacket, LeavePartyPacket, LogoutPacket,
             MarketBrowseKind, MarketOfferKind, MarketPacket, PassPartyLeadershipPacket,
             PingLatencyPacket, RequestTradePacket, RevokePartyInvitePacket, ServerNamePacket,
             StepPacket, StepsPacket, UpdateBuddyPacket,

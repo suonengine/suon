@@ -23,8 +23,8 @@ mod tests {
     #[test]
     fn should_decode_server_name_from_length_prefixed_payload() {
         let mut payload: &[u8] = &[4, 0, b's', b'u', b'o', b'n'];
-        let packet = ServerNamePacket::decode(&mut payload)
-            .expect("ServerNamePacket should decode");
+        let packet =
+            ServerNamePacket::decode(&mut payload).expect("ServerNamePacket should decode");
         assert_eq!(packet.name, "suon");
         assert!(payload.is_empty());
     }

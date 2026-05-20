@@ -242,8 +242,8 @@ mod tests {
             .finalize();
 
         const EXPECTED: [u8; 16] = [
-            0xEF, 0xCD, 0xAB, 0x90, 0x78, 0x56, 0x34, 0x12,
-            0x21, 0x43, 0x65, 0x87, 0x09, 0xBA, 0xDC, 0xFE,
+            0xEF, 0xCD, 0xAB, 0x90, 0x78, 0x56, 0x34, 0x12, 0x21, 0x43, 0x65, 0x87, 0x09, 0xBA,
+            0xDC, 0xFE,
         ];
         assert_eq!(
             result.as_ref(),
@@ -344,7 +344,11 @@ mod tests {
 
         let first = encoder.finalize();
 
-        assert_eq!(first.as_ref(), &[1], "The first packet should contain only the first write");
+        assert_eq!(
+            first.as_ref(),
+            &[1],
+            "The first packet should contain only the first write"
+        );
 
         let second = encoder.put_u8(2).finalize();
 
