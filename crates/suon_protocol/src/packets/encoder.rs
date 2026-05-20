@@ -303,6 +303,15 @@ mod tests {
     }
 
     #[test]
+    fn encoder_put_slice_appends_byte_slice() {
+        const BYTES: &[u8] = &[0xDE, 0xAD, 0xBE, 0xEF];
+
+        let result = Encoder::new().put_slice(BYTES).into_bytes();
+
+        assert_eq!(result.as_ref(), BYTES, "Encoder should append byte slice");
+    }
+
+    #[test]
     fn encoder_with_capacity_initializes_correctly() {
         const CAPACITY: usize = 128;
 
