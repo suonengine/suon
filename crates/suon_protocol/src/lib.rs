@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 //! Shared wire-format codecs for the Suon protocol.
 //!
 //! All multi-byte integer types are encoded in **little-endian** byte order,
@@ -17,6 +19,7 @@
 
 mod packets;
 
+/// Convenience module that re-exports the most common types from this crate.
 pub mod prelude {
     pub use crate::packets::{
         PACKET_KIND_SIZE,
