@@ -174,6 +174,12 @@ impl Default for Encoder {
     }
 }
 
+impl From<Encoder> for Bytes {
+    fn from(encoder: Encoder) -> Bytes {
+        encoder.into_bytes()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
