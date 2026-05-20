@@ -65,6 +65,11 @@ pub trait Decoder {
     #[must_use]
     fn remaining(&self) -> usize;
 
+    /// Reads exactly `count` bytes and returns them as a slice.
+    ///
+    /// Returns [`DecoderError::Incomplete`] if fewer than `count` bytes are available.
+    fn get_raw(&mut self, count: usize) -> Result<&[u8], DecoderError>;
+
     /// Returns all remaining bytes in the buffer.
     #[must_use]
     fn take_remaining(&mut self) -> &[u8];
@@ -166,6 +171,20 @@ impl Decoder for &mut &[u8] {
 
     fn remaining(&self) -> usize {
         self.len()
+    }
+
+    fn get_raw(&mut self, count: usize) -> Result<&[u8], DecoderError> {
+        if self.len() < count {
+            return Err(DecoderError::Incomplete {
+                expected: count,
+                available: self.len(),
+            });
+        }
+
+        let (bytes, ..) = self.split_at(count);
+        self.advance(count);
+
+        Ok(bytes)
     }
 
     fn take_remaining(&mut self) -> &[u8] {
@@ -506,6 +525,33 @@ mod tests {
         } else {
             panic!("Unexpected error: {:?}", err);
         }
+    }
+
+    #[test]
+    fn get_raw_returns_exact_count() {
+        let data = vec![10u8, 20, 30, 40, 50];
+
+        let mut buf: &mut &[u8] = &mut data.as_slice();
+
+        let chunk = buf.get_raw(3).expect("Should read 3 bytes");
+        assert_eq!(chunk, &[10, 20, 30], "First 3 bytes should match");
+        assert_eq!(buf.remaining(), 2, "Two bytes should remain");
+    }
+
+    #[test]
+    fn get_raw_returns_error_when_buffer_is_too_short() {
+        let data = vec![1u8, 2];
+
+        let mut buf: &mut &[u8] = &mut data.as_slice();
+
+        let err = buf.get_raw(5).expect_err("Expected incomplete error");
+        assert_eq!(
+            err,
+            DecoderError::Incomplete {
+                expected: 5,
+                available: 2
+            }
+        );
     }
 
     #[test]
