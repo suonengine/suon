@@ -221,6 +221,11 @@ pub enum PacketKind {
     AcceptMarketOffer = 248,
 }
 
+impl PacketKind {
+    /// Number of bytes this opcode occupies on the wire (1 byte for Tibia protocol).
+    pub const WIRE_SIZE: usize = suon_protocol::prelude::PACKET_KIND_SIZE;
+}
+
 impl TryFrom<u8> for PacketKind {
     type Error = u8;
 

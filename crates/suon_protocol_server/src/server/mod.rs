@@ -1,7 +1,5 @@
 use bytes::Bytes;
 
-use crate::packets::PACKET_KIND_SIZE;
-
 mod challenge;
 mod keep_alive;
 mod ping_latency;
@@ -71,12 +69,12 @@ pub trait Encodable: Sized {
         use crate::packets::encoder::Encoder;
 
         if let Some(bytes) = self.encode() {
-            Encoder::with_capacity(PACKET_KIND_SIZE + bytes.len())
+            Encoder::with_capacity(PacketKind::WIRE_SIZE + bytes.len())
                 .put_u8(Self::KIND as u8)
                 .put_bytes(bytes)
                 .finalize()
         } else {
-            Encoder::with_capacity(PACKET_KIND_SIZE)
+            Encoder::with_capacity(PacketKind::WIRE_SIZE)
                 .put_u8(Self::KIND as u8)
                 .finalize()
         }
@@ -97,6 +95,11 @@ pub enum PacketKind {
 
     /// Challenge during authentication
     Challenge = 31,
+}
+
+impl PacketKind {
+    /// Number of bytes this opcode occupies on the wire (1 byte for Tibia protocol).
+    pub const WIRE_SIZE: usize = crate::packets::PACKET_KIND_SIZE;
 }
 
 impl std::fmt::Display for PacketKind {
