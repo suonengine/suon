@@ -18,7 +18,7 @@ use bytes::{BufMut, Bytes, BytesMut};
 ///
 /// assert_eq!(packet_bytes.as_ref(), &[42, 5, 0, 72, 101, 108, 108, 111]);
 /// ```
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Encoder {
     buffer: BytesMut,
 }
