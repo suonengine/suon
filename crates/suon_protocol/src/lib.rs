@@ -1,5 +1,9 @@
 //! Shared wire-format codecs for the Suon protocol.
 //!
+//! All multi-byte integer types are encoded in **little-endian** byte order,
+//! strings are length-prefixed with a `u16` little-endian length, and every
+//! packet begins with a single-byte opcode (`PACKET_KIND_SIZE`).
+//!
 //! # Examples
 //! ```
 //! use suon_protocol::prelude::*;
