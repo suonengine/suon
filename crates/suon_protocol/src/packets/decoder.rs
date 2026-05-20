@@ -599,7 +599,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn get_str_invalid_utf8() {
         const LENGTH: u16 = 2;
 
