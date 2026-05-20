@@ -27,7 +27,7 @@ impl Encoder {
     /// Default initial buffer size, in bytes.
     ///
     /// This small size is enough for typical initial packets and avoids excessive allocations.
-    pub const INITIAL_CAPACITY: usize = 1024;
+    pub const INITIAL_CAPACITY: usize = 64;
 
     /// Creates a new encoder with the default initial capacity.
     ///
