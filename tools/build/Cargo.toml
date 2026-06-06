@@ -1,0 +1,18 @@
+# Package
+[package]
+# Build helper binary for workspace artifact generation
+name = "build"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+autobins = false
+
+[dependencies]
+# Shared third-party dependencies
+serde_json = { workspace = true, features = ["std"] }
+
+[[bin]]
+name = "suon-build"
+path = "src/main.rs"
+bench = false

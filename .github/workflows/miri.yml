@@ -1,0 +1,53 @@
+# Runs Miri, a Rust interpreter that detects undefined behavior (UB).
+# This workflow runs weekly instead of on every PR because Miri is slow.
+name: Miri UB
+
+on:
+  # Weekly scan to catch UB introduced during the week.
+  schedule:
+    - cron: "0 6 * * 1"
+  # Manual trigger for on-demand investigation.
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  miri:
+    name: Running miri
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6.0.2
+      # Miri requires nightly Rust with the `miri` component.
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: miri
+
+      - name: Restore cargo registry and git cache
+        uses: actions/cache@v5.0.5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Restore workspace target cache
+        uses: actions/cache@v5.0.5
+        with:
+          path: target
+          key: ${{ runner.os }}-miri-target-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-miri-target-
+
+      # `cargo miri setup` builds the Rust standard library with Miri's
+      # instrumentation, which is needed before running tests.
+      - name: Setup miri
+        run: cargo miri setup
+
+      - name: Run miri
+        run: cargo miri test --workspace --all-features --doc

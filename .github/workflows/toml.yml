@@ -1,0 +1,61 @@
+# Checks that all TOML files in the repository conform to a consistent format
+# using `taplo fmt`.
+name: Toml
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+      - 'assets/**'
+      - 'LICENSE-*'
+      - '.gitignore'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'SECURITY.md'
+      - '**/*.rs'
+      - 'build.rs'
+      - 'Cargo.lock'
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  toml:
+    name: Running taplo fmt
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Restore cargo registry and git cache
+        uses: actions/cache@v5.0.5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      # `taplo` is the canonical TOML formatter, similar to `rustfmt` for Rust.
+      - name: Install taplo
+        uses: taiki-e/install-action@v2.75.18
+        with:
+          tool: taplo-cli
+
+      # `--check --diff` exits non-zero if any file would be reformatted and
+      # prints the changes needed.
+      - name: Run taplo
+        id: taplo
+        run: taplo fmt --check --diff
+
+      - name: Taplo info
+        if: failure()
+        run: |
+          echo 'To format TOML files, run: `taplo fmt`'
+          echo 'To check for formatting differences, run: `taplo fmt --check --diff`'

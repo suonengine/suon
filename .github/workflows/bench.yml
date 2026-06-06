@@ -1,0 +1,96 @@
+# Runs criterion benchmarks across the workspace and publishes results to
+# GitHub Pages for tracking performance regressions over time.
+name: Benchmarks
+
+on:
+  # Only runs on main branch pushes (not on every PR) because benchmarks
+  # take longer and are primarily useful for trend analysis.
+  push:
+    branches: ["main"]
+    paths-ignore:
+      - '**.md'
+      - 'assets/**'
+      - 'LICENSE-*'
+      - '.gitignore'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'SECURITY.md'
+      - 'typos.toml'
+      - 'deny.toml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  # Required by `github-action-benchmark` to push results to gh-pages.
+  contents: write
+
+jobs:
+  bench:
+    name: Run benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          # Full history is needed for benchmark comparison across commits.
+          fetch-depth: 0
+      - name: Install Rust nightly
+        shell: pwsh
+        run: rustup toolchain install nightly --profile minimal
+
+      - name: Restore cargo registry and git cache
+        uses: actions/cache@v5.0.5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Restore workspace target cache
+        uses: actions/cache@v5.0.5
+        with:
+          path: target
+          key: ${{ runner.os }}-bench-target-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bench-target-
+
+      # Build first without running so the benchmark step is purely measurement.
+      - name: Build benchmarks
+        run: cargo bench --workspace --benches --no-run
+
+      # `continue-on-error` keeps the workflow alive even if a benchmark fails,
+      # so previous results are not overwritten by a single broken benchmark.
+      # `--output-format bencher` produces machine-readable output for the
+      # benchmark storage action.
+      - name: Run benchmarks
+        continue-on-error: true
+        run: cargo bench --workspace --benches -- --output-format bencher 2>&1 | tee target/benchmarks.txt
+
+      - name: Upload criterion HTML reports
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: criterion-reports-${{ github.sha }}
+          path: target/criterion/
+          if-no-files-found: ignore
+
+      # Publishes benchmark results to the `gh-pages` branch so they can be
+      # viewed as a trend chart over time.
+      - name: Store benchmark results
+        uses: benchmark-action/github-action-benchmark@v1.22.0
+        with:
+          tool: cargo
+          output-file-path: target/benchmarks.txt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: benchmarks
+          comment-on-alert: true
+          # Alert if performance degrades by more than 150% from baseline.
+          alert-threshold: "150%"
+          fail-on-alert: false

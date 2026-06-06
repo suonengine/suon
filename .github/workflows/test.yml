@@ -1,0 +1,62 @@
+# Runs unit tests on three platforms using `cargo nextest`.
+# Nextest provides faster, more parallel test execution compared to the default
+# `cargo test` harness.
+name: Test
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+      - 'assets/**'
+      - 'LICENSE-*'
+      - '.gitignore'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'SECURITY.md'
+      - 'typos.toml'
+      - 'deny.toml'
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    name: Running unit test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: dtolnay/rust-toolchain@nightly
+      # Install `cargo nextest` — a next-generation test runner.
+      - uses: taiki-e/install-action@nextest
+
+      - name: Restore cargo registry and git cache
+        uses: actions/cache@v5.0.5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Restore workspace target cache
+        uses: actions/cache@v5.0.5
+        with:
+          path: target
+          key: ${{ runner.os }}-test-target-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-test-target-
+
+      # `--failure-output immediate-final` prints test output only after the
+      # test suite finishes, keeping the log clean.
+      - name: Run tests
+        run: cargo nextest run --workspace --failure-output immediate-final

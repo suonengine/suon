@@ -1,0 +1,53 @@
+# Checks Rust source formatting with `cargo fmt`.
+# Runs on every push and pull request to main.
+name: Format
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+      - 'assets/**'
+      - 'LICENSE-*'
+      - '.gitignore'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'SECURITY.md'
+      - 'typos.toml'
+      - 'deny.toml'
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+# Cancel any previous run for the same branch to avoid wasting CI resources
+# when new commits are pushed before a previous run finishes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    name: Check code formatting
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6.0.2
+      # Install nightly with the `rustfmt` component.
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+
+      # Cache downloaded crate dependencies so subsequent runs don't re-download
+      # the entire registry on every commit.
+      - name: Restore cargo registry and git cache
+        uses: actions/cache@v5.0.5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Run rustfmt
+        run: cargo fmt --all -- --check

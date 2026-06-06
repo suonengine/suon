@@ -1,0 +1,48 @@
+# Checks crate licenses, dependency bans, and security advisories using
+# `cargo-deny`. Runs weekly on a schedule in addition to pull requests.
+name: Deny
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+      - 'assets/**'
+      - 'LICENSE-*'
+      - '.gitignore'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'SECURITY.md'
+      - 'typos.toml'
+      - 'rustfmt.toml'
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+  # Weekly scan to catch newly published security advisories.
+  schedule:
+    - cron: "0 8 * * 1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deny:
+    name: Check licenses, bans, and advisories
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Restore cargo registry and git cache
+        uses: actions/cache@v5.0.5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      # Uses the deny configuration from `deny.toml` at the workspace root.
+      - uses: EmbarkStudios/cargo-deny-action@v2

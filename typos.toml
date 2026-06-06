@@ -1,0 +1,5 @@
+[files]
+extend-exclude = ["target/", ".git/"]
+
+[default]
+extend-ignore-re = []

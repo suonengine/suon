@@ -1,0 +1,62 @@
+# Detects unused dependencies in the workspace using `cargo-udeps`.
+# Keeps the dependency graph lean by flagging crates that are no longer used.
+name: Unused dependencies
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+      - 'assets/**'
+      - 'LICENSE-*'
+      - '.gitignore'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'SECURITY.md'
+      - 'typos.toml'
+      - 'deny.toml'
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  udeps:
+    name: Running udeps
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6.0.2
+      # `cargo-udeps` requires nightly with `rust-src` to detect unused deps.
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+      - uses: baptiste0928/cargo-install@v3.4.0
+        with:
+          crate: cargo-udeps
+
+      - name: Restore cargo registry and git cache
+        uses: actions/cache@v5.0.5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Restore workspace target cache
+        uses: actions/cache@v5.0.5
+        with:
+          path: target
+          key: ${{ runner.os }}-udeps-target-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-udeps-target-
+
+      # `--all-features --all-targets` ensures no feature-gated or test-only
+      # dependency goes undetected.
+      - name: Run udeps
+        run: rustup run nightly cargo udeps --workspace --all-features --all-targets

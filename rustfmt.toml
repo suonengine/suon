@@ -1,0 +1,16 @@
+# Use Unix (LF) line endings for source files regardless of the host OS.
+# Prevents diffs from introducing unrelated line-ending changes on cross-platform PRs.
+newline_style = "Unix"
+
+# Allow shorthand initialization when a field and its variable share the same name.
+# `User { name }` instead of `User { name: name }`.
+use_field_init_shorthand = true
+
+# Unstable formatting features that require nightly `cargo fmt`.
+# They improve output but require the nightly toolchain to be installed.
+unstable_features = true
+# Format string literals to respect column width limits where possible.
+format_strings = true
+# Group imports by crate rather than by internal module path.
+# `use a::{b, c}` instead of `use a::b; use a::c;`.
+imports_granularity = "Crate"

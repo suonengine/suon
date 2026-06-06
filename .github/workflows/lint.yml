@@ -1,0 +1,63 @@
+# Runs `cargo clippy` across the entire workspace with deny-level warnings.
+# Enforces the workspace lint policy defined in `[workspace.lints.clippy]`.
+name: Lint
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+      - 'assets/**'
+      - 'LICENSE-*'
+      - '.gitignore'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'SECURITY.md'
+      - 'typos.toml'
+      - 'deny.toml'
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  clippy:
+    name: Running clippy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6.0.2
+      # Install nightly with the `clippy` component.
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy
+
+      - name: Restore cargo registry and git cache
+        uses: actions/cache@v5.0.5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      # Cache the entire `target` directory so unchanged crates are not rebuilt
+      # between lint runs. The key includes both Cargo.toml and Cargo.lock hashes
+      # to invalidate the cache when dependencies change.
+      - name: Restore workspace target cache
+        uses: actions/cache@v5.0.5
+        with:
+          path: target
+          key: ${{ runner.os }}-clippy-target-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-clippy-target-
+
+      # `--no-deps` avoids linting third-party crate code (we only care about
+      # our own source). `--all-targets` includes tests, benches, and examples.
+      # `-D warnings` turns every clippy warning into a hard error.
+      - name: Run clippy
+        run: cargo clippy --workspace --no-deps --all-features --all-targets -- -D warnings

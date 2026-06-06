@@ -1,0 +1,43 @@
+# Checks for common typos in source files using `typos`.
+# Configuration is stored in `typos.toml` at the workspace root.
+name: Typos
+
+on:
+  push:
+    paths-ignore:
+      - 'assets/**'
+      - 'LICENSE-*'
+      - '.gitignore'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'SECURITY.md'
+      - 'rustfmt.toml'
+      - 'deny.toml'
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typos:
+    name: Running typos
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Check for typos
+        uses: crate-ci/typos@v1.45.1
+        with:
+          # Use the project-specific config to exclude generated paths and
+          # allow domain-specific words (e.g. spell names, portuguese terms).
+          config: typos.toml
+
+      - name: Typos info
+        if: failure()
+        run: |
+          echo 'To automatically fix typos, run: `typos -w`'
+          echo 'To see a diff of typos, run: `typos`'
