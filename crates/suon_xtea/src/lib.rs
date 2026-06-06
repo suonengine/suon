@@ -92,8 +92,11 @@ fn mix(v: u32) -> u32 {
 /// The output layout is interleaved:
 /// `expanded[2*i]`   = left round key for round i
 /// `expanded[2*i+1]` = right round key for round i
+///
+/// This function is `const`, so the expanded key can be computed at compile time
+/// when the 128-bit key is known upfront.
 #[inline(always)]
-pub fn expand(key: &Key) -> ExpandedKey {
+pub const fn expand(key: &Key) -> ExpandedKey {
     let mut round_keys = [0u32; ROUNDS * 2];
 
     // Running sum that advances by DELTA each round.
@@ -423,6 +426,14 @@ mod tests {
             buffer_b, original_b,
             "second buffer roundtrip must restore original"
         );
+    }
+
+    #[test]
+    fn expand_const_fn() {
+        // Asserts that `expand` can be evaluated at compile time.
+        const EXPANDED: ExpandedKey = expand(&[0; 4]);
+        let expanded = expand(&[0; 4]);
+        assert_eq!(EXPANDED, expanded);
     }
 
     #[test]
