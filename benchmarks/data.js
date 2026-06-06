@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780779188865,
+  "lastUpdate": 1780779993362,
   "repoUrl": "https://github.com/suonengine/suon",
   "entries": {
     "Benchmark": [
@@ -143,6 +143,76 @@ window.BENCHMARK_DATA = {
             "name": "xtea_roundtrip_1_mebibyte",
             "value": 13273106,
             "range": "± 43900",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "ramon-bernardo",
+            "username": "ramon-bernardo",
+            "email": "ramonbernardo.contato@gmail.com"
+          },
+          "committer": {
+            "name": "ramon-bernardo",
+            "username": "ramon-bernardo",
+            "email": "ramonbernardo.contato@gmail.com"
+          },
+          "id": "ec83a9598f15ae0fed8e5af45ac8865f5f35b570",
+          "message": "chore: initial commit",
+          "timestamp": "2026-06-06T19:35:51Z",
+          "url": "https://github.com/suonengine/suon/commit/ec83a9598f15ae0fed8e5af45ac8865f5f35b570"
+        },
+        "date": 1780779992750,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "xtea_expand_key",
+            "value": 32,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_encrypt_8_bytes",
+            "value": 101,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_decrypt_8_bytes",
+            "value": 102,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_encrypt_1024_bytes",
+            "value": 5838,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_decrypt_1024_bytes",
+            "value": 5944,
+            "range": "± 8",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_encrypt_1_mebibyte",
+            "value": 5894084,
+            "range": "± 688783",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_decrypt_1_mebibyte",
+            "value": 5911870,
+            "range": "± 10885",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_roundtrip_1_mebibyte",
+            "value": 11814689,
+            "range": "± 19597",
             "unit": "ns/iter"
           }
         ]
