@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780862335538,
+  "lastUpdate": 1780875153006,
   "repoUrl": "https://github.com/suonengine/suon",
   "entries": {
     "Benchmark": [
@@ -2435,6 +2435,312 @@ window.BENCHMARK_DATA = {
             "name": "xtea/roundtrip/1024_bytes",
             "value": 11791,
             "range": "± 84",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ramonbernardo.contato@gmail.com",
+            "name": "ramon-bernardo",
+            "username": "ramon-bernardo"
+          },
+          "committer": {
+            "email": "ramonbernardo.contato@gmail.com",
+            "name": "ramon-bernardo",
+            "username": "ramon-bernardo"
+          },
+          "distinct": true,
+          "id": "72477bbb6d7df55b8fd8d4f07422e013ec515ed4",
+          "message": "feat(suon_lua): add Lua scripting crate with plugin architecture",
+          "timestamp": "2026-06-07T20:23:49-03:00",
+          "tree_id": "00fb43a2416ac3d7d12ea463b9c84e276c8c0746",
+          "url": "https://github.com/suonengine/suon/commit/72477bbb6d7df55b8fd8d4f07422e013ec515ed4"
+        },
+        "date": 1780875152796,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "app/empty_shutdown",
+            "value": 235,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "app/startup_system",
+            "value": 289,
+            "range": "± 4",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "app/task_dispatch_100",
+            "value": 1971,
+            "range": "± 10",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/send",
+            "value": 102,
+            "range": "± 5",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_1",
+            "value": 108,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_8",
+            "value": 186,
+            "range": "± 17",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_64",
+            "value": 674,
+            "range": "± 18",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_512",
+            "value": 4485,
+            "range": "± 37",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_4096",
+            "value": 34421,
+            "range": "± 429",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/send_and_drain",
+            "value": 133,
+            "range": "± 10",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lua/vm_creation",
+            "value": 42867,
+            "range": "± 1480",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lua/expression_eval",
+            "value": 2550,
+            "range": "± 24",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lua/store_restore_call",
+            "value": 856,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lua/dispatch_no_events",
+            "value": 4786,
+            "range": "± 247",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lua/dispatch_with_events",
+            "value": 345,
+            "range": "± 18",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "resource/init",
+            "value": 73,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "resource/insert",
+            "value": 84,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "resource/get",
+            "value": 16,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "resource/get_mut",
+            "value": 16,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rsa/load_pem",
+            "value": 2540,
+            "range": "± 28",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rsa/encrypt/1024_bit",
+            "value": 106136,
+            "range": "± 579",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rsa/decrypt/1024_bit",
+            "value": 695611,
+            "range": "± 1998",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rsa/roundtrip/1024_bit",
+            "value": 802416,
+            "range": "± 1676",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/expand_key",
+            "value": 35,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/encrypt/8_bytes",
+            "value": 113,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/encrypt/24_bytes",
+            "value": 202,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/encrypt/64_bytes",
+            "value": 425,
+            "range": "± 25",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/encrypt/128_bytes",
+            "value": 825,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/encrypt/256_bytes",
+            "value": 1678,
+            "range": "± 22",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/encrypt/512_bytes",
+            "value": 3220,
+            "range": "± 8",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/encrypt/1024_bytes",
+            "value": 6398,
+            "range": "± 35",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/encrypt/1_mebibyte",
+            "value": 6549089,
+            "range": "± 18124",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/decrypt/8_bytes",
+            "value": 112,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/decrypt/24_bytes",
+            "value": 191,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/decrypt/64_bytes",
+            "value": 408,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/decrypt/128_bytes",
+            "value": 822,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/decrypt/256_bytes",
+            "value": 1639,
+            "range": "± 6",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/decrypt/512_bytes",
+            "value": 3266,
+            "range": "± 29",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/decrypt/1024_bytes",
+            "value": 6501,
+            "range": "± 21",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/decrypt/1_mebibyte",
+            "value": 6712280,
+            "range": "± 39211",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/encrypt/cold_cache/64_bytes",
+            "value": 428,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/encrypt/cold_cache/256_bytes",
+            "value": 1673,
+            "range": "± 13",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/encrypt/cold_cache/1024_bytes",
+            "value": 6405,
+            "range": "± 85",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/decrypt/cold_cache/64_bytes",
+            "value": 410,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/decrypt/cold_cache/256_bytes",
+            "value": 1698,
+            "range": "± 27",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/decrypt/cold_cache/1024_bytes",
+            "value": 6506,
+            "range": "± 18",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/roundtrip/1024_bytes",
+            "value": 12903,
+            "range": "± 407",
             "unit": "ns/iter"
           }
         ]
