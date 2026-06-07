@@ -20,19 +20,34 @@
 //! This implementation performs **raw RSA** (no padding).  Padding must
 //! be applied by the caller for security in production use.
 //!
+//! # Decryption with CRT
+//!
+//! Instead of computing `ciphertext^private_exponent mod modulus`
+//! (a full-size modular exponentiation on the entire key), decryption
+//! uses the **Chinese Remainder Theorem** (Garner's algorithm) to split
+//! the work across the two prime factors `p` and `q`:
+//!
+//! ```text
+//! m1 = ciphertext^dP mod p      (512-bit exponent → 512-bit modulus)
+//! m2 = ciphertext^dQ mod q      (512-bit exponent → 512-bit modulus)
+//!  h = qInv · (m1 − m2) mod p   (recombination step)
+//!  m = m2 + q · h               (full-size result)
+//! ```
+//!
+//! Each `modpow` operates on half the bits (512 vs 1024), yielding a
+//! ~4× speed-up over the naive approach.
+//!
 //! # Key loading
 //!
 //! Private keys are loaded from PEM-encoded PKCS#1 format via
-//! [`load_pem()`].  The resulting [`Rsa`] struct holds the modulus `n`,
-//! public exponent `e`, and private exponent `d` so it can be used for
-//! both encryption and decryption.
+//! [`load_pem()`].  The resulting [`Rsa`] struct holds all CRT
+//! parameters, so the Garner algorithm is available immediately.
 //!
 //! The PEM parsing pipeline:
-//! 1. [`pem`] decodes the base64-encoded DER body.
-//! 2. [`pkcs1`] parses the DER-encoded PKCS#1 `RSAPrivateKey` structure.
-//! 3. The three big integers (modulus, public_exponent, private_exponent)
-//!    are extracted into [`num_bigint_dig::BigUint`] values for fast
-//!    modular exponentiation.
+//! 1. The PEM armour is stripped and the body is base64-decoded.
+//! 2. The resulting DER is parsed as a PKCS#1 `RSAPrivateKey` structure.
+//! 3. All big integers (modulus, exponents, primes, CRT coefficient)
+//!    are extracted into [`num_bigint_dig::BigUint`] values.
 //!
 //! # Block size
 //!
@@ -48,31 +63,78 @@
 use std::fmt;
 
 use num_bigint_dig::BigUint;
-use pkcs1::der::Decode;
 
 /// Key size in bytes for a 1024-bit RSA key.  Useful for pre-allocating
 /// buffers when the key size is known at compile time.
 #[allow(dead_code)]
 const KEY_SIZE_1024: usize = 128;
 
+/// DER tag for a SEQUENCE (constructed, universal class).
+const DER_TAG_SEQUENCE: u8 = 0x30;
+
+/// DER tag for an INTEGER (primitive, universal class).
+const DER_TAG_INTEGER: u8 = 0x02;
+
+/// Flag bit that distinguishes long-form DER length encoding.
+/// When set, the lower 7 bits indicate how many subsequent bytes hold
+/// the actual length value.
+const DER_LONG_FLAG: u8 = 0x80;
+
+/// Mask used to extract the byte count from a long-form length octet.
+const DER_LENGTH_MASK: u8 = 0x7F;
+
+/// PKCS#1 version value for a two-prime RSA key (multi-prime not supported).
+const TWO_PRIME_KEY_VERSION: u8 = 0x00;
+
+/// Number of base64 characters in a single encoding group (3 bytes → 4 chars).
+const GROUP_SIZE: usize = 4;
+
+/// Number of output bytes produced by one base64 group (4 chars → 3 bytes).
+const OUTPUT_SIZE: usize = 3;
+
 /// RSA key material extracted from a PEM-encoded private key.
 ///
-/// Contains the modulus `modulus`, public exponent `public_exponent`,
-/// and private exponent `private_exponent` needed for raw RSA encryption
-/// and decryption.
+/// Contains the full CRT parameter set so that decryption runs the
+/// Garner algorithm internally, which is ~4× faster than naive
+/// `ciphertext^private_exponent mod modulus`.
 ///
 /// Created via [`load_pem()`].
 pub struct Rsa {
-    /// RSA modulus `modulus` (product of two large primes).
+    /// RSA modulus `n` (product of two large primes).
     modulus: BigUint,
 
-    /// Public exponent `public_exponent` (typically 65537).
+    /// Public exponent `e` (typically 65537).
     public_exponent: BigUint,
 
-    /// Private exponent `private_exponent`.
-    ///
-    /// Satisfies `public_exponent * private_exponent ≡ 1 (mod φ(modulus))`.
+    /// Private exponent `d` satisfying `e · d ≡ 1 (mod φ(n))`.
+    #[allow(dead_code)]
     private_exponent: BigUint,
+
+    /// First prime factor `p` of the modulus.
+    prime_p: BigUint,
+
+    /// Second prime factor `q` of the modulus.
+    prime_q: BigUint,
+
+    /// CRT exponent for `p`: `dP = d mod (p − 1)`.
+    ///
+    /// Used in the first Garner step: `m1 = ciphertext^dP mod p`.
+    exponent_dp: BigUint,
+
+    /// CRT exponent for `q`: `dQ = d mod (q − 1)`.
+    ///
+    /// Used in the second Garner step: `m2 = ciphertext^dQ mod q`.
+    exponent_dq: BigUint,
+
+    /// CRT coefficient: `qInv = q^(−1) mod p`.
+    ///
+    /// Used in the Garner recombination step:
+    /// `h = qInv · (m1 − m2) mod p`.
+    coefficient: BigUint,
+
+    /// Key size in bytes, cached to avoid recomputing it on every
+    /// encrypt / decrypt call.
+    key_size: usize,
 }
 
 /// Errors returned by RSA operations.
@@ -95,72 +157,218 @@ impl std::error::Error for RsaError {}
 
 /// Loads an RSA private key from PEM-encoded PKCS#1 data.
 ///
-/// The PEM must be in traditional PKCS#1 format:
-///
-/// ```text
-/// -----BEGIN RSA PRIVATE KEY-----
-/// MII...
-/// -----END RSA PRIVATE KEY-----
-/// ```
-///
-/// # Pipeline
-///
-/// 1. The PEM wrapper is stripped and base64-decoded by the [`pem`] crate.
-/// 2. The resulting DER is parsed as a PKCS#1 `RSAPrivateKey` structure
-///    by the [`pkcs1`] crate.
-/// 3. The three big integers (modulus, public_exponent, private_exponent)
-///    are converted to [`BigUint`] values and stored in the returned
-///    [`Rsa`] struct.
+/// All CRT parameters are extracted so that [`decrypt()`] can use the
+/// Garner algorithm internally.
 ///
 /// # Errors
 ///
 /// Returns [`RsaError::InvalidKey`] if the PEM data is malformed or does
 /// not contain a valid RSA private key.
 pub fn load_pem(pem_data: &str) -> Result<Rsa, RsaError> {
-    // Strip the PEM armour and base64-decode the body.
-    let der_bytes = pem::parse(pem_data).map_err(|_| RsaError::InvalidKey)?;
+    let der_bytes = pem_decode(pem_data)?;
+    let mut offset = 0;
 
-    // Parse the DER-encoded PKCS#1 RSAPrivateKey structure.
-    let key_info =
-        pkcs1::RsaPrivateKey::from_der(der_bytes.contents()).map_err(|_| RsaError::InvalidKey)?;
+    // SEQUENCE { INTEGER version, INTEGER n, INTEGER e, INTEGER d,
+    //            INTEGER p, INTEGER q, INTEGER dP, INTEGER dQ, INTEGER qInv }
+    if der_bytes.get(offset) != Some(&DER_TAG_SEQUENCE) {
+        return Err(RsaError::InvalidKey);
+    }
+
+    offset += 1;
+    offset = skip_der_length(&der_bytes, offset)?;
+
+    let version = read_der_integer(&der_bytes, &mut offset)?;
+    if version != [TWO_PRIME_KEY_VERSION] {
+        return Err(RsaError::InvalidKey);
+    }
+
+    let modulus = BigUint::from_bytes_be(read_der_integer(&der_bytes, &mut offset)?);
+    let public_exponent = BigUint::from_bytes_be(read_der_integer(&der_bytes, &mut offset)?);
+    let private_exponent = BigUint::from_bytes_be(read_der_integer(&der_bytes, &mut offset)?);
+    let prime_p = BigUint::from_bytes_be(read_der_integer(&der_bytes, &mut offset)?);
+    let prime_q = BigUint::from_bytes_be(read_der_integer(&der_bytes, &mut offset)?);
+    let exponent_dp = BigUint::from_bytes_be(read_der_integer(&der_bytes, &mut offset)?);
+    let exponent_dq = BigUint::from_bytes_be(read_der_integer(&der_bytes, &mut offset)?);
+    let coefficient = BigUint::from_bytes_be(read_der_integer(&der_bytes, &mut offset)?);
+
+    let key_size = modulus.bits().div_ceil(8);
 
     Ok(Rsa {
-        // BigUint::from_bytes_be strips any leading zero byte that
-        // ASN.1 INTEGER encoding may have added, so the conversion is
-        // lossless.
-        modulus: BigUint::from_bytes_be(key_info.modulus.as_bytes()),
-        public_exponent: BigUint::from_bytes_be(key_info.public_exponent.as_bytes()),
-        private_exponent: BigUint::from_bytes_be(key_info.private_exponent.as_bytes()),
+        key_size,
+        modulus,
+        public_exponent,
+        private_exponent,
+        prime_p,
+        prime_q,
+        exponent_dp,
+        exponent_dq,
+        coefficient,
     })
 }
 
-/// Decrypts `data` in-place with raw RSA using the private exponent.
+fn pem_decode(pem_data: &str) -> Result<Vec<u8>, RsaError> {
+    let mut base64 = Vec::new();
+    let mut in_body = false;
+
+    for line in pem_data.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("-----BEGIN") {
+            in_body = true;
+            continue;
+        }
+
+        if trimmed.starts_with("-----END") {
+            break;
+        }
+
+        if in_body {
+            base64.extend_from_slice(trimmed.as_bytes());
+        }
+    }
+
+    if base64.is_empty() {
+        return Err(RsaError::InvalidKey);
+    }
+
+    base64_decode(&base64)
+}
+
+fn base64_decode(input: &[u8]) -> Result<Vec<u8>, RsaError> {
+    let decode = |byte: u8| -> Option<u8> {
+        match byte {
+            b'A'..=b'Z' => Some(byte - b'A'),
+            b'a'..=b'z' => Some(byte - b'a' + 26),
+            b'0'..=b'9' => Some(byte - b'0' + 52),
+            b'+' => Some(62),
+            b'/' => Some(63),
+            b'=' => Some(0),
+            _ => None,
+        }
+    };
+
+    if !input.len().is_multiple_of(GROUP_SIZE) {
+        return Err(RsaError::InvalidKey);
+    }
+
+    let mut output = Vec::with_capacity(input.len() / GROUP_SIZE * OUTPUT_SIZE);
+
+    for chunk in input.chunks(GROUP_SIZE) {
+        let value_0 = decode(chunk[0]).ok_or(RsaError::InvalidKey)?;
+        let value_1 = decode(chunk[1]).ok_or(RsaError::InvalidKey)?;
+        let value_2 = decode(chunk[2]).ok_or(RsaError::InvalidKey)?;
+        let value_3 = decode(chunk[3]).ok_or(RsaError::InvalidKey)?;
+
+        let triple = (value_0 as u32) << 18
+            | (value_1 as u32) << 12
+            | (value_2 as u32) << 6
+            | value_3 as u32;
+
+        let padding = chunk.iter().filter(|&&byte| byte == b'=').count();
+
+        output.push((triple >> 16) as u8);
+
+        if padding < 2 {
+            output.push((triple >> 8) as u8);
+        }
+
+        if padding < 1 {
+            output.push(triple as u8);
+        }
+    }
+
+    Ok(output)
+}
+
+fn skip_der_length(data: &[u8], offset: usize) -> Result<usize, RsaError> {
+    let len_byte = data.get(offset).copied().ok_or(RsaError::InvalidKey)?;
+    if len_byte < DER_LONG_FLAG {
+        Ok(offset + 1)
+    } else {
+        let byte_count = (len_byte & DER_LENGTH_MASK) as usize;
+        if byte_count == 0 || offset + 1 + byte_count > data.len() {
+            return Err(RsaError::InvalidKey);
+        }
+
+        Ok(offset + 1 + byte_count)
+    }
+}
+
+fn read_der_integer<'a>(data: &'a [u8], offset: &mut usize) -> Result<&'a [u8], RsaError> {
+    if data.get(*offset) != Some(&DER_TAG_INTEGER) {
+        return Err(RsaError::InvalidKey);
+    }
+
+    *offset += 1;
+
+    let len_byte = data.get(*offset).copied().ok_or(RsaError::InvalidKey)?;
+    let value_len: usize;
+    if len_byte < DER_LONG_FLAG {
+        value_len = len_byte as usize;
+        *offset += 1;
+    } else {
+        let byte_count = (len_byte & DER_LENGTH_MASK) as usize;
+        if byte_count == 0 || byte_count > 4 || *offset + 1 + byte_count > data.len() {
+            return Err(RsaError::InvalidKey);
+        }
+
+        value_len = data[*offset + 1..*offset + 1 + byte_count]
+            .iter()
+            .fold(0usize, |acc, &b| acc * 256 + b as usize);
+        *offset += 1 + byte_count;
+    }
+
+    if *offset + value_len > data.len() {
+        return Err(RsaError::InvalidKey);
+    }
+
+    let value = &data[*offset..*offset + value_len];
+    *offset += value_len;
+
+    Ok(value)
+}
+
+/// Decrypts `data` in-place with raw RSA using the CRT-accelerated path.
 ///
-/// Performs `plaintext = ciphertext^private_exponent (mod modulus)`.
-/// The input must be exactly `key_size` bytes long.  The result
-/// overwrites the input in place.
+/// Internally uses the Chinese Remainder Theorem (Garner's algorithm)
+/// with the five CRT parameters stored in the [`Rsa`] key.  This is
+/// ~4× faster than the naive `ciphertext^private_exponent mod modulus`.
+///
+/// Garner's algorithm:
+/// ```text
+/// m1 = ciphertext^dP mod p      ← exponentiation with half-size key
+/// m2 = ciphertext^dQ mod q      ← exponentiation with half-size key
+///  h = qInv · (m1 − m2) mod p   ← linear recombination
+///  m = m2 + q · h               ← full-size result (< modulus)
+/// ```
 ///
 /// # Errors
 ///
 /// Returns [`RsaError::InvalidKey`] if `data.len()` does not match the
 /// key size in bytes.
+#[inline(always)]
 pub fn decrypt(key: &Rsa, data: &mut [u8]) -> Result<(), RsaError> {
-    let key_size = key_size_bytes(&key.modulus);
-
-    // Reject data that does not match the exact key block size.
-    if data.len() != key_size {
+    if data.len() != key.key_size {
         return Err(RsaError::InvalidKey);
     }
 
-    // Interpret the ciphertext as a big-endian integer.
     let ciphertext = BigUint::from_bytes_be(data);
 
-    // Raw RSA decryption: plaintext = ciphertext^private_exponent mod modulus.
-    let plaintext = ciphertext.modpow(&key.private_exponent, &key.modulus);
+    // CRT: m1 = c^dP mod p, m2 = c^dQ mod q.
+    let result_prime_p = ciphertext.modpow(&key.exponent_dp, &key.prime_p);
+    let result_prime_q = ciphertext.modpow(&key.exponent_dq, &key.prime_q);
 
-    // Write the result back, right-aligned in the buffer.
+    // CRT: h = qInv · (m1 − m2) mod p.  Add p when m1 < m2 (BigUint).
+    let diff = if result_prime_p >= result_prime_q {
+        result_prime_p - &result_prime_q
+    } else {
+        (&result_prime_p + &key.prime_p) - &result_prime_q
+    };
+    let factor = (&diff * &key.coefficient) % &key.prime_p;
+
+    // CRT: m = m2 + q · h (always < modulus).
+    let plaintext = result_prime_q + &key.prime_q * &factor;
+
     write_bigint_be(&plaintext, data);
-
     Ok(())
 }
 
@@ -174,53 +382,29 @@ pub fn decrypt(key: &Rsa, data: &mut [u8]) -> Result<(), RsaError> {
 ///
 /// Returns [`RsaError::InvalidKey`] if `data.len()` does not match the
 /// key size in bytes.
+#[inline(always)]
 pub fn encrypt(key: &Rsa, data: &mut [u8]) -> Result<(), RsaError> {
-    let key_size = key_size_bytes(&key.modulus);
-
-    // Reject data that does not match the exact key block size.
-    if data.len() != key_size {
+    if data.len() != key.key_size {
         return Err(RsaError::InvalidKey);
     }
 
-    // Interpret the plaintext as a big-endian integer.
     let plaintext = BigUint::from_bytes_be(data);
 
-    // Raw RSA encryption: ciphertext = plaintext^public_exponent mod modulus.
+    // Raw RSA encryption: c = m^e mod n.
     let ciphertext = plaintext.modpow(&key.public_exponent, &key.modulus);
 
-    // Write the result back, right-aligned in the buffer.
     write_bigint_be(&ciphertext, data);
-
     Ok(())
 }
 
-/// Returns the key size in bytes, rounded up to the nearest byte.
-///
-/// For a 1024-bit key this returns 128; for a 2048-bit key, 256.
-fn key_size_bytes(modulus: &BigUint) -> usize {
-    modulus.bits().div_ceil(8)
-}
-
-/// Writes a [`BigUint`] into a fixed-size byte slice, right-aligned
-/// (i.e. padded with leading zeros if the value is shorter than the
-/// output buffer).
-///
-/// This ensures the output always has exactly `output.len()` bytes so
-/// the result can be used in-place by the caller.
+#[inline(always)]
 fn write_bigint_be(value: &BigUint, output: &mut [u8]) {
     let value_bytes = value.to_bytes_be();
     let output_len = output.len();
 
     if value_bytes.len() >= output_len {
-        // The serialised value is at least as large as the output
-        // buffer.  Take only the trailing bytes — this handles the case
-        // where BigUint::to_bytes_be emits a leading zero byte that
-        // ASN.1 INTEGER encoding would require but our fixed-size
-        // layout does not.
         output.copy_from_slice(&value_bytes[value_bytes.len() - output_len..]);
     } else {
-        // The serialised value is shorter than the buffer; left-pad
-        // with zeros so the result is right-aligned.
         let padding = output_len - value_bytes.len();
         output[..padding].fill(0);
         output[padding..].copy_from_slice(&value_bytes);
@@ -252,15 +436,86 @@ mod tests {
         "-----END RSA PRIVATE KEY-----\n",
     );
 
+    /// Second 1024-bit RSA private key used for key-comparison tests.
+    ///
+    /// Generated independently so its modulus and exponents differ
+    /// from [`RSA_PRIVATE_KEY_PEM`].
+    const RSA_PRIVATE_KEY_PEM_2: &str = concat!(
+        "-----BEGIN RSA PRIVATE KEY-----\n",
+        "MIICXAIBAAKBgQDModnN6z8dwGmZspvWppgdES/wucxfrXGbwIS7KoX8UHLulStK\n",
+        "K1O7zaSBrvoc8bfW8Uz/l/u3ImA49VbXHEvdAxU0mfvvC1wCtEjitDPaQ7VVI9xq\n",
+        "dUWZukr26owm79ZcJyLgQ6Hau+UPLPhIG15Vulm4dyPXs3sjxKxeMojTpQIDAQAB\n",
+        "AoGADLVId3dSliBq7nafIvd5nuSAW6zOOmrlEU0lcRI0+/RrDtIIvDRwoMsmmj8p\n",
+        "nT6NsjWOGJlxsm/aFe92kylYtKZ6Mx3uc9ljQRZf7RQc5jNH91Mmh4b/5x+n6KGY\n",
+        "D8yoX4tqGJtT8972G4Csyw4zjQ1GYj0NDjCq8I9oRNYEEsECQQD8R6X6jr9sgA0J\n",
+        "WJPEKqTOJo86Fk/ayWNfjz1xIxXSEOX4fRSwdkl0hdZ9ZDQN8INKHZvnspTRfleL\n",
+        "kbxQxrGtAkEAz6ZVYE1/o3HBfBPxl7oP1YgRUnKH87ZS0AnTzCRrRMINZ8hjcy6j\n",
+        "Fa7SnTF4ICKEA5SUGr7tOzu+3dkTdcQY2QJBAPUYyumVe+Z2tbOpyc3gvELIdYgy\n",
+        "mxxtYc06RbBALPfskPCM3Off09eQG+Wwz13nmDYOdCRzfF/XxkgDq5gyofUCQB7x\n",
+        "ZGuTYN/URcbdmfTILy/ctOgaVRQGKVUDAeK70phOanz6qYcyfe7vPEdcZdA0FIQM\n",
+        "Ef3iUauv/YNFo9a6wBECQAvUgG1RHNaoqviDQvc8TfW1Mqqcs6YHgp37xf9BjLzD\n",
+        "iVGgcCp5PJrPW506K72M57otY8dTjaiouMXCeOQaYz4=\n",
+        "-----END RSA PRIVATE KEY-----\n",
+    );
+
+    /// PEM-encoded 1024-bit RSA public key (no private components).
+    ///
+    /// Parsing this with [`load_pem()`] must fail because it does not
+    /// contain the private CRT parameters.
+    const RSA_PUBLIC_KEY_PEM: &str = concat!(
+        "-----BEGIN RSA PUBLIC KEY-----\n",
+        "MIGJAoGBAMyh2c3rPx3AaZmym9ammB0RL/C5zF+tcZvAhLsqhfxQcu6VK0orU7vN\n",
+        "pIGu+hzxt9bxTP+X+7ciYDj1VtccS90DFTSZ++8LXAK0SOK0M9pDtVUj3Gp1RZm6\n",
+        "SvbqjCbv1lwnIuBDodq75Q8s+EgbXlW6Wbh3I9ezeyPErF4yiNOlAgMBAAE=\n",
+        "-----END RSA PUBLIC KEY-----\n",
+    );
+
     #[test]
     fn load_pem_valid_key() {
         let key = load_pem(RSA_PRIVATE_KEY_PEM).expect("valid PEM should load");
         assert_eq!(key.modulus.bits(), 1024, "key should be 1024-bit");
+        assert_eq!(key.key_size, 128, "cached key_size should be 128");
+        assert!(key.prime_p.bits() > 0, "prime_p must exist");
+        assert!(key.prime_q.bits() > 0, "prime_q must exist");
+        assert!(
+            key.modulus == &key.prime_p * &key.prime_q,
+            "modulus must equal p * q"
+        );
     }
 
     #[test]
     fn load_pem_invalid_key() {
         let result = load_pem("not a valid PEM string");
+        assert!(matches!(result, Err(RsaError::InvalidKey)));
+    }
+
+    #[test]
+    fn load_pem_public_key_rejected() {
+        let result = load_pem(RSA_PUBLIC_KEY_PEM);
+        assert!(
+            matches!(result, Err(RsaError::InvalidKey)),
+            "public key PEM must be rejected"
+        );
+    }
+
+    #[test]
+    fn load_pem_corrupted_base64_rejected() {
+        let corrupted =
+            "-----BEGIN RSA PRIVATE KEY-----\n!!!INVALID!!!\n-----END RSA PRIVATE KEY-----\n";
+        let result = load_pem(corrupted);
+        assert!(matches!(result, Err(RsaError::InvalidKey)));
+    }
+
+    #[test]
+    fn load_pem_non_rsa_der_rejected() {
+        // A PEM with a valid DER structure that is NOT an RSA private key
+        // (an empty SEQUENCE encoded in DER, wrapped in PEM armour).
+        let non_rsa_pem = concat!(
+            "-----BEGIN RSA PRIVATE KEY-----\n",
+            "MAoGCCqGSIb3DQEBCw==\n",
+            "-----END RSA PRIVATE KEY-----\n",
+        );
+        let result = load_pem(non_rsa_pem);
         assert!(matches!(result, Err(RsaError::InvalidKey)));
     }
 
@@ -271,7 +526,7 @@ mod tests {
         // Use 0x78 ('x') which is < first byte of modulus (0x9b),
         // guaranteeing that the plaintext is numerically smaller than
         // the modulus.
-        let mut buffer = vec![0x78u8; KEY_SIZE_1024];
+        let mut buffer = vec![0x78u8; key.key_size];
         let original_buffer = buffer.clone();
 
         encrypt(&key, &mut buffer).expect("encrypt should succeed");
@@ -288,11 +543,25 @@ mod tests {
     }
 
     #[test]
+    fn encrypted_data_differs_from_plaintext() {
+        let key = load_pem(RSA_PRIVATE_KEY_PEM).expect("valid PEM should load");
+
+        // 0^e = 0 and 1^e = 1 in any modulus, so those plaintexts
+        // encrypt to themselves in raw RSA.  Use a non-trivial value.
+        let mut buffer = vec![0x02u8; key.key_size];
+        encrypt(&key, &mut buffer).expect("encrypt should succeed");
+        assert!(
+            buffer.iter().any(|&byte| byte != 0x02),
+            "ciphertext must differ from plaintext"
+        );
+    }
+
+    #[test]
     fn encrypt_deterministic() {
         let key = load_pem(RSA_PRIVATE_KEY_PEM).expect("valid PEM should load");
 
-        let mut first_buffer = vec![0x78u8; KEY_SIZE_1024];
-        let mut second_buffer = vec![0x78u8; KEY_SIZE_1024];
+        let mut first_buffer = vec![0x78u8; key.key_size];
+        let mut second_buffer = vec![0x78u8; key.key_size];
 
         encrypt(&key, &mut first_buffer).expect("first encrypt should succeed");
         encrypt(&key, &mut second_buffer).expect("second encrypt should succeed");
@@ -301,6 +570,49 @@ mod tests {
             first_buffer, second_buffer,
             "same plaintext must produce same ciphertext"
         );
+    }
+
+    #[test]
+    fn different_keys_produce_different_output() {
+        let key1 = load_pem(RSA_PRIVATE_KEY_PEM).expect("first key should load");
+        let key2 = load_pem(RSA_PRIVATE_KEY_PEM_2).expect("second key should load");
+
+        // Both keys are 1024-bit with the same plaintext.
+        assert_eq!(key1.key_size, key2.key_size);
+
+        let mut ciphertext1 = vec![0x78u8; key1.key_size];
+        let mut ciphertext2 = vec![0x78u8; key1.key_size];
+
+        encrypt(&key1, &mut ciphertext1).expect("first encrypt should succeed");
+        encrypt(&key2, &mut ciphertext2).expect("second encrypt should succeed");
+
+        assert_ne!(
+            ciphertext1, ciphertext2,
+            "different keys must produce different ciphertext"
+        );
+    }
+
+    #[test]
+    fn encrypt_decrypt_large_data() {
+        let key = load_pem(RSA_PRIVATE_KEY_PEM).expect("valid PEM should load");
+
+        // 1 KiB of data, processed 128 bytes at a time.
+        let total_size = 1024;
+        let mut buffer = vec![0x42u8; total_size];
+        let original_buffer = buffer.clone();
+
+        for chunk in buffer.chunks_mut(key.key_size) {
+            encrypt(&key, chunk).expect("encrypt of each block should succeed");
+        }
+        assert_ne!(
+            buffer, original_buffer,
+            "ciphertext must differ from plaintext"
+        );
+
+        for chunk in buffer.chunks_mut(key.key_size) {
+            decrypt(&key, chunk).expect("decrypt of each block should succeed");
+        }
+        assert_eq!(buffer, original_buffer, "decrypt must restore original");
     }
 
     #[test]
@@ -325,7 +637,7 @@ mod tests {
 
         decrypt(&key, &mut ciphertext).expect("decrypt should succeed");
 
-        let expected_plaintext = vec![0x78u8; KEY_SIZE_1024];
+        let expected_plaintext = vec![0x78u8; key.key_size];
         assert_eq!(
             ciphertext, expected_plaintext,
             "decrypted data must match known answer"
@@ -347,9 +659,46 @@ mod tests {
     }
 
     #[test]
+    fn encrypt_rejects_empty_data() {
+        let key = load_pem(RSA_PRIVATE_KEY_PEM).expect("valid PEM should load");
+        let result = encrypt(&key, &mut []);
+        assert!(matches!(result, Err(RsaError::InvalidKey)));
+    }
+
+    #[test]
     fn decrypt_rejects_empty_data() {
         let key = load_pem(RSA_PRIVATE_KEY_PEM).expect("valid PEM should load");
         let result = decrypt(&key, &mut []);
         assert!(matches!(result, Err(RsaError::InvalidKey)));
+    }
+
+    #[test]
+    fn decrypt_crt_matches_naive() {
+        let key = load_pem(RSA_PRIVATE_KEY_PEM).expect("valid PEM should load");
+
+        // Test that CRT decryption produces the same result as the
+        // naive c^d mod n path for several inputs.
+        let test_vectors: &[&[u8]] = &[
+            &[0x01u8; 128],
+            &[0xFFu8; 128],
+            &[0x78u8; 128],
+            &[0x00u8; 128],
+        ];
+
+        for (i, &input) in test_vectors.iter().enumerate() {
+            let mut crt_result = input.to_vec();
+            decrypt(&key, &mut crt_result).expect("CRT decrypt should succeed");
+
+            // Naive path: c^d mod n
+            let ciphertext = BigUint::from_bytes_be(input);
+            let expected_int = ciphertext.modpow(&key.private_exponent, &key.modulus);
+            let mut expected = vec![0u8; key.key_size];
+            write_bigint_be(&expected_int, &mut expected);
+
+            assert_eq!(
+                crt_result, expected,
+                "CRT and naive decryption must match for vector {i}"
+            );
+        }
     }
 }

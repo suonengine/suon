@@ -19,8 +19,6 @@ bench = false
 [dependencies]
 # Shared third-party dependencies
 num-bigint-dig.workspace = true
-pem.workspace = true
-pkcs1.workspace = true
 
 [dev-dependencies]
 # Shared third-party dependencies
