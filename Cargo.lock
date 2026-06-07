@@ -475,6 +475,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "suon_resource"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+]
+
+[[package]]
 name = "suon_rsa"
 version = "0.1.0"
 dependencies = [
