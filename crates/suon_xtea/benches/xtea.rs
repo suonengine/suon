@@ -56,6 +56,7 @@ fn expand_key(criterion: &mut Criterion) {
 
 fn encrypt_hot_cache(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("xtea/encrypt");
+
     for &packet_size in PACKET_SIZES {
         group.throughput(Throughput::Bytes(packet_size as u64));
         group.bench_function(format_size(packet_size), |bencher| {
@@ -164,6 +165,7 @@ fn decrypt_cold_cache(criterion: &mut Criterion) {
 
 fn roundtrip(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("xtea/roundtrip");
+
     group.throughput(Throughput::Bytes(ROUNDTRIP_SIZE as u64));
     group.bench_function(format_size(ROUNDTRIP_SIZE), |bencher| {
         let mut buffer = vec![PLAINTEXT_PATTERN; ROUNDTRIP_SIZE];
@@ -174,6 +176,7 @@ fn roundtrip(criterion: &mut Criterion) {
                 .expect("decryption in roundtrip benchmark must succeed");
         });
     });
+
     group.finish();
 }
 
