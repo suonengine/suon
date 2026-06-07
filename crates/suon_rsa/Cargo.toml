@@ -22,7 +22,7 @@ num-bigint-dig.workspace = true
 
 [dev-dependencies]
 # Shared third-party dependencies
-criterion.workspace = true
+criterion = { workspace = true, features = ["rayon", "cargo_bench_support"] }
 
 [[bench]]
 name = "rsa"
