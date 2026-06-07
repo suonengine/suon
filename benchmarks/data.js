@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780791694512,
+  "lastUpdate": 1780793838326,
   "repoUrl": "https://github.com/suonengine/suon",
   "entries": {
     "Benchmark": [
@@ -695,6 +695,198 @@ window.BENCHMARK_DATA = {
             "name": "xtea/roundtrip/1024_bytes",
             "value": 11796,
             "range": "± 65",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ramonbernardo.contato@gmail.com",
+            "name": "ramon-bernardo",
+            "username": "ramon-bernardo"
+          },
+          "committer": {
+            "email": "ramonbernardo.contato@gmail.com",
+            "name": "ramon-bernardo",
+            "username": "ramon-bernardo"
+          },
+          "distinct": true,
+          "id": "acfb13cae77c5d9ab1f175c94b8f4842ae0b79a6",
+          "message": "refactor(suon_rsa): remove pem/pkcs1 deps, manual PEM/DER parsing, CRT decrypt, tests",
+          "timestamp": "2026-06-06T21:52:11-03:00",
+          "tree_id": "1dd8b287fd4efc9cfcdb68b47347b3faf9e03429",
+          "url": "https://github.com/suonengine/suon/commit/acfb13cae77c5d9ab1f175c94b8f4842ae0b79a6"
+        },
+        "date": 1780793838109,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "rsa/load_pem",
+            "value": 2451,
+            "range": "± 103",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rsa/encrypt/1024_bit",
+            "value": 105952,
+            "range": "± 241",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rsa/decrypt/1024_bit",
+            "value": 694057,
+            "range": "± 8086",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rsa/roundtrip/1024_bit",
+            "value": 800037,
+            "range": "± 8945",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/expand_key",
+            "value": 35,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/encrypt/8_bytes",
+            "value": 113,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/encrypt/24_bytes",
+            "value": 202,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/encrypt/64_bytes",
+            "value": 425,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/encrypt/128_bytes",
+            "value": 825,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/encrypt/256_bytes",
+            "value": 1669,
+            "range": "± 21",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/encrypt/512_bytes",
+            "value": 3219,
+            "range": "± 59",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/encrypt/1024_bytes",
+            "value": 6398,
+            "range": "± 117",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/encrypt/1_mebibyte",
+            "value": 6587281,
+            "range": "± 41137",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/decrypt/8_bytes",
+            "value": 112,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/decrypt/24_bytes",
+            "value": 191,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/decrypt/64_bytes",
+            "value": 408,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/decrypt/128_bytes",
+            "value": 822,
+            "range": "± 20",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/decrypt/256_bytes",
+            "value": 1640,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/decrypt/512_bytes",
+            "value": 3268,
+            "range": "± 25",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/decrypt/1024_bytes",
+            "value": 6499,
+            "range": "± 27",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/decrypt/1_mebibyte",
+            "value": 6747440,
+            "range": "± 260245",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/encrypt/cold_cache/64_bytes",
+            "value": 429,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/encrypt/cold_cache/256_bytes",
+            "value": 1674,
+            "range": "± 13",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/encrypt/cold_cache/1024_bytes",
+            "value": 6403,
+            "range": "± 36",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/decrypt/cold_cache/64_bytes",
+            "value": 410,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/decrypt/cold_cache/256_bytes",
+            "value": 1699,
+            "range": "± 16",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/decrypt/cold_cache/1024_bytes",
+            "value": 6508,
+            "range": "± 119",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/roundtrip/1024_bytes",
+            "value": 12901,
+            "range": "± 38",
             "unit": "ns/iter"
           }
         ]
