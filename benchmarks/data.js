@@ -1,8 +1,56 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780837816541,
+  "lastUpdate": 1780839400000,
   "repoUrl": "https://github.com/suonengine/suon",
   "entries": {
     "Benchmark": [
+      {
+        "commit": {
+          "author": {
+            "email": "ramonbernardo.contato@gmail.com",
+            "name": "ramon-bernardo",
+            "username": "ramon-bernardo"
+          },
+          "committer": {
+            "email": "ramonbernardo.contato@gmail.com",
+            "name": "ramon-bernardo",
+            "username": "ramon-bernardo"
+          },
+          "distinct": true,
+          "id": "f8283e88b3058f6766bdb75876fc6cd5ba1c7c5f",
+          "message": "feat(suon_resource): init crate with Resource trait, Resources container, benches",
+          "timestamp": "2026-06-07T10:04:01-03:00",
+          "tree_id": "bbf2a9a9e9a151a20de9cc3c182e1935770fe7c2",
+          "url": "https://github.com/suonengine/suon/commit/f8283e88b3058f6766bdb75876fc6cd5ba1c7c5f"
+        },
+        "date": 1780839400000,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "resource/init",
+            "value": 63,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "resource/insert",
+            "value": 85,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "resource/get",
+            "value": 11,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "resource/get_mut",
+            "value": 11,
+            "range": "± 0",
+            "unit": "ns/iter"
+          }
+        ]
+      },
       {
         "commit": {
           "author": {
