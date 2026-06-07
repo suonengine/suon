@@ -1,0 +1,31 @@
+# Package
+[package]
+# Lua scripting integration for the Suon MMORPG server
+name = "suon_lua"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Short crates.io summary describing what the package is
+description = "Lua scripting integration for the Suon MMORPG server"
+
+[lib]
+bench = false
+
+[dependencies]
+mlua = { workspace = true, features = ["lua55", "vendored"] }
+suon_resource.workspace = true
+suon_macros.workspace = true
+suon_channel.workspace = true
+suon_app.workspace = true
+
+[dev-dependencies]
+criterion = { workspace = true, features = ["rayon", "cargo_bench_support"] }
+
+[[bench]]
+name = "lua"
+harness = false

@@ -64,6 +64,22 @@ impl Resources {
         self
     }
 
+    /// Returns a shared reference to the value of type `T`, or `None` if
+    /// it has not been inserted.
+    pub fn try_get<T: Resource>(&self) -> Option<&T> {
+        self.resources
+            .get(&TypeId::of::<T>())
+            .and_then(|b| b.downcast_ref::<T>())
+    }
+
+    /// Returns a mutable reference to the value of type `T`, or `None` if
+    /// it has not been inserted.
+    pub fn try_get_mut<T: Resource>(&mut self) -> Option<&mut T> {
+        self.resources
+            .get_mut(&TypeId::of::<T>())
+            .and_then(|b| b.downcast_mut::<T>())
+    }
+
     /// Returns a shared reference to the value of type `T`.
     ///
     /// # Panics
@@ -247,5 +263,43 @@ mod tests {
         assert_eq!(resources.get::<Num>().0, 0);
         resources.get_mut::<Num>().0 = 7;
         assert_eq!(resources.get::<Num>().0, 7);
+    }
+
+    #[test]
+    fn try_get_returns_none_for_missing() {
+        let resources = Resources::default();
+        assert!(resources.try_get::<Num>().is_none());
+    }
+
+    #[test]
+    fn try_get_returns_some_for_present() {
+        let mut resources = Resources::default();
+        resources.insert(Num(42));
+        let result = resources.try_get::<Num>();
+        assert_eq!(result, Some(&Num(42)));
+    }
+
+    #[test]
+    fn try_get_mut_returns_none_for_missing() {
+        let mut resources = Resources::default();
+        assert!(resources.try_get_mut::<Num>().is_none());
+    }
+
+    #[test]
+    fn try_get_mut_returns_some_for_present() {
+        let mut resources = Resources::default();
+        resources.insert(Num(10));
+        let result = resources.try_get_mut::<Num>();
+        assert_eq!(result, Some(&mut Num(10)));
+    }
+
+    #[test]
+    fn try_get_mut_allows_mutation() {
+        let mut resources = Resources::default();
+        resources.insert(Num(0));
+        if let Some(num) = resources.try_get_mut::<Num>() {
+            num.0 = 99;
+        }
+        assert_eq!(resources.get::<Num>().0, 99);
     }
 }

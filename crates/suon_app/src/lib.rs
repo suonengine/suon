@@ -61,6 +61,47 @@ impl App {
         self.channel.clone()
     }
 
+    /// Inserts a `T::default()` resource if one is not already present.
+    ///
+    /// If `T` is already stored, the existing value is **overwritten**
+    /// with the default.
+    pub fn init_resource<T: Resource + Default>(&mut self) -> &mut Self {
+        self.resources.init::<T>();
+        self
+    }
+
+    /// Returns a shared reference to a resource.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `T` has not been registered with [`add_resource`](Self::add_resource)
+    /// or [`init_resource`](Self::init_resource).
+    pub fn get_resource<T: Resource>(&self) -> &T {
+        self.resources.get::<T>()
+    }
+
+    /// Returns a mutable reference to a resource.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `T` has not been registered with [`add_resource`](Self::add_resource)
+    /// or [`init_resource`](Self::init_resource).
+    pub fn get_resource_mut<T: Resource>(&mut self) -> &mut T {
+        self.resources.get_mut::<T>()
+    }
+
+    /// Returns a shared reference to a resource, or `None` if it has not
+    /// been registered.
+    pub fn try_get_resource<T: Resource>(&self) -> Option<&T> {
+        self.resources.try_get::<T>()
+    }
+
+    /// Returns a mutable reference to a resource, or `None` if it has not
+    /// been registered.
+    pub fn try_get_resource_mut<T: Resource>(&mut self) -> Option<&mut T> {
+        self.resources.try_get_mut::<T>()
+    }
+
     /// Registers a resource so it is available to systems via
     /// [`Resources::get`](suon_resource::Resources::get).
     pub fn add_resource<T: Resource>(&mut self, resource: T) -> &mut Self {
@@ -140,7 +181,7 @@ mod tests {
 
     use super::*;
 
-    #[derive(Resource, Deref, DerefMut)]
+    #[derive(Resource, Default, Deref, DerefMut)]
     struct Num(i32);
 
     #[derive(Resource, Deref, DerefMut)]
@@ -335,5 +376,83 @@ mod tests {
         let channel = app.channel();
         channel.send(Shutdown);
         app.run();
+    }
+
+    #[derive(Resource, Default, Debug, PartialEq)]
+    struct Score(i32);
+
+    #[test]
+    fn init_resource_creates_default() {
+        let mut app = App::new();
+        app.init_resource::<Score>();
+        assert_eq!(app.resources.get::<Score>().0, 0);
+    }
+
+    #[test]
+    fn init_resource_overwrites_existing() {
+        let mut app = App::new();
+        app.add_resource(Score(42));
+        app.init_resource::<Score>();
+        assert_eq!(app.resources.get::<Score>().0, 0);
+    }
+
+    #[test]
+    fn init_resource_chained() {
+        let mut app = App::new();
+        app.init_resource::<Score>().init_resource::<Num>();
+        assert_eq!(app.resources.get::<Score>().0, 0);
+        assert_eq!(app.resources.get::<Num>().0, 0);
+    }
+
+    #[test]
+    fn get_resource_returns_registered() {
+        let mut app = App::new();
+        app.add_resource(Score(7));
+        assert_eq!(app.get_resource::<Score>().0, 7);
+    }
+
+    #[test]
+    #[should_panic(expected = "Resource `suon_app::tests::Score` not found")]
+    fn get_resource_panics_when_missing() {
+        let app = App::new();
+        app.get_resource::<Score>();
+    }
+
+    #[test]
+    fn get_resource_mut_allows_mutation() {
+        let mut app = App::new();
+        app.add_resource(Score(0));
+        app.get_resource_mut::<Score>().0 = 42;
+        assert_eq!(app.get_resource::<Score>().0, 42);
+    }
+
+    #[test]
+    fn try_get_resource_returns_none_when_missing() {
+        let app = App::new();
+        assert!(app.try_get_resource::<Score>().is_none());
+    }
+
+    #[test]
+    fn try_get_resource_returns_some_when_present() {
+        let mut app = App::new();
+        app.add_resource(Score(5));
+        let result = app.try_get_resource::<Score>();
+        assert_eq!(result, Some(&Score(5)));
+    }
+
+    #[test]
+    fn try_get_resource_mut_returns_none_when_missing() {
+        let mut app = App::new();
+        assert!(app.try_get_resource_mut::<Score>().is_none());
+    }
+
+    #[test]
+    fn try_get_resource_mut_allows_mutation() {
+        let mut app = App::new();
+        app.add_resource(Score(1));
+        if let Some(score) = app.try_get_resource_mut::<Score>() {
+            score.0 = 99;
+        }
+        assert_eq!(app.get_resource::<Score>().0, 99);
     }
 }

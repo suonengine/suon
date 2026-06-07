@@ -31,6 +31,7 @@ winresource = "0.1"
 
 [dependencies]
 suon_app = { version = "0.1.0", path = "crates/suon_app" }
+suon_lua = { version = "0.1.0", path = "crates/suon_lua" }
 
 [[bin]]
 name = "suon"
@@ -55,21 +56,23 @@ documentation = "https://docs.rs/suon"
 
 [workspace.dependencies]
 # Shared third-party dependencies
-num-bigint-dig = { version = "0.9.1", default-features = false }
 criterion = { version = "0.8.2", default-features = false }
-serde_json = { version = "1.0.150", default-features = false }
 crossbeam-channel = "0.5.15"
-syn = { version = "2.0.117", default-features = false }
-quote = "1.0.45"
+mlua = { version = "0.11.6", default-features = false }
+num-bigint-dig = { version = "0.9.1", default-features = false }
 proc-macro2 = "1.0.106"
+quote = "1.0.45"
+serde_json = { version = "1.0.150", default-features = false }
+syn = { version = "2.0.117", default-features = false }
 # Shared internal crates.
 # Keep `version` alongside `path` so the workspace is closer to crates.io publishing
+suon_app = { version = "0.1.0", path = "crates/suon_app" }
+suon_channel = { version = "0.1.0", path = "crates/suon_channel" }
+suon_lua = { version = "0.1.0", path = "crates/suon_lua" }
+suon_macros = { version = "0.1.0", path = "crates/suon_macros" }
+suon_resource = { version = "0.1.0", path = "crates/suon_resource" }
 suon_rsa = { version = "0.1.0", path = "crates/suon_rsa" }
 suon_xtea = { version = "0.1.0", path = "crates/suon_xtea" }
-suon_app = { version = "0.1.0", path = "crates/suon_app" }
-suon_resource = { version = "0.1.0", path = "crates/suon_resource" }
-suon_macros = { version = "0.1.0", path = "crates/suon_macros" }
-suon_channel = { version = "0.1.0", path = "crates/suon_channel" }
 
 [profile.dev]
 # Light optimization keeps debug builds responsive without being fully unoptimized
