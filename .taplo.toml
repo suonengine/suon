@@ -1,0 +1,9 @@
+# Taplo — TOML formatter configuration.
+#
+# Settings here are consumed by `taplo fmt` (run via the CI pipeline or
+# locally with `taplo fmt --check --diff`).
+
+[formatting]
+# Indent with tabs instead of the default 2 spaces so that formatting
+# is consistent with the editor settings used across the workspace.
+indent_string = "\t"

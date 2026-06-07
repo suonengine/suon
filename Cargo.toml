@@ -54,11 +54,18 @@ documentation = "https://docs.rs/suon"
 
 [workspace.dependencies]
 # Shared third-party dependencies
-criterion = "0.8"
+num-bigint-dig = { version = "0.9.1", default-features = false }
+criterion = { version = "0.8.2", default-features = false, features = [
+	"rayon",
+	"cargo_bench_support",
+] }
 serde_json = { version = "1.0.150", default-features = false }
+pem = { version = "3.0.6", default-features = false }
+pkcs1 = { version = "0.7.5", default-features = false }
 
 # Shared internal crates.
 # Keep `version` alongside `path` so the workspace is closer to crates.io publishing
+suon_rsa = { version = "0.1.0", path = "crates/suon_rsa" }
 suon_xtea = { version = "0.1.0", path = "crates/suon_xtea" }
 
 [profile.dev]

@@ -1,0 +1,31 @@
+# Package
+[package]
+# RSA cipher implementation for the Suon MMORPG server
+name = "suon_rsa"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Short crates.io summary describing what the package is
+description = "RSA cipher implementation for the Suon MMORPG server"
+
+[lib]
+bench = false
+
+[dependencies]
+# Shared third-party dependencies
+num-bigint-dig.workspace = true
+pem.workspace = true
+pkcs1.workspace = true
+
+[dev-dependencies]
+# Shared third-party dependencies
+criterion.workspace = true
+
+[[bench]]
+name = "rsa"
+harness = false
