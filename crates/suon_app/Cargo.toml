@@ -1,0 +1,29 @@
+# Package
+[package]
+# Application framework for the Suon MMORPG server
+name = "suon_app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Short crates.io summary describing what the package is
+description = "Application framework for the Suon MMORPG server"
+
+[lib]
+bench = false
+
+[dependencies]
+suon_resource = { version = "0.1.0", path = "../suon_resource" }
+suon_macros = { version = "0.1.0", path = "../suon_macros" }
+suon_channel = { version = "0.1.0", path = "../suon_channel" }
+
+[dev-dependencies]
+criterion = { workspace = true, features = ["rayon", "cargo_bench_support"] }
+
+[[bench]]
+name = "app"
+harness = false

@@ -30,6 +30,7 @@ categories = ["game-development", "network-programming"]
 winresource = "0.1"
 
 [dependencies]
+suon_app = { version = "0.1.0", path = "crates/suon_app" }
 
 [[bin]]
 name = "suon"
@@ -65,6 +66,7 @@ proc-macro2 = "1.0.106"
 # Keep `version` alongside `path` so the workspace is closer to crates.io publishing
 suon_rsa = { version = "0.1.0", path = "crates/suon_rsa" }
 suon_xtea = { version = "0.1.0", path = "crates/suon_xtea" }
+suon_app = { version = "0.1.0", path = "crates/suon_app" }
 suon_resource = { version = "0.1.0", path = "crates/suon_resource" }
 suon_macros = { version = "0.1.0", path = "crates/suon_macros" }
 suon_channel = { version = "0.1.0", path = "crates/suon_channel" }

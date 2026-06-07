@@ -1,3 +1,5 @@
+use suon_app::App;
+
 fn main() {
-    println!("Hello, suon!");
+    App::new().run();
 }

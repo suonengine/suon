@@ -480,7 +480,18 @@ checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
 name = "suon"
 version = "0.1.0"
 dependencies = [
+ "suon_app",
  "winresource",
+]
+
+[[package]]
+name = "suon_app"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "suon_channel",
+ "suon_macros",
+ "suon_resource",
 ]
 
 [[package]]
