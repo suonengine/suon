@@ -1,0 +1,34 @@
+# Package
+[package]
+# Multi-producer, multi-consumer task channel for the Suon MMORPG server
+name = "suon_channel"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Short crates.io summary describing what the package is
+description = "Multi-producer, multi-consumer task channel for the Suon MMORPG server"
+
+[lib]
+bench = false
+
+[dependencies]
+# Shared third-party dependencies
+crossbeam-channel.workspace = true
+# Shared internal dependencies
+suon_macros = { version = "0.1.0", path = "../suon_macros" }
+suon_resource = { version = "0.1.0", path = "../suon_resource" }
+
+[dev-dependencies]
+# Shared third-party dependencies
+criterion = { workspace = true, features = ["rayon", "cargo_bench_support"] }
+# Shared internal dependencies
+suon_macros = { version = "0.1.0", path = "../suon_macros" }
+
+[[bench]]
+name = "channel"
+harness = false

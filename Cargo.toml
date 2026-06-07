@@ -57,11 +57,17 @@ documentation = "https://docs.rs/suon"
 num-bigint-dig = { version = "0.9.1", default-features = false }
 criterion = { version = "0.8.2", default-features = false }
 serde_json = { version = "1.0.150", default-features = false }
+crossbeam-channel = "0.5.15"
+syn = { version = "2.0.117", default-features = false }
+quote = "1.0.45"
+proc-macro2 = "1.0.106"
 # Shared internal crates.
 # Keep `version` alongside `path` so the workspace is closer to crates.io publishing
 suon_rsa = { version = "0.1.0", path = "crates/suon_rsa" }
 suon_xtea = { version = "0.1.0", path = "crates/suon_xtea" }
 suon_resource = { version = "0.1.0", path = "crates/suon_resource" }
+suon_macros = { version = "0.1.0", path = "crates/suon_macros" }
+suon_channel = { version = "0.1.0", path = "crates/suon_channel" }
 
 [profile.dev]
 # Light optimization keeps debug builds responsive without being fully unoptimized
