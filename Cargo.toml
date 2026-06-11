@@ -71,6 +71,7 @@ suon_channel = { version = "0.1.0", path = "crates/suon_channel" }
 suon_lua = { version = "0.1.0", path = "crates/suon_lua" }
 suon_macros = { version = "0.1.0", path = "crates/suon_macros" }
 suon_resource = { version = "0.1.0", path = "crates/suon_resource" }
+suon_adler32 = { version = "0.1.0", path = "crates/suon_adler32" }
 suon_rsa = { version = "0.1.0", path = "crates/suon_rsa" }
 suon_xtea = { version = "0.1.0", path = "crates/suon_xtea" }
 

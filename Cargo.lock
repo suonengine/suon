@@ -616,6 +616,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "suon_adler32"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+]
+
+[[package]]
 name = "suon_app"
 version = "0.1.0"
 dependencies = [

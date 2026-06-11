@@ -1,0 +1,25 @@
+# Package
+[package]
+# Adler-32 checksum implementation for the Suon MMORPG server
+name = "suon_adler32"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Short crates.io summary describing what the package is
+description = "Adler-32 checksum implementation for the Suon MMORPG server"
+
+[lib]
+bench = false
+
+[dev-dependencies]
+# Shared third-party dependencies
+criterion = { workspace = true, features = ["rayon", "cargo_bench_support"] }
+
+[[bench]]
+name = "adler32"
+harness = false
