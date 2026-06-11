@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781218679312,
+  "lastUpdate": 1781220949376,
   "repoUrl": "https://github.com/suonengine/suon",
   "entries": {
     "Benchmark": [
@@ -3113,6 +3113,936 @@ window.BENCHMARK_DATA = {
             "name": "xtea/encrypt/0_bytes",
             "value": 0,
             "range": "± 0",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ramonbernardo.contato@gmail.com",
+            "name": "ramon-bernardo",
+            "username": "ramon-bernardo"
+          },
+          "committer": {
+            "email": "ramonbernardo.contato@gmail.com",
+            "name": "ramon-bernardo",
+            "username": "ramon-bernardo"
+          },
+          "distinct": true,
+          "id": "cde61bf3c7e1d89a383040058a661060fdbaa5e0",
+          "message": "feat(suon_network): add complete networking crate with TCP/HTTP protocol, connection manager, and REST API",
+          "timestamp": "2026-06-11T19:59:32-03:00",
+          "tree_id": "4b7a4f318206bc1e6f3b6d4c71c8deb6f06619f1",
+          "url": "https://github.com/suonengine/suon/commit/cde61bf3c7e1d89a383040058a661060fdbaa5e0"
+        },
+        "date": 1781220949124,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "adler32/0_bytes",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/2_bytes",
+            "value": 3,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/4_bytes",
+            "value": 8,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/8_bytes",
+            "value": 17,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/16_bytes",
+            "value": 45,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/32_bytes",
+            "value": 101,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/64_bytes",
+            "value": 213,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/128_bytes",
+            "value": 438,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/256_bytes",
+            "value": 888,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/512_bytes",
+            "value": 1787,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/1_kb",
+            "value": 3589,
+            "range": "± 33",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/2_kb",
+            "value": 7189,
+            "range": "± 79",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/4_kb",
+            "value": 14394,
+            "range": "± 15",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/8_kb",
+            "value": 28814,
+            "range": "± 42",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/16_kb",
+            "value": 57706,
+            "range": "± 144",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/32_kb",
+            "value": 115707,
+            "range": "± 273",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/64_kb",
+            "value": 231354,
+            "range": "± 839",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/128_kb",
+            "value": 466189,
+            "range": "± 6893",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/256_kb",
+            "value": 950439,
+            "range": "± 30228",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/512_kb",
+            "value": 1999732,
+            "range": "± 19319",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/1_mb",
+            "value": 3975625,
+            "range": "± 121562",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "app/empty_shutdown",
+            "value": 232,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "app/startup_system",
+            "value": 334,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "app/task_dispatch_100",
+            "value": 2048,
+            "range": "± 61",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/send",
+            "value": 103,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_1",
+            "value": 108,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_2",
+            "value": 120,
+            "range": "± 10",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_4",
+            "value": 142,
+            "range": "± 9",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_8",
+            "value": 187,
+            "range": "± 4",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_16",
+            "value": 263,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_32",
+            "value": 410,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_64",
+            "value": 679,
+            "range": "± 9",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_128",
+            "value": 1217,
+            "range": "± 11",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_256",
+            "value": 2330,
+            "range": "± 63",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_512",
+            "value": 4539,
+            "range": "± 81",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_1024",
+            "value": 8870,
+            "range": "± 101",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_2048",
+            "value": 17563,
+            "range": "± 93",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_4096",
+            "value": 34976,
+            "range": "± 901",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_8192",
+            "value": 69679,
+            "range": "± 441",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_16384",
+            "value": 139369,
+            "range": "± 1491",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_32768",
+            "value": 278958,
+            "range": "± 1989",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_65536",
+            "value": 557792,
+            "range": "± 3019",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/send_and_drain",
+            "value": 139,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lua/vm_creation",
+            "value": 43473,
+            "range": "± 319",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lua/expression_eval",
+            "value": 2614,
+            "range": "± 43",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lua/store_restore_call",
+            "value": 865,
+            "range": "± 19",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lua/dispatch_no_events",
+            "value": 4823,
+            "range": "± 138",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lua/dispatch_with_events",
+            "value": 345,
+            "range": "± 52",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "connection/send/0_bytes",
+            "value": 20,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "connection/send/2_bytes",
+            "value": 28,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "connection/send/4_bytes",
+            "value": 28,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "connection/send/8_bytes",
+            "value": 28,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "connection/send/16_bytes",
+            "value": 28,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "connection/send/32_bytes",
+            "value": 28,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "connection/send/64_bytes",
+            "value": 28,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "connection/send/128_bytes",
+            "value": 30,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "connection/send/256_bytes",
+            "value": 32,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "connection/send/512_bytes",
+            "value": 34,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "connection/send/1_kb",
+            "value": 64,
+            "range": "± 11",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "connection/send/2_kb",
+            "value": 91,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "connection/send/4_kb",
+            "value": 187,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "connection/send/8_kb",
+            "value": 276,
+            "range": "± 9",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "connection/send/16_kb",
+            "value": 587,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "connection/send/32_kb",
+            "value": 838,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "connection/send/64_kb",
+            "value": 1570,
+            "range": "± 13",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "manager/register",
+            "value": 363,
+            "range": "± 269",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "manager/register_unregister",
+            "value": 165,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "manager/active_connections_100",
+            "value": 6108,
+            "range": "± 16",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "manager/concurrent_register",
+            "value": 241532,
+            "range": "± 87519",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/0_bytes",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/2_bytes",
+            "value": 3,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/4_bytes",
+            "value": 8,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/8_bytes",
+            "value": 17,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/16_bytes",
+            "value": 45,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/32_bytes",
+            "value": 101,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/64_bytes",
+            "value": 214,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/128_bytes",
+            "value": 438,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/256_bytes",
+            "value": 888,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/512_bytes",
+            "value": 1788,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/1_kb",
+            "value": 3591,
+            "range": "± 4",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/2_kb",
+            "value": 7193,
+            "range": "± 98",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/4_kb",
+            "value": 14398,
+            "range": "± 559",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/8_kb",
+            "value": 28824,
+            "range": "± 105",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/16_kb",
+            "value": 57727,
+            "range": "± 257",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/32_kb",
+            "value": 115796,
+            "range": "± 355",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/64_kb",
+            "value": 231297,
+            "range": "± 933",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/128_kb",
+            "value": 464561,
+            "range": "± 2310",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/256_kb",
+            "value": 935118,
+            "range": "± 11213",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/512_kb",
+            "value": 1893747,
+            "range": "± 64476",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/1_mb",
+            "value": 3862261,
+            "range": "± 47207",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_pad/0_bytes",
+            "value": 25,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_pad/2_bytes",
+            "value": 24,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_pad/4_bytes",
+            "value": 24,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_pad/8_bytes",
+            "value": 25,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_pad/16_bytes",
+            "value": 25,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_pad/32_bytes",
+            "value": 26,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_pad/64_bytes",
+            "value": 26,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_pad/128_bytes",
+            "value": 24,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_pad/256_bytes",
+            "value": 26,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_pad/512_bytes",
+            "value": 33,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_pad/1_kb",
+            "value": 33,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_pad/2_kb",
+            "value": 77,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_pad/4_kb",
+            "value": 200,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_pad/8_kb",
+            "value": 305,
+            "range": "± 5",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_pad/16_kb",
+            "value": 605,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_pad/32_kb",
+            "value": 1060,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_pad/64_kb",
+            "value": 2051,
+            "range": "± 6",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_pad/128_kb",
+            "value": 4087,
+            "range": "± 60",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_pad/256_kb",
+            "value": 8128,
+            "range": "± 41",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_pad/512_kb",
+            "value": 14204,
+            "range": "± 29",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_pad/1_mb",
+            "value": 27973,
+            "range": "± 557",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_unpad/0_bytes",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_unpad/2_bytes",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_unpad/4_bytes",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_unpad/8_bytes",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_unpad/16_bytes",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_unpad/32_bytes",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_unpad/64_bytes",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_unpad/128_bytes",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_unpad/256_bytes",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_unpad/512_bytes",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_unpad/1_kb",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_unpad/2_kb",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_unpad/4_kb",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_unpad/8_kb",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_unpad/16_kb",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_unpad/32_kb",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_unpad/64_kb",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_unpad/128_kb",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_unpad/256_kb",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_unpad/512_kb",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_unpad/1_mb",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_decrypt/0_bytes",
+            "value": 123,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_decrypt/2_bytes",
+            "value": 150,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_decrypt/4_bytes",
+            "value": 149,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_decrypt/8_bytes",
+            "value": 253,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_decrypt/16_bytes",
+            "value": 244,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_decrypt/32_bytes",
+            "value": 332,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_decrypt/64_bytes",
+            "value": 476,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_decrypt/128_bytes",
+            "value": 866,
+            "range": "± 6",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_decrypt/256_bytes",
+            "value": 1633,
+            "range": "± 10",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_decrypt/512_bytes",
+            "value": 3345,
+            "range": "± 135",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_decrypt/1_kb",
+            "value": 6217,
+            "range": "± 128",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_decrypt/2_kb",
+            "value": 12438,
+            "range": "± 24",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_decrypt/4_kb",
+            "value": 25074,
+            "range": "± 729",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_decrypt/8_kb",
+            "value": 49727,
+            "range": "± 93",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_decrypt/16_kb",
+            "value": 99001,
+            "range": "± 364",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_decrypt/32_kb",
+            "value": 197548,
+            "range": "± 446",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_decrypt/64_kb",
+            "value": 396112,
+            "range": "± 1152",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_decrypt/128_kb",
+            "value": 791134,
+            "range": "± 13998",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea_decrypt/256_kb",
+            "value": 1577308,
+            "range": "± 19893",
             "unit": "ns/iter"
           }
         ]
