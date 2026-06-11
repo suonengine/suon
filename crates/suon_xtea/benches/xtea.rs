@@ -34,7 +34,9 @@ const COLD_CACHE_POOL_SIZE: usize = 64 * 1024 * 1024;
 ///
 /// Limited to the most common realistic sizes because allocating and
 /// striding through a 64-mebibyte pool is expensive.
-const COLD_CACHE_SIZES: &[usize] = &[64, 256, 1024];
+const COLD_CACHE_SIZES: &[usize] = &[
+    0, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536,
+];
 
 /// Size used for the roundtrip benchmark (encrypt + decrypt).
 ///
@@ -46,7 +48,10 @@ const ROUNDTRIP_SIZE: usize = 1024;
 /// Includes a single-block minimum (8 bytes), an odd-block count
 /// (24 bytes = 3 blocks), common small-to-large packets, and a
 /// throughput measurement size (1 mebibyte).
-const PACKET_SIZES: &[usize] = &[8, 24, 64, 128, 256, 512, 1024, 1024 * 1024];
+const PACKET_SIZES: &[usize] = &[
+    0, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072,
+    262144, 524288,
+];
 
 fn expand_key(criterion: &mut Criterion) {
     criterion.bench_function("xtea/expand_key", |bencher| {

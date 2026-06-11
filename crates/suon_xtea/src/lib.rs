@@ -124,12 +124,12 @@ pub const fn expand(key: &Key) -> ExpandedKey {
 /// Encrypts `data` in-place with XTEA using precomputed round keys.
 ///
 /// For each round, all data blocks are processed sequentially before moving
-/// to the next round. This keeps the round keys hot in cache.
+/// to the next round. This keeps the round keys hot in cache and maximizes
+/// instruction-level parallelism across independent blocks.
 ///
 /// # Errors
 ///
 /// Returns [`XteaError::InvalidDataLength`] if `data.len()` is not a multiple of 8.
-#[inline(always)]
 pub fn encrypt(data: &mut [u8], expanded: &ExpandedKey) -> Result<(), XteaError> {
     let data_len = data.len();
 
@@ -170,12 +170,11 @@ pub fn encrypt(data: &mut [u8], expanded: &ExpandedKey) -> Result<(), XteaError>
 /// Decrypts `data` in-place with XTEA using precomputed round keys.
 ///
 /// Processes rounds in reverse order, streaming through all blocks per round
-/// for optimal cache behavior.
+/// for optimal cache behavior and instruction-level parallelism.
 ///
 /// # Errors
 ///
 /// Returns [`XteaError::InvalidDataLength`] if `data.len()` is not a multiple of 8.
-#[inline(always)]
 pub fn decrypt(data: &mut [u8], expanded: &ExpandedKey) -> Result<(), XteaError> {
     let data_len = data.len();
 
