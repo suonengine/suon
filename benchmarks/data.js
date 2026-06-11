@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780875153006,
+  "lastUpdate": 1781218679312,
   "repoUrl": "https://github.com/suonengine/suon",
   "entries": {
     "Benchmark": [
@@ -2741,6 +2741,378 @@ window.BENCHMARK_DATA = {
             "name": "xtea/roundtrip/1024_bytes",
             "value": 12903,
             "range": "± 407",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ramonbernardo.contato@gmail.com",
+            "name": "ramon-bernardo",
+            "username": "ramon-bernardo"
+          },
+          "committer": {
+            "email": "ramonbernardo.contato@gmail.com",
+            "name": "ramon-bernardo",
+            "username": "ramon-bernardo"
+          },
+          "distinct": true,
+          "id": "4540e3d8c24522a62237cb5e47a9ee5b0db0bdd4",
+          "message": "fix(suon_rsa): enable u64_digit feature for num-bigint-dig to fix CI build on nightly",
+          "timestamp": "2026-06-11T19:47:32-03:00",
+          "tree_id": "4aec0b3f3cbc2cee6422a6a7f64b10c9dcc46100",
+          "url": "https://github.com/suonengine/suon/commit/4540e3d8c24522a62237cb5e47a9ee5b0db0bdd4"
+        },
+        "date": 1781218679072,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "adler32/0_bytes",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/2_bytes",
+            "value": 3,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/4_bytes",
+            "value": 8,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/8_bytes",
+            "value": 17,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/16_bytes",
+            "value": 45,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/32_bytes",
+            "value": 101,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/64_bytes",
+            "value": 213,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/128_bytes",
+            "value": 438,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/256_bytes",
+            "value": 888,
+            "range": "± 6",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/512_bytes",
+            "value": 1788,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/1_kb",
+            "value": 3590,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/2_kb",
+            "value": 7194,
+            "range": "± 69",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/4_kb",
+            "value": 14400,
+            "range": "± 15",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/8_kb",
+            "value": 28820,
+            "range": "± 34",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/16_kb",
+            "value": 57711,
+            "range": "± 153",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/32_kb",
+            "value": 115807,
+            "range": "± 307",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/64_kb",
+            "value": 231861,
+            "range": "± 1026",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/128_kb",
+            "value": 466639,
+            "range": "± 3137",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/256_kb",
+            "value": 936946,
+            "range": "± 8486",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/512_kb",
+            "value": 1888742,
+            "range": "± 20316",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/1_mb",
+            "value": 3904206,
+            "range": "± 45959",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "app/empty_shutdown",
+            "value": 246,
+            "range": "± 20",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "app/startup_system",
+            "value": 432,
+            "range": "± 24",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "app/task_dispatch_100",
+            "value": 2019,
+            "range": "± 47",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/send",
+            "value": 106,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_1",
+            "value": 108,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_2",
+            "value": 119,
+            "range": "± 8",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_4",
+            "value": 140,
+            "range": "± 8",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_8",
+            "value": 188,
+            "range": "± 4",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_16",
+            "value": 264,
+            "range": "± 5",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_32",
+            "value": 417,
+            "range": "± 5",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_64",
+            "value": 688,
+            "range": "± 24",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_128",
+            "value": 1221,
+            "range": "± 25",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_256",
+            "value": 2339,
+            "range": "± 32",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_512",
+            "value": 4550,
+            "range": "± 29",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_1024",
+            "value": 8890,
+            "range": "± 77",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_2048",
+            "value": 17607,
+            "range": "± 156",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_4096",
+            "value": 35102,
+            "range": "± 467",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_8192",
+            "value": 70072,
+            "range": "± 1276",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_16384",
+            "value": 140289,
+            "range": "± 2190",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_32768",
+            "value": 280895,
+            "range": "± 4596",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/drain_65536",
+            "value": 558637,
+            "range": "± 3296",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "channel/send_and_drain",
+            "value": 134,
+            "range": "± 6",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lua/vm_creation",
+            "value": 43755,
+            "range": "± 356",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lua/expression_eval",
+            "value": 2616,
+            "range": "± 33",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lua/store_restore_call",
+            "value": 910,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lua/dispatch_no_events",
+            "value": 4808,
+            "range": "± 316",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "lua/dispatch_with_events",
+            "value": 332,
+            "range": "± 8",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "resource/init",
+            "value": 72,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "resource/insert",
+            "value": 93,
+            "range": "± 4",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "resource/get",
+            "value": 16,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "resource/get_mut",
+            "value": 16,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rsa/load_pem",
+            "value": 2490,
+            "range": "± 10",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rsa/encrypt/1024_bit",
+            "value": 67150,
+            "range": "± 190",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rsa/decrypt/1024_bit",
+            "value": 301344,
+            "range": "± 7329",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "rsa/roundtrip/1024_bit",
+            "value": 368784,
+            "range": "± 2205",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/expand_key",
+            "value": 35,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "xtea/encrypt/0_bytes",
+            "value": 0,
+            "range": "± 0",
             "unit": "ns/iter"
           }
         ]
