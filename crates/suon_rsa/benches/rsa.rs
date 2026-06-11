@@ -45,8 +45,9 @@ fn encrypt_benchmark(criterion: &mut Criterion) {
 
     group.throughput(Throughput::Bytes(KEY_SIZE as u64));
     group.bench_function("1024_bit", |bencher| {
-        let mut buffer = vec![PLAINTEXT_PATTERN; KEY_SIZE];
+        let original = vec![PLAINTEXT_PATTERN; KEY_SIZE];
         bencher.iter(|| {
+            let mut buffer = original.clone();
             encrypt(black_box(&key), black_box(&mut buffer))
                 .expect("encrypt of fixed-size buffer must succeed");
         });
@@ -59,15 +60,20 @@ fn decrypt_benchmark(criterion: &mut Criterion) {
     let key = load_pem(RSA_PRIVATE_KEY_PEM).expect("test PEM must be valid");
 
     // Pre-encrypt a buffer so the decryption benchmark has valid ciphertext.
-    let mut buffer = vec![PLAINTEXT_PATTERN; KEY_SIZE];
-    encrypt(&key, &mut buffer).expect("buffer encryption for decrypt benchmark setup must succeed");
+    let ciphertext = {
+        let mut buffer = vec![PLAINTEXT_PATTERN; KEY_SIZE];
+        encrypt(&key, &mut buffer)
+            .expect("buffer encryption for decrypt benchmark setup must succeed");
+        buffer
+    };
 
     let mut group = criterion.benchmark_group("rsa/decrypt");
 
     group.throughput(Throughput::Bytes(KEY_SIZE as u64));
     group.bench_function("1024_bit", |bencher| {
         bencher.iter(|| {
-            decrypt(black_box(&key), black_box(buffer.as_mut_slice()))
+            let mut buffer = ciphertext.clone();
+            decrypt(black_box(&key), black_box(&mut buffer))
                 .expect("decrypt of fixed-size buffer must succeed");
         });
     });

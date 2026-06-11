@@ -345,7 +345,6 @@ fn read_der_integer<'a>(data: &'a [u8], offset: &mut usize) -> Result<&'a [u8], 
 ///
 /// Returns [`RsaError::InvalidKey`] if `data.len()` does not match the
 /// key size in bytes.
-#[inline(always)]
 pub fn decrypt(key: &Rsa, data: &mut [u8]) -> Result<(), RsaError> {
     if data.len() != key.key_size {
         return Err(RsaError::InvalidKey);
@@ -358,15 +357,27 @@ pub fn decrypt(key: &Rsa, data: &mut [u8]) -> Result<(), RsaError> {
     let result_prime_q = ciphertext.modpow(&key.exponent_dq, &key.prime_q);
 
     // CRT: h = qInv · (m1 − m2) mod p.  Add p when m1 < m2 (BigUint).
-    let diff = if result_prime_p >= result_prime_q {
-        result_prime_p - &result_prime_q
+    // Reuse result_prime_p's allocation for diff.
+    let mut diff = if result_prime_p >= result_prime_q {
+        let mut d = result_prime_p;
+        d -= &result_prime_q;
+        d
     } else {
-        (&result_prime_p + &key.prime_p) - &result_prime_q
+        let mut d = result_prime_p;
+        d += &key.prime_p;
+        d -= &result_prime_q;
+        d
     };
-    let factor = (&diff * &key.coefficient) % &key.prime_p;
+
+    // factor = (diff * coefficient) % prime_p — reuses diff's allocation.
+    diff *= &key.coefficient;
+    diff %= &key.prime_p;
 
     // CRT: m = m2 + q · h (always < modulus).
-    let plaintext = result_prime_q + &key.prime_q * &factor;
+    // Reuse diff's allocation for the product.
+    let mut prod = diff;
+    prod *= &key.prime_q;
+    let plaintext = result_prime_q + &prod;
 
     write_bigint_be(&plaintext, data);
     Ok(())
@@ -382,7 +393,6 @@ pub fn decrypt(key: &Rsa, data: &mut [u8]) -> Result<(), RsaError> {
 ///
 /// Returns [`RsaError::InvalidKey`] if `data.len()` does not match the
 /// key size in bytes.
-#[inline(always)]
 pub fn encrypt(key: &Rsa, data: &mut [u8]) -> Result<(), RsaError> {
     if data.len() != key.key_size {
         return Err(RsaError::InvalidKey);
@@ -399,15 +409,25 @@ pub fn encrypt(key: &Rsa, data: &mut [u8]) -> Result<(), RsaError> {
 
 #[inline(always)]
 fn write_bigint_be(value: &BigUint, output: &mut [u8]) {
-    let value_bytes = value.to_bytes_be();
-    let output_len = output.len();
+    let out_len = output.len();
+    let bits = value.bits();
+    if bits == 0 {
+        output.fill(0);
+        return;
+    }
 
-    if value_bytes.len() >= output_len {
-        output.copy_from_slice(&value_bytes[value_bytes.len() - output_len..]);
-    } else {
-        let padding = output_len - value_bytes.len();
-        output[..padding].fill(0);
-        output[padding..].copy_from_slice(&value_bytes);
+    let limb = value.get_limb(0);
+    let bpl = std::mem::size_of_val(&limb);
+    let bits_per_limb = bpl * 8;
+    let num_limbs = bits.div_ceil(bits_per_limb);
+    let total_bytes = num_limbs * bpl;
+    let pad = out_len - total_bytes;
+
+    output[..pad].fill(0);
+
+    for i in 0..num_limbs {
+        let digit: u64 = value.get_limb(num_limbs - 1 - i);
+        output[pad + i * bpl..pad + i * bpl + bpl].copy_from_slice(&digit.to_be_bytes()[8 - bpl..]);
     }
 }
 
