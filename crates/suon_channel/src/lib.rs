@@ -224,7 +224,9 @@ mod tests {
             }));
         }
         for handle in thread_handles {
-            handle.join().unwrap();
+            handle
+                .join()
+                .expect("test thread should complete successfully");
         }
         let mut buffer = Vec::with_capacity(2048);
         channel.drain_into(&mut buffer);

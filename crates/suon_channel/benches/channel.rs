@@ -1,8 +1,13 @@
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
+use std::hint::black_box;
 use suon_macros::Task;
 
 use suon_channel::{Channel, TaskHandler};
 use suon_resource::Resources;
+
+const DRAIN_SIZES: &[usize] = &[
+    1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536,
+];
 
 #[derive(Task)]
 struct NoOp;
@@ -19,6 +24,7 @@ fn bench_send(criterion: &mut Criterion) {
             Channel::default,
             |channel| {
                 channel.send(NoOp);
+                black_box(());
             },
             BatchSize::SmallInput,
         );
@@ -30,7 +36,7 @@ fn bench_send(criterion: &mut Criterion) {
 fn bench_drain_into(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("channel");
 
-    for &count in &[1, 8, 64, 512, 4096] {
+    for &count in DRAIN_SIZES {
         group.bench_function(format!("drain_{count}"), |bencher| {
             bencher.iter_batched(
                 || {
@@ -42,6 +48,7 @@ fn bench_drain_into(criterion: &mut Criterion) {
                 },
                 |(channel, mut buffer)| {
                     channel.drain_into(&mut buffer);
+                    black_box(());
                 },
                 BatchSize::SmallInput,
             );
@@ -60,6 +67,7 @@ fn bench_send_and_drain(criterion: &mut Criterion) {
             |(channel, mut buffer)| {
                 channel.send(NoOp);
                 channel.drain_into(&mut buffer);
+                black_box(());
             },
             BatchSize::SmallInput,
         );
