@@ -4,6 +4,7 @@
 //! dispatch throughput.
 
 use criterion::{Criterion, criterion_group, criterion_main};
+use std::hint::black_box;
 use suon_app::{App, shutdown::Shutdown};
 use suon_channel::{Channel, TaskHandler};
 use suon_macros::Task;
@@ -24,6 +25,7 @@ fn bench_empty_shutdown(criterion: &mut Criterion) {
             let mut app = App::new();
             app.channel().send(Shutdown);
             app.run();
+            black_box(());
         });
     });
 
@@ -40,6 +42,7 @@ fn bench_startup_system(criterion: &mut Criterion) {
                 resources.get::<Channel>().send(Shutdown);
             });
             app.run();
+            black_box(());
         });
     });
 
@@ -60,6 +63,7 @@ fn bench_task_dispatch(criterion: &mut Criterion) {
                 channel.send(Shutdown);
             });
             app.run();
+            black_box(());
         });
     });
 

@@ -259,7 +259,7 @@ mod tests {
 
     impl TaskHandler for ChannelCheck {
         fn run(self: Box<Self>, resources: &mut Resources) {
-            let _ = resources.get::<Channel>();
+            resources.get::<Channel>();
         }
     }
 
