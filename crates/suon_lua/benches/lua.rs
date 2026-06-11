@@ -10,7 +10,7 @@ use suon_lua::LuaVm;
 fn bench_vm_creation(criterion: &mut Criterion) {
     criterion.bench_function("lua/vm_creation", |bencher| {
         bencher.iter(|| {
-            let _vm = black_box(LuaVm::new());
+            black_box(LuaVm::new());
         });
     });
 }

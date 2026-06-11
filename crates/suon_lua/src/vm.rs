@@ -97,7 +97,10 @@ mod tests {
     fn new_creates_vm() {
         let vm = LuaVm::new();
         vm.execute(|lua| {
-            let result: i32 = lua.load("return 1 + 2").eval().unwrap();
+            let result: i32 = lua
+                .load("return 1 + 2")
+                .eval()
+                .expect("failed to evaluate Lua expression in test");
             assert_eq!(result, 3, "vm should evaluate Lua expressions");
         });
     }
@@ -105,7 +108,11 @@ mod tests {
     #[test]
     fn execute_provides_scoped_access() {
         let vm = LuaVm::new();
-        let sum = vm.execute(|lua| lua.load("return 10 * 5").eval::<i32>().unwrap());
+        let sum = vm.execute(|lua| {
+            lua.load("return 10 * 5")
+                .eval::<i32>()
+                .expect("failed to evaluate multiplication in test")
+        });
         assert_eq!(sum, 50, "execute should return the closure result");
     }
 

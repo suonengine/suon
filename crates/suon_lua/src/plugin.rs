@@ -139,9 +139,9 @@ mod tests {
 
     fn with_modules_dir(callback: impl FnOnce()) {
         let _guard = MODULES_LOCK.lock().expect("failed to acquire modules lock");
-        let _ = std::fs::remove_dir_all("modules");
+        drop(std::fs::remove_dir_all("modules"));
         callback();
-        let _ = std::fs::remove_dir_all("modules");
+        drop(std::fs::remove_dir_all("modules"));
     }
 
     #[test]
