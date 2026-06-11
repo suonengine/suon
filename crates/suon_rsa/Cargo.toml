@@ -18,7 +18,7 @@ bench = false
 
 [dependencies]
 # Shared third-party dependencies
-num-bigint-dig.workspace = true
+num-bigint-dig = { workspace = true, features = ["u64_digit"] }
 
 [dev-dependencies]
 # Shared third-party dependencies
