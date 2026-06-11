@@ -1,0 +1,43 @@
+use std::sync::Arc;
+use suon_app::{App, plugin::Plugin};
+
+use crate::{manager::NetworkManager, settings::NetworkSettings};
+
+pub struct NetworkPlugin;
+
+impl Plugin for NetworkPlugin {
+    fn build(&self, app: &mut App) {
+        let settings = NetworkSettings::load();
+
+        let runtime = Arc::new(
+            tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(settings.worker_threads)
+                .enable_io()
+                .enable_time()
+                .build()
+                .expect("failed to build network tokio runtime"),
+        );
+
+        let mut manager = NetworkManager::new(runtime, app.channel());
+
+        for server_settings in settings.server {
+            if let Err(e) = manager.spawn_server(server_settings.clone()) {
+                eprintln!(">> Failed to spawn server: {e}");
+            }
+        }
+
+        app.add_resource(manager);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn network_plugin_build_does_not_panic() {
+        let mut app = App::new();
+        let plugin = NetworkPlugin;
+        plugin.build(&mut app);
+    }
+}

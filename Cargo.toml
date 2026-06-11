@@ -32,6 +32,7 @@ winresource = "0.1"
 [dependencies]
 suon_app = { version = "0.1.0", path = "crates/suon_app" }
 suon_lua = { version = "0.1.0", path = "crates/suon_lua" }
+suon_network = { version = "0.1.0", path = "crates/suon_network" }
 
 [[bin]]
 name = "suon"
@@ -58,12 +59,20 @@ documentation = "https://docs.rs/suon"
 # Shared third-party dependencies
 criterion = { version = "0.8.2", default-features = false }
 crossbeam-channel = "0.5.15"
+httparse = "1.10.1"
 mlua = { version = "0.11.6", default-features = false }
 num-bigint-dig = { version = "0.9.1", default-features = false }
 proc-macro2 = "1.0.106"
 quote = "1.0.45"
+tokio = { version = "1.52.3", default-features = false }
+toml = "1.1.2"
+serde = { version = "1.0.228", default-features = false }
 serde_json = { version = "1.0.150", default-features = false }
 syn = { version = "2.0.117", default-features = false }
+dashmap = "6.2.1"
+flate2 = { version = "1.1.9", default-features = false }
+thiserror = "2.0.18"
+
 # Shared internal crates.
 # Keep `version` alongside `path` so the workspace is closer to crates.io publishing
 suon_app = { version = "0.1.0", path = "crates/suon_app" }
@@ -72,6 +81,7 @@ suon_lua = { version = "0.1.0", path = "crates/suon_lua" }
 suon_macros = { version = "0.1.0", path = "crates/suon_macros" }
 suon_resource = { version = "0.1.0", path = "crates/suon_resource" }
 suon_adler32 = { version = "0.1.0", path = "crates/suon_adler32" }
+suon_network = { version = "0.1.0", path = "crates/suon_network" }
 suon_rsa = { version = "0.1.0", path = "crates/suon_rsa" }
 suon_xtea = { version = "0.1.0", path = "crates/suon_xtea" }
 

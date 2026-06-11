@@ -1,0 +1,74 @@
+# Package
+[package]
+# TCP and HTTP networking for the Suon MMORPG server
+name = "suon_network"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Short crates.io summary describing what the package is
+description = "TCP and HTTP networking for the Suon MMORPG server"
+
+[lib]
+bench = false
+
+[dependencies]
+# Shared third-party dependencies
+tokio = { workspace = true, features = [
+	"net",
+	"sync",
+	"rt",
+	"rt-multi-thread",
+	"io-util",
+	"macros",
+	"time",
+] }
+crossbeam-channel.workspace = true
+serde = { workspace = true, features = ["std", "derive"] }
+serde_json = { workspace = true, features = ["std"] }
+toml.workspace = true
+httparse.workspace = true
+flate2 = { workspace = true, features = ["rust_backend"] }
+dashmap.workspace = true
+thiserror.workspace = true
+# Shared internal dependencies
+suon_resource.workspace = true
+suon_macros.workspace = true
+suon_channel.workspace = true
+suon_adler32.workspace = true
+suon_app.workspace = true
+suon_xtea.workspace = true
+suon_rsa.workspace = true
+
+[dev-dependencies]
+# Shared third-party dependencies
+criterion.workspace = true
+tokio = { workspace = true, features = ["full"] }
+
+[[bench]]
+name = "writer"
+harness = false
+
+[[bench]]
+name = "reader"
+harness = false
+
+[[bench]]
+name = "roundtrip"
+harness = false
+
+[[bench]]
+name = "xtea"
+harness = false
+
+[[bench]]
+name = "primitives"
+harness = false
+
+[[bench]]
+name = "connection"
+harness = false
