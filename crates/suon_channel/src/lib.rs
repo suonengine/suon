@@ -26,7 +26,7 @@
 //! [`Resources`] and accessed by tasks or startup systems via the
 //! standard `resources.get::<Channel>()` API.
 
-use crossbeam_channel::{Receiver, Sender, TryRecvError};
+use crossbeam_channel::{Receiver, Sender};
 use suon_macros::Resource;
 use suon_resource::Resources;
 use tracing::warn;
@@ -115,20 +115,24 @@ impl Channel {
             .expect("Channel::send: all receiver handles dropped, cannot send more tasks");
     }
 
-    /// Drain all pending tasks into `buffer` without blocking.
+    /// Block until at least one task is available, then drain all pending
+    /// tasks without blocking.
     ///
-    /// Returns immediately if no messages are waiting.  Messages are
-    /// delivered in FIFO order.
-    pub fn drain_into(&self, buffer: &mut Vec<Box<dyn TaskHandler>>) {
-        loop {
-            match self.receiver.try_recv() {
-                Ok(msg) => buffer.push(msg),
-                Err(TryRecvError::Empty) => break,
-                Err(TryRecvError::Disconnected) => {
-                    warn!(target: "Channel", "Channel receiver disconnected while tasks may still be pending");
-                    break;
-                }
-            }
+    /// The thread sleeps while the queue is empty, consuming zero CPU.
+    /// Once a task arrives it is pushed into `buffer`, followed by any
+    /// additional tasks that accumulated during the wait.
+    pub fn wait_and_drain(&self, buffer: &mut Vec<Box<dyn TaskHandler>>) {
+        if let Ok(msg) = self.receiver.try_recv() {
+            buffer.push(msg);
+        } else if let Ok(msg) = self.receiver.recv() {
+            buffer.push(msg);
+        } else {
+            warn!(target: "Channel", "Channel receiver disconnected");
+            return;
+        }
+
+        while let Ok(msg) = self.receiver.try_recv() {
+            buffer.push(msg);
         }
     }
 }
@@ -158,7 +162,7 @@ mod tests {
         let channel = Channel::default();
         channel.send(AddOne);
         let mut buffer = Vec::new();
-        channel.drain_into(&mut buffer);
+        channel.wait_and_drain(&mut buffer);
         assert_eq!(buffer.len(), 1);
     }
 
@@ -169,7 +173,7 @@ mod tests {
         first.send(AddOne);
         second.send(AddOne);
         let mut buffer = Vec::new();
-        first.drain_into(&mut buffer);
+        first.wait_and_drain(&mut buffer);
         assert_eq!(buffer.len(), 2);
     }
 
@@ -202,7 +206,7 @@ mod tests {
             r.get_mut::<Num>().0 += 1;
         });
         let mut buffer = Vec::new();
-        channel.drain_into(&mut buffer);
+        channel.wait_and_drain(&mut buffer);
         assert_eq!(buffer.len(), 1);
     }
 
@@ -213,7 +217,7 @@ mod tests {
             channel.send(AddOne);
         }
         let mut buffer = Vec::with_capacity(1024);
-        channel.drain_into(&mut buffer);
+        channel.wait_and_drain(&mut buffer);
         assert_eq!(buffer.len(), 1000);
     }
 
@@ -235,7 +239,7 @@ mod tests {
                 .expect("test thread should complete successfully");
         }
         let mut buffer = Vec::with_capacity(2048);
-        channel.drain_into(&mut buffer);
+        channel.wait_and_drain(&mut buffer);
         assert_eq!(buffer.len(), 1000);
     }
 
@@ -245,19 +249,8 @@ mod tests {
         channel.send(AddOne);
         channel.send(AddOne);
         let mut buffer = Vec::new();
-        channel.drain_into(&mut buffer);
+        channel.wait_and_drain(&mut buffer);
         assert_eq!(buffer.len(), 2);
-        let mut second_buffer = Vec::new();
-        channel.drain_into(&mut second_buffer);
-        assert!(second_buffer.is_empty());
-    }
-
-    #[test]
-    fn drain_empty_returns_immediately() {
-        let channel = Channel::default();
-        let mut buffer = Vec::new();
-        channel.drain_into(&mut buffer);
-        assert!(buffer.is_empty());
     }
 
     #[test]
@@ -267,11 +260,8 @@ mod tests {
         channel.send(AddOne);
         drop(other);
         let mut buffer = Vec::new();
-        channel.drain_into(&mut buffer);
+        channel.wait_and_drain(&mut buffer);
         assert_eq!(buffer.len(), 1);
-        let mut second_buffer = Vec::new();
-        channel.drain_into(&mut second_buffer);
-        assert!(second_buffer.is_empty());
     }
 
     #[test]

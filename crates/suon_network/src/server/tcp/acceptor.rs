@@ -166,7 +166,7 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(100)).await;
 
         let mut buf = Vec::new();
-        channel.drain_into(&mut buf);
+        channel.wait_and_drain(&mut buf);
         assert!(!buf.is_empty(), "expected at least ConnectionBegin");
 
         drop(client);
@@ -228,7 +228,7 @@ mod tests {
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
         let mut buf = Vec::new();
-        channel.drain_into(&mut buf);
+        channel.wait_and_drain(&mut buf);
         // Should have at least 1 ConnectionBegin (first connection)
         assert!(!buf.is_empty(), "expected at least ConnectionBegin");
 

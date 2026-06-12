@@ -33,7 +33,7 @@ fn bench_send(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn bench_drain_into(criterion: &mut Criterion) {
+fn bench_wait_and_drain(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("channel");
 
     for &count in DRAIN_SIZES {
@@ -47,7 +47,7 @@ fn bench_drain_into(criterion: &mut Criterion) {
                     (channel, Vec::with_capacity(count))
                 },
                 |(channel, mut buffer)| {
-                    channel.drain_into(&mut buffer);
+                    channel.wait_and_drain(&mut buffer);
                     black_box(());
                 },
                 BatchSize::SmallInput,
@@ -66,7 +66,7 @@ fn bench_send_and_drain(criterion: &mut Criterion) {
             || (Channel::default(), Vec::new()),
             |(channel, mut buffer)| {
                 channel.send(NoOp);
-                channel.drain_into(&mut buffer);
+                channel.wait_and_drain(&mut buffer);
                 black_box(());
             },
             BatchSize::SmallInput,
@@ -81,7 +81,7 @@ criterion_group!(
     config = Criterion::default();
     targets =
         bench_send,
-        bench_drain_into,
+        bench_wait_and_drain,
         bench_send_and_drain,
 );
 criterion_main!(channel_benchmarks);

@@ -168,7 +168,7 @@ impl App {
         info!(target: "App", "Entering task dispatch loop");
         let mut buffer = Vec::with_capacity(64);
         loop {
-            self.channel.drain_into(&mut buffer);
+            self.channel.wait_and_drain(&mut buffer);
 
             for task in buffer.drain(..) {
                 task.run(&mut self.resources);
