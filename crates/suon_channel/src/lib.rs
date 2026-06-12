@@ -27,9 +27,13 @@
 //! standard `resources.get::<Channel>()` API.
 
 use crossbeam_channel::{Receiver, Sender};
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
 use suon_macros::Resource;
 use suon_resource::Resources;
-use tracing::warn;
+use tracing::{error, warn};
 
 /// Unit of asynchronous work.
 ///
@@ -88,12 +92,17 @@ impl<F: FnOnce(&mut Resources) + Send + 'static> IntoTask for F {
 pub struct Channel {
     sender: Sender<Box<dyn TaskHandler>>,
     receiver: Receiver<Box<dyn TaskHandler>>,
+    pending: Arc<AtomicUsize>,
 }
 
 impl Default for Channel {
     fn default() -> Self {
         let (sender, receiver) = crossbeam_channel::unbounded();
-        Channel { sender, receiver }
+        Channel {
+            sender,
+            receiver,
+            pending: Arc::new(AtomicUsize::new(0)),
+        }
     }
 }
 
@@ -103,16 +112,20 @@ impl Channel {
     /// Accepts any [`IntoTask`] — a closure
     /// `\|resources: &mut Resources\| { … }`, or a named struct with
     /// `#[derive(Task)]`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the channel's receiver has been dropped (all clones
-    /// dropped).  In normal application usage the receiver outlives
-    /// every sender, so this should never happen.
     pub fn send(&self, task: impl IntoTask) {
-        self.sender
-            .send(Box::new(task.into_task()))
-            .expect("Channel::send: all receiver handles dropped, cannot send more tasks");
+        if self.sender.send(Box::new(task.into_task())).is_err() {
+            error!(target: "Channel", "send failed: receiver disconnected, dropping task");
+            return;
+        }
+        self.pending.fetch_add(1, Ordering::Release);
+    }
+
+    /// Returns the approximate number of tasks currently enqueued.
+    ///
+    /// The count is indicative: senders may increment concurrently, and
+    /// the value is a point-in-time snapshot.
+    pub fn pending_count(&self) -> usize {
+        self.pending.load(Ordering::Relaxed)
     }
 
     /// Block until at least one task is available, then drain all pending
@@ -121,10 +134,20 @@ impl Channel {
     /// The thread sleeps while the queue is empty, consuming zero CPU.
     /// Once a task arrives it is pushed into `buffer`, followed by any
     /// additional tasks that accumulated during the wait.
+    ///
+    /// `buffer` is pre-sized according to [`pending_count`] to minimise
+    /// reallocations.
     pub fn wait_and_drain(&self, buffer: &mut Vec<Box<dyn TaskHandler>>) {
+        let estimated = self.pending.load(Ordering::Relaxed);
+        if estimated > buffer.capacity() {
+            buffer.reserve(estimated - buffer.len());
+        }
+
         if let Ok(msg) = self.receiver.try_recv() {
+            self.pending.fetch_sub(1, Ordering::Release);
             buffer.push(msg);
         } else if let Ok(msg) = self.receiver.recv() {
+            self.pending.fetch_sub(1, Ordering::Release);
             buffer.push(msg);
         } else {
             warn!(target: "Channel", "Channel receiver disconnected");
@@ -132,6 +155,7 @@ impl Channel {
         }
 
         while let Ok(msg) = self.receiver.try_recv() {
+            self.pending.fetch_sub(1, Ordering::Release);
             buffer.push(msg);
         }
     }
@@ -216,7 +240,7 @@ mod tests {
         for _ in 0..1000 {
             channel.send(AddOne);
         }
-        let mut buffer = Vec::with_capacity(1024);
+        let mut buffer = Vec::new();
         channel.wait_and_drain(&mut buffer);
         assert_eq!(buffer.len(), 1000);
     }
@@ -238,7 +262,7 @@ mod tests {
                 .join()
                 .expect("test thread should complete successfully");
         }
-        let mut buffer = Vec::with_capacity(2048);
+        let mut buffer = Vec::new();
         channel.wait_and_drain(&mut buffer);
         assert_eq!(buffer.len(), 1000);
     }
@@ -262,6 +286,42 @@ mod tests {
         let mut buffer = Vec::new();
         channel.wait_and_drain(&mut buffer);
         assert_eq!(buffer.len(), 1);
+    }
+
+    #[test]
+    fn pending_count_starts_at_zero() {
+        let channel = Channel::default();
+        assert_eq!(channel.pending_count(), 0);
+    }
+
+    #[test]
+    fn pending_count_reflects_sends() {
+        let channel = Channel::default();
+        channel.send(AddOne);
+        assert_eq!(channel.pending_count(), 1);
+        channel.send(AddOne);
+        assert_eq!(channel.pending_count(), 2);
+    }
+
+    #[test]
+    fn pending_count_decrements_on_drain() {
+        let channel = Channel::default();
+        channel.send(AddOne);
+        channel.send(AddOne);
+        assert_eq!(channel.pending_count(), 2);
+        let mut buffer = Vec::new();
+        channel.wait_and_drain(&mut buffer);
+        assert_eq!(channel.pending_count(), 0);
+    }
+
+    #[test]
+    fn pending_count_shared_across_clones() {
+        let a = Channel::default();
+        let b = a.clone();
+        a.send(AddOne);
+        b.send(AddOne);
+        assert_eq!(a.pending_count(), 2);
+        assert_eq!(b.pending_count(), 2);
     }
 
     #[test]

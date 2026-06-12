@@ -166,7 +166,7 @@ impl App {
         info!(target: "App", "Startup systems complete");
 
         info!(target: "App", "Entering task dispatch loop");
-        let mut buffer = Vec::with_capacity(64);
+        let mut buffer = Vec::new();
         loop {
             self.channel.wait_and_drain(&mut buffer);
 
