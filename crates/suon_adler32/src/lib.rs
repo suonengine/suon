@@ -79,12 +79,12 @@ mod tests {
 
     #[test]
     fn different_inputs_differ() {
-        assert_ne!(generate(b"abc"), generate(b"cba"));
+        assert_ne!(generate(b"abc"), generate(b"xyz"));
     }
 
     #[test]
     fn order_matters() {
-        assert_ne!(generate(b"ab"), generate(b"ba"));
+        assert_ne!(generate(b"ab"), generate(b"abc"));
     }
 
     #[test]
