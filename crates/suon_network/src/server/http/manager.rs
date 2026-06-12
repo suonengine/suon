@@ -38,6 +38,7 @@ impl HttpManager {
                 String::new()
             }
         };
+
         HttpResponse {
             status: 200,
             body,
@@ -89,7 +90,7 @@ impl HttpManager {
 
     /// GET /api/stats — aggregate connection statistics as JSON.
     pub fn stats(&self) -> HttpResponse {
-        let stats: &ConnectionStats = &self.manager.stats;
+        let stats: &ConnectionStats = self.manager.stats();
         let body = format!(
             "{{ \"active\": {}, \"total_accepted\": {}, \"total_closed\": {} }}",
             self.manager.count(),
@@ -100,6 +101,7 @@ impl HttpManager {
                 .total_closed
                 .load(std::sync::atomic::Ordering::Relaxed),
         );
+
         HttpResponse {
             status: 200,
             body,

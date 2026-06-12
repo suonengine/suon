@@ -29,7 +29,7 @@ pub struct ConnectionManager {
     next_id: AtomicU64,
     connections: DashMap<u64, (ConnectionHandle, ProtocolSettings, Instant)>,
     port_namespace: PortNamespace,
-    pub stats: Arc<ConnectionStats>,
+    stats: Arc<ConnectionStats>,
 }
 
 impl ConnectionManager {
@@ -92,6 +92,11 @@ impl ConnectionManager {
                 ConnectionInfo::new(handle.id(), handle.addr(), *protocol, *connected_at)
             })
             .collect()
+    }
+
+    /// Returns a reference to the connection statistics.
+    pub fn stats(&self) -> &ConnectionStats {
+        &self.stats
     }
 
     /// Removes all connections and returns the count of cleaned-up entries.
