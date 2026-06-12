@@ -27,21 +27,22 @@ tokio = { workspace = true, features = [
 	"macros",
 	"time",
 ] }
-crossbeam-channel.workspace = true
+crossbeam-channel = { workspace = true, features = ["std"] }
 serde = { workspace = true, features = ["std", "derive"] }
 serde_json = { workspace = true, features = ["std"] }
-toml.workspace = true
+toml = { workspace = true, features = ["parse", "display", "serde"] }
 httparse.workspace = true
 flate2 = { workspace = true, features = ["rust_backend"] }
 dashmap.workspace = true
 thiserror.workspace = true
 # Shared internal dependencies
-tracing.workspace = true
+tracing = { workspace = true, features = ["std", "attributes"] }
 suon_resource.workspace = true
 suon_macros.workspace = true
 suon_channel.workspace = true
 suon_adler32.workspace = true
 suon_app.workspace = true
+suon_serde.workspace = true
 suon_xtea.workspace = true
 suon_rsa.workspace = true
 
