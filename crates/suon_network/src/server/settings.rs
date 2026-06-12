@@ -1,41 +1,41 @@
+use std::time::Duration;
+
 use serde::{Deserialize, Serialize};
 
 use crate::server::kind::ServerKind;
 
-fn default_address() -> String {
-    "0.0.0.0".to_string()
-}
-
-fn default_retry_delay() -> u64 {
-    15000
-}
-
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ServerSettings {
     pub port: u16,
-    #[serde(default = "default_address")]
     pub address: String,
     #[serde(flatten)]
     pub kind: ServerKind,
-    #[serde(default = "default_retry_delay")]
-    pub retry_delay_ms: u64,
+    #[serde(rename = "retry_delay_ms", with = "suon_serde::duration_ms")]
+    pub retry_delay: Duration,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
 
     #[test]
     fn server_settings_default_address() {
         let toml_str = r#"
             port = 7171
+            address = "0.0.0.0"
             type = "tcp"
+            flush_interval_ms = 10
+            channel_capacity = 1024
+            max_buffer_size = 4096
+            max_connections = 100
+            retry_delay_ms = 15000
         "#;
         let settings: ServerSettings =
             toml::from_str(toml_str).expect("failed to deserialize TCP settings from TOML");
         assert_eq!(settings.address, "0.0.0.0");
         assert_eq!(settings.port, 7171);
-        assert_eq!(settings.retry_delay_ms, 15000);
+        assert_eq!(settings.retry_delay, Duration::from_millis(15000));
         assert!(matches!(settings.kind, ServerKind::Tcp { .. }));
     }
 
@@ -43,7 +43,12 @@ mod tests {
     fn server_settings_deserialize_http() {
         let toml_str = r#"
             port = 8080
+            address = "0.0.0.0"
             type = "http"
+            max_connections = 100
+            rate_burst = 50
+            max_headers = 32
+            retry_delay_ms = 15000
         "#;
         let settings: ServerSettings =
             toml::from_str(toml_str).expect("failed to deserialize HTTP settings from TOML");
@@ -55,10 +60,13 @@ mod tests {
     fn server_settings_custom_fields() {
         let toml_str = r#"
             port = 7171
+            address = "0.0.0.0"
             type = "tcp"
+            flush_interval_ms = 10
             channel_capacity = 512
             max_buffer_size = 8192
             max_connections = 50
+            retry_delay_ms = 15000
         "#;
         let settings: ServerSettings =
             toml::from_str(toml_str).expect("failed to deserialize custom TCP settings from TOML");

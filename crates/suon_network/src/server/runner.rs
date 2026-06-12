@@ -1,5 +1,7 @@
+use std::sync::Arc;
 use tracing::info;
 
+use suon_channel::buffer_pool::BufferPool;
 use tokio::net::TcpListener;
 
 use crate::server::{
@@ -10,6 +12,7 @@ use crate::server::{
 pub(crate) struct BoundServer {
     listener: TcpListener,
     channel: suon_channel::Channel,
+    buffer_pool: Arc<BufferPool>,
     settings: ServerSettings,
     shutdown: Shutdown,
 }
@@ -20,10 +23,12 @@ impl BoundServer {
         channel: suon_channel::Channel,
         settings: ServerSettings,
         shutdown: Shutdown,
+        buffer_pool: Arc<BufferPool>,
     ) -> Self {
         BoundServer {
             listener,
             channel,
+            buffer_pool,
             settings,
             shutdown,
         }
@@ -36,12 +41,14 @@ impl BoundServer {
             self.settings.kind.as_str(),
             self.settings.port
         );
+
         match self.settings.kind {
             ServerKind::Tcp { .. } => ActiveServer::Tcp(TcpAcceptor::new(
                 self.listener,
                 self.channel,
                 &self.settings,
                 self.shutdown,
+                self.buffer_pool,
             )),
             ServerKind::Http { .. } => ActiveServer::Http(HttpAcceptor::new(
                 self.listener,
@@ -88,7 +95,7 @@ mod bound_server_tests {
                     uses_xtea: false,
                     uses_rsa: false,
                 },
-                flush_interval_ms: 50,
+                flush_interval: Duration::from_millis(50),
                 encryption: EncryptionSettings {
                     incoming: false,
                     outgoing: false,
@@ -97,7 +104,7 @@ mod bound_server_tests {
                 max_buffer_size: 256,
                 max_connections: 5,
             },
-            retry_delay_ms: 100,
+            retry_delay: Duration::from_millis(100),
         }
     }
 
@@ -110,7 +117,7 @@ mod bound_server_tests {
                 rate_burst: 50,
                 max_headers: 32,
             },
-            retry_delay_ms: 100,
+            retry_delay: Duration::from_millis(100),
         }
     }
 
@@ -123,9 +130,15 @@ mod bound_server_tests {
         let shutdown = Shutdown::new();
         let settings = test_tcp_settings();
 
-        BoundServer::new(listener, channel, settings, shutdown.clone())
-            .into_server()
-            .spawn();
+        BoundServer::new(
+            listener,
+            channel,
+            settings,
+            shutdown.clone(),
+            crate::test_buffer_pool(),
+        )
+        .into_server()
+        .spawn();
 
         tokio::time::sleep(Duration::from_millis(50)).await;
         shutdown.trigger();
@@ -140,9 +153,15 @@ mod bound_server_tests {
         let shutdown = Shutdown::new();
         let settings = test_http_settings();
 
-        BoundServer::new(listener, channel, settings, shutdown.clone())
-            .into_server()
-            .spawn();
+        BoundServer::new(
+            listener,
+            channel,
+            settings,
+            shutdown.clone(),
+            crate::test_buffer_pool(),
+        )
+        .into_server()
+        .spawn();
 
         tokio::time::sleep(Duration::from_millis(50)).await;
         shutdown.trigger();
@@ -162,8 +181,14 @@ mod bound_server_tests {
                 let listener = TcpListener::from_std(listener)
                     .expect("failed to convert std listener to tokio listener");
                 let channel = suon_channel::Channel::default();
-                let server =
-                    BoundServer::new(listener, channel, settings, shutdown.clone()).into_server();
+                let server = BoundServer::new(
+                    listener,
+                    channel,
+                    settings,
+                    shutdown.clone(),
+                    crate::test_buffer_pool(),
+                )
+                .into_server();
                 server.spawn();
                 tokio::time::sleep(Duration::from_millis(50)).await;
                 shutdown.trigger();
@@ -182,13 +207,14 @@ mod tests {
         kind::ServerKind,
         tcp::{EncryptionSettings, ProtocolSettings},
     };
+    use std::time::Duration;
 
     fn test_settings(kind: ServerKind) -> ServerSettings {
         ServerSettings {
             port: 0,
             address: "127.0.0.1".into(),
             kind,
-            retry_delay_ms: 100,
+            retry_delay: Duration::from_millis(100),
         }
     }
 
@@ -207,7 +233,7 @@ mod tests {
                 uses_xtea: false,
                 uses_rsa: false,
             },
-            flush_interval_ms: 50,
+            flush_interval: Duration::from_millis(50),
             encryption: EncryptionSettings {
                 incoming: false,
                 outgoing: false,
@@ -217,9 +243,15 @@ mod tests {
             max_connections: 5,
         });
 
-        BoundServer::new(listener, channel, settings, shutdown.clone())
-            .into_server()
-            .spawn();
+        BoundServer::new(
+            listener,
+            channel,
+            settings,
+            shutdown.clone(),
+            crate::test_buffer_pool(),
+        )
+        .into_server()
+        .spawn();
 
         tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
         shutdown.trigger();
@@ -239,9 +271,15 @@ mod tests {
             max_headers: 32,
         });
 
-        BoundServer::new(listener, channel, settings, shutdown.clone())
-            .into_server()
-            .spawn();
+        BoundServer::new(
+            listener,
+            channel,
+            settings,
+            shutdown.clone(),
+            crate::test_buffer_pool(),
+        )
+        .into_server()
+        .spawn();
 
         tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
         shutdown.trigger();

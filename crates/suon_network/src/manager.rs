@@ -1,8 +1,8 @@
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc};
 
 use tracing::info;
 
-use suon_channel::Channel;
+use suon_channel::{Channel, buffer_pool::BufferPool};
 use suon_macros::Resource;
 use tokio::runtime::Runtime;
 use tracing::error;
@@ -35,16 +35,22 @@ struct ManagedServer {
 pub struct NetworkManager {
     runtime: Arc<Runtime>,
     channel: Channel,
+    buffer_pool: Arc<BufferPool>,
     servers: HashMap<u16, ManagedServer>,
 }
 
 impl NetworkManager {
-    pub fn new(runtime: Arc<Runtime>, channel: Channel) -> Self {
+    pub fn new(runtime: Arc<Runtime>, channel: Channel, buffer_pool: Arc<BufferPool>) -> Self {
         NetworkManager {
             runtime,
             channel,
+            buffer_pool,
             servers: HashMap::new(),
         }
+    }
+
+    pub fn buffer_pool(&self) -> &Arc<BufferPool> {
+        &self.buffer_pool
     }
 
     pub fn spawn_server(&mut self, settings: ServerSettings) -> Result<(), NetworkError> {
@@ -64,7 +70,7 @@ impl NetworkManager {
         );
 
         let runtime = self.runtime.clone();
-        let retry_delay = Duration::from_millis(settings.retry_delay_ms);
+        let retry_delay = settings.retry_delay;
 
         let kind_str = settings.kind.as_str();
         info!(target: "Manager", "Spawning {kind_str} server on port {port}");
@@ -75,6 +81,7 @@ impl NetworkManager {
             settings,
             shutdown,
             retry_delay,
+            self.buffer_pool.clone(),
         )
         .launch();
 
@@ -139,6 +146,7 @@ mod tests {
         kind::ServerKind,
         tcp::{EncryptionSettings, ProtocolSettings},
     };
+    use std::time::Duration;
 
     fn dummy_settings() -> ServerSettings {
         ServerSettings {
@@ -146,20 +154,21 @@ mod tests {
             address: "127.0.0.1".into(),
             kind: ServerKind::Tcp {
                 protocol: ProtocolSettings::default(),
-                flush_interval_ms: 10,
+                flush_interval: Duration::from_millis(10),
                 encryption: EncryptionSettings::default(),
                 channel_capacity: 16,
                 max_buffer_size: 256,
                 max_connections: 5,
             },
-            retry_delay_ms: 100,
+            retry_delay: Duration::from_millis(100),
         }
     }
 
     fn make_manager() -> (NetworkManager, Arc<Runtime>, Channel) {
         let runtime = Arc::new(Runtime::new().expect("failed to build test runtime"));
         let channel = Channel::default();
-        let manager = NetworkManager::new(runtime.clone(), channel.clone());
+        let buffer_pool = crate::test_buffer_pool();
+        let manager = NetworkManager::new(runtime.clone(), channel.clone(), buffer_pool);
         (manager, runtime, channel)
     }
 

@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use suon_channel::Channel;
+use suon_channel::{Channel, buffer_pool::BufferPool};
 use tokio::{net::TcpListener, runtime::Runtime};
 use tracing::warn;
 
@@ -9,6 +9,7 @@ use crate::server::{runner::BoundServer, settings::ServerSettings, shutdown::Shu
 pub(crate) struct Binder {
     runtime: Arc<Runtime>,
     channel: Channel,
+    buffer_pool: Arc<BufferPool>,
     settings: ServerSettings,
     shutdown: Shutdown,
     retry_delay: Duration,
@@ -21,10 +22,12 @@ impl Binder {
         settings: ServerSettings,
         shutdown: Shutdown,
         retry_delay: Duration,
+        buffer_pool: Arc<BufferPool>,
     ) -> Self {
         Binder {
             runtime,
             channel,
+            buffer_pool,
             settings,
             shutdown,
             retry_delay,
@@ -39,6 +42,7 @@ impl Binder {
         let address = format!("{}:{}", self.settings.address, self.settings.port);
 
         let channel = self.channel.clone();
+        let buffer_pool = self.buffer_pool.clone();
         let settings = self.settings.clone();
         let shutdown = self.shutdown.clone();
         let retry_delay = self.retry_delay;
@@ -48,7 +52,7 @@ impl Binder {
         handle.spawn(async move {
             match TcpListener::bind(&address).await {
                 Ok(listener) => {
-                    BoundServer::new(listener, channel, settings, shutdown)
+                    BoundServer::new(listener, channel, settings, shutdown, buffer_pool)
                         .into_server()
                         .spawn();
                 }
@@ -58,7 +62,7 @@ impl Binder {
 
                     tokio::spawn(async move {
                         tokio::time::sleep(retry_delay).await;
-                        Binder::new(runtime, channel, settings, shutdown, retry_delay).launch();
+                        Binder::new(runtime, channel, settings, shutdown, retry_delay, buffer_pool).launch();
                     });
                 }
             }
@@ -81,13 +85,13 @@ mod tests {
             address: "127.0.0.1".into(),
             kind: ServerKind::Tcp {
                 protocol: ProtocolSettings::default(),
-                flush_interval_ms: 10,
+                flush_interval: Duration::from_millis(10),
                 encryption: EncryptionSettings::default(),
                 channel_capacity: 16,
                 max_buffer_size: 256,
                 max_connections: 5,
             },
-            retry_delay_ms: 100,
+            retry_delay: Duration::from_millis(100),
         }
     }
 
@@ -106,6 +110,7 @@ mod tests {
             settings,
             shutdown,
             Duration::from_millis(100),
+            crate::test_buffer_pool(),
         )
         .launch();
         // No panic means success
@@ -127,6 +132,7 @@ mod tests {
             settings,
             shutdown,
             Duration::from_millis(100),
+            crate::test_buffer_pool(),
         )
         .launch();
         // Should return immediately without spawning
@@ -147,7 +153,7 @@ mod tests {
                 rate_burst: 50,
                 max_headers: 32,
             },
-            retry_delay_ms: 100,
+            retry_delay: Duration::from_millis(100),
         };
 
         Binder::new(
@@ -156,6 +162,7 @@ mod tests {
             settings,
             shutdown,
             Duration::from_millis(100),
+            crate::test_buffer_pool(),
         )
         .launch();
     }
@@ -175,13 +182,13 @@ mod tests {
             address: "127.0.0.1".into(),
             kind: ServerKind::Tcp {
                 protocol: ProtocolSettings::default(),
-                flush_interval_ms: 10,
+                flush_interval: Duration::from_millis(10),
                 encryption: EncryptionSettings::default(),
                 channel_capacity: 16,
                 max_buffer_size: 256,
                 max_connections: 5,
             },
-            retry_delay_ms: 50,
+            retry_delay: Duration::from_millis(50),
         };
 
         // Should not panic — logs bind error and schedules retry
@@ -191,6 +198,7 @@ mod tests {
             settings,
             shutdown,
             Duration::from_millis(50),
+            crate::test_buffer_pool(),
         )
         .launch();
         std::thread::sleep(Duration::from_millis(100));
@@ -212,13 +220,13 @@ mod tests {
             address: "127.0.0.1".into(),
             kind: ServerKind::Tcp {
                 protocol: ProtocolSettings::default(),
-                flush_interval_ms: 10,
+                flush_interval: Duration::from_millis(10),
                 encryption: EncryptionSettings::default(),
                 channel_capacity: 16,
                 max_buffer_size: 256,
                 max_connections: 5,
             },
-            retry_delay_ms: 50,
+            retry_delay: Duration::from_millis(50),
         };
 
         Binder::new(
@@ -227,6 +235,7 @@ mod tests {
             settings,
             shutdown.clone(),
             Duration::from_millis(50),
+            crate::test_buffer_pool(),
         )
         .launch();
         // Let it try to bind and fail

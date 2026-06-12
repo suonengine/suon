@@ -42,6 +42,7 @@ impl HttpSettings {
 mod http_settings_tests {
     use super::*;
     use crate::server::{kind::ServerKind, settings::ServerSettings};
+    use std::time::Duration;
 
     #[test]
     fn http_settings_from_http_server() {
@@ -53,7 +54,7 @@ mod http_settings_tests {
                 rate_burst: 100,
                 max_headers: 64,
             },
-            retry_delay_ms: 15000,
+            retry_delay: Duration::from_millis(15000),
         };
         let http = HttpSettings::from_settings(&settings);
         assert_eq!(http.max_connections, 200);
@@ -71,7 +72,7 @@ mod http_settings_tests {
                 rate_burst: 50,
                 max_headers: 32,
             },
-            retry_delay_ms: 15000,
+            retry_delay: Duration::from_millis(15000),
         };
         let http = HttpSettings::from_settings(&settings);
         assert_eq!(http.max_connections, 100);
@@ -87,13 +88,13 @@ mod http_settings_tests {
             address: "0.0.0.0".into(),
             kind: ServerKind::Tcp {
                 protocol: crate::server::tcp::ProtocolSettings::default(),
-                flush_interval_ms: 10,
+                flush_interval: Duration::from_millis(10),
                 encryption: crate::server::tcp::EncryptionSettings::default(),
                 channel_capacity: 128,
                 max_buffer_size: 4096,
                 max_connections: 100,
             },
-            retry_delay_ms: 15000,
+            retry_delay: Duration::from_millis(15000),
         };
         HttpSettings::from_settings(&settings);
     }
@@ -177,6 +178,7 @@ impl HttpAcceptor {
 mod http_acceptor_tests {
     use super::*;
     use crate::server::{kind::ServerKind, settings::ServerSettings, shutdown::Shutdown};
+    use std::time::Duration;
     use suon_channel::Channel;
 
     fn make_settings() -> ServerSettings {
@@ -188,7 +190,7 @@ mod http_acceptor_tests {
                 rate_burst: 50,
                 max_headers: 32,
             },
-            retry_delay_ms: 100,
+            retry_delay: Duration::from_millis(100),
         }
     }
 

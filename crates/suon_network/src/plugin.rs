@@ -1,8 +1,9 @@
 use std::sync::Arc;
 use suon_app::{App, plugin::Plugin};
+use suon_channel::buffer_pool::BufferPool;
 use tracing::error;
 
-use crate::{manager::NetworkManager, settings::NetworkSettings};
+use crate::{manager::NetworkManager, pool::NetworkBufferPool, settings::NetworkSettings};
 
 pub struct NetworkPlugin;
 
@@ -19,7 +20,12 @@ impl Plugin for NetworkPlugin {
                 .expect("failed to build network tokio runtime"),
         );
 
-        let mut manager = NetworkManager::new(runtime, app.channel());
+        let buffer_pool = Arc::new(BufferPool::new(
+            settings.buffer_pool.buffer_size,
+            settings.buffer_pool.prealloc,
+        ));
+        let mut manager = NetworkManager::new(runtime, app.channel(), buffer_pool.clone());
+        app.add_resource(NetworkBufferPool(buffer_pool));
 
         for server_settings in settings.server {
             let port = server_settings.port;

@@ -1,4 +1,4 @@
-use std::{io::Write, time::Duration};
+use std::io::Write;
 
 use flate2::{Compression, write::DeflateEncoder};
 use suon_xtea::ExpandedKey;
@@ -12,14 +12,6 @@ const COMPRESSION_FLAG: u32 = 0x8000_0000;
 /// Minimum plaintext size (in bytes) before compression is attempted.
 const COMPRESSION_THRESHOLD: usize = 128;
 
-pub fn default_flush_interval_ms() -> u64 {
-    10
-}
-
-pub fn default_max_buffer_size() -> usize {
-    4096
-}
-
 pub struct PacketWriter {
     protocol: ProtocolSettings,
     xtea_key: Option<ExpandedKey>,
@@ -30,13 +22,13 @@ pub struct PacketWriter {
 }
 
 impl PacketWriter {
-    pub fn new(protocol: ProtocolSettings) -> Self {
+    pub fn new(protocol: ProtocolSettings, max_buffer_size: usize) -> Self {
         PacketWriter {
             protocol,
             xtea_key: None,
             xtea_enabled: protocol.uses_xtea,
-            buffer: Vec::with_capacity(default_max_buffer_size()),
-            max_buffer_size: default_max_buffer_size(),
+            buffer: Vec::with_capacity(max_buffer_size),
+            max_buffer_size,
             sequence_id: 0,
         }
     }
@@ -74,10 +66,6 @@ impl PacketWriter {
 
     pub fn is_empty(&self) -> bool {
         self.buffer.is_empty()
-    }
-
-    pub fn flush_interval(&self) -> Duration {
-        Duration::from_millis(default_flush_interval_ms())
     }
 
     pub fn should_flush_by_size(&self) -> bool {
@@ -137,8 +125,10 @@ impl PacketWriter {
                 if let Err(e) = encoder.write_all(plaintext) {
                     error!(target: "Writer", "Deflate compression error during XTEA packet framing: {e}");
                 }
+
                 encoder.finish().ok()
             };
+
             if let Some(ref compressed) = compressed {
                 if compressed.len() < plaintext.len() {
                     let mut padded = protocol::xtea_pad(compressed);
@@ -220,12 +210,15 @@ mod tests {
 
     #[test]
     fn status_checksum_framing() {
-        let mut writer = PacketWriter::new(ProtocolSettings {
-            header_size: 2,
-            has_checksum: true,
-            uses_xtea: false,
-            uses_rsa: false,
-        });
+        let mut writer = PacketWriter::new(
+            ProtocolSettings {
+                header_size: 2,
+                has_checksum: true,
+                uses_xtea: false,
+                uses_rsa: false,
+            },
+            4096,
+        );
         writer.send(b"test");
 
         let framed = writer.take_buffer();
@@ -241,12 +234,15 @@ mod tests {
     fn status_checksum_various_sizes() {
         for len in [1, 2, 3, 7, 15, 100, 1024] {
             let data = vec![0xABu8; len];
-            let mut writer = PacketWriter::new(ProtocolSettings {
-                header_size: 2,
-                has_checksum: true,
-                uses_xtea: false,
-                uses_rsa: false,
-            });
+            let mut writer = PacketWriter::new(
+                ProtocolSettings {
+                    header_size: 2,
+                    has_checksum: true,
+                    uses_xtea: false,
+                    uses_rsa: false,
+                },
+                4096,
+            );
             writer.send(&data);
             let framed = writer.take_buffer();
             assert_eq!(framed.len(), 2 + 4 + len);
@@ -258,12 +254,15 @@ mod tests {
 
     #[test]
     fn login_without_xtea_checksum_framing() {
-        let mut writer = PacketWriter::new(ProtocolSettings {
-            header_size: 6,
-            has_checksum: true,
-            uses_xtea: true,
-            uses_rsa: false,
-        });
+        let mut writer = PacketWriter::new(
+            ProtocolSettings {
+                header_size: 6,
+                has_checksum: true,
+                uses_xtea: true,
+                uses_rsa: false,
+            },
+            4096,
+        );
         writer.set_xtea_enabled(false);
         writer.send(b"login data");
 
@@ -276,12 +275,15 @@ mod tests {
 
     #[test]
     fn game_without_xtea_checksum_framing() {
-        let mut writer = PacketWriter::new(ProtocolSettings {
-            header_size: 6,
-            has_checksum: true,
-            uses_xtea: true,
-            uses_rsa: true,
-        });
+        let mut writer = PacketWriter::new(
+            ProtocolSettings {
+                header_size: 6,
+                has_checksum: true,
+                uses_xtea: true,
+                uses_rsa: true,
+            },
+            4096,
+        );
         writer.set_xtea_enabled(false);
         writer.send(b"raw");
 
@@ -295,12 +297,15 @@ mod tests {
     #[test]
     fn game_xtea_roundtrip() {
         let key = test_key();
-        let mut writer = PacketWriter::new(ProtocolSettings {
-            header_size: 6,
-            has_checksum: true,
-            uses_xtea: true,
-            uses_rsa: true,
-        });
+        let mut writer = PacketWriter::new(
+            ProtocolSettings {
+                header_size: 6,
+                has_checksum: true,
+                uses_xtea: true,
+                uses_rsa: true,
+            },
+            4096,
+        );
         writer.set_xtea_key(key);
         writer.send(b"secret data");
 
@@ -315,12 +320,15 @@ mod tests {
     #[test]
     fn game_xtea_multiple_sends() {
         let key = test_key();
-        let mut writer = PacketWriter::new(ProtocolSettings {
-            header_size: 6,
-            has_checksum: true,
-            uses_xtea: true,
-            uses_rsa: true,
-        });
+        let mut writer = PacketWriter::new(
+            ProtocolSettings {
+                header_size: 6,
+                has_checksum: true,
+                uses_xtea: true,
+                uses_rsa: true,
+            },
+            4096,
+        );
         writer.set_xtea_key(key);
         writer.send(b"packet1");
         writer.send(b"packet2");
@@ -335,12 +343,15 @@ mod tests {
     #[test]
     fn login_xtea_roundtrip() {
         let key = test_key();
-        let mut writer = PacketWriter::new(ProtocolSettings {
-            header_size: 6,
-            has_checksum: true,
-            uses_xtea: true,
-            uses_rsa: false,
-        });
+        let mut writer = PacketWriter::new(
+            ProtocolSettings {
+                header_size: 6,
+                has_checksum: true,
+                uses_xtea: true,
+                uses_rsa: false,
+            },
+            4096,
+        );
         writer.set_xtea_key(key);
         writer.send(b"login secret");
 
@@ -352,12 +363,15 @@ mod tests {
     #[test]
     fn xtea_empty_data() {
         let key = test_key();
-        let mut writer = PacketWriter::new(ProtocolSettings {
-            header_size: 6,
-            has_checksum: true,
-            uses_xtea: true,
-            uses_rsa: true,
-        });
+        let mut writer = PacketWriter::new(
+            ProtocolSettings {
+                header_size: 6,
+                has_checksum: true,
+                uses_xtea: true,
+                uses_rsa: true,
+            },
+            4096,
+        );
         writer.set_xtea_key(key);
         writer.send(b"");
 
@@ -368,12 +382,15 @@ mod tests {
 
     #[test]
     fn xtea_without_key_falls_back_to_checksum() {
-        let mut writer = PacketWriter::new(ProtocolSettings {
-            header_size: 6,
-            has_checksum: true,
-            uses_xtea: true,
-            uses_rsa: true,
-        });
+        let mut writer = PacketWriter::new(
+            ProtocolSettings {
+                header_size: 6,
+                has_checksum: true,
+                uses_xtea: true,
+                uses_rsa: true,
+            },
+            4096,
+        );
         writer.send(b"fallback");
         let framed = writer.take_buffer();
 
@@ -384,12 +401,15 @@ mod tests {
 
     #[test]
     fn login_xtea_without_key_falls_back_to_checksum() {
-        let mut writer = PacketWriter::new(ProtocolSettings {
-            header_size: 6,
-            has_checksum: true,
-            uses_xtea: true,
-            uses_rsa: false,
-        });
+        let mut writer = PacketWriter::new(
+            ProtocolSettings {
+                header_size: 6,
+                has_checksum: true,
+                uses_xtea: true,
+                uses_rsa: false,
+            },
+            4096,
+        );
         writer.send(b"nokey");
         let framed = writer.take_buffer();
 
@@ -400,12 +420,15 @@ mod tests {
 
     #[test]
     fn multiple_sends_accumulate() {
-        let mut writer = PacketWriter::new(ProtocolSettings {
-            header_size: 2,
-            has_checksum: true,
-            uses_xtea: false,
-            uses_rsa: false,
-        });
+        let mut writer = PacketWriter::new(
+            ProtocolSettings {
+                header_size: 2,
+                has_checksum: true,
+                uses_xtea: false,
+                uses_rsa: false,
+            },
+            4096,
+        );
         writer.send(b"aaa");
         writer.send(b"bbb");
 
@@ -424,12 +447,15 @@ mod tests {
 
     #[test]
     fn sends_accumulate_after_take() {
-        let mut writer = PacketWriter::new(ProtocolSettings {
-            header_size: 2,
-            has_checksum: true,
-            uses_xtea: false,
-            uses_rsa: false,
-        });
+        let mut writer = PacketWriter::new(
+            ProtocolSettings {
+                header_size: 2,
+                has_checksum: true,
+                uses_xtea: false,
+                uses_rsa: false,
+            },
+            4096,
+        );
         writer.send(b"first");
         writer.take_buffer();
 
@@ -440,24 +466,30 @@ mod tests {
 
     #[test]
     fn take_buffer_empty_when_nothing_sent() {
-        let mut writer = PacketWriter::new(ProtocolSettings {
-            header_size: 2,
-            has_checksum: true,
-            uses_xtea: false,
-            uses_rsa: false,
-        });
+        let mut writer = PacketWriter::new(
+            ProtocolSettings {
+                header_size: 2,
+                has_checksum: true,
+                uses_xtea: false,
+                uses_rsa: false,
+            },
+            4096,
+        );
         let buf = writer.take_buffer();
         assert!(buf.is_empty());
     }
 
     #[test]
     fn buffer_size_triggers_flush() {
-        let mut writer = PacketWriter::new(ProtocolSettings {
-            header_size: 2,
-            has_checksum: true,
-            uses_xtea: false,
-            uses_rsa: false,
-        });
+        let mut writer = PacketWriter::new(
+            ProtocolSettings {
+                header_size: 2,
+                has_checksum: true,
+                uses_xtea: false,
+                uses_rsa: false,
+            },
+            4096,
+        );
         writer.set_max_buffer_size(12);
 
         writer.send(b"123");
@@ -469,12 +501,15 @@ mod tests {
 
     #[test]
     fn buffer_size_exact_boundary() {
-        let mut writer = PacketWriter::new(ProtocolSettings {
-            header_size: 2,
-            has_checksum: true,
-            uses_xtea: false,
-            uses_rsa: false,
-        });
+        let mut writer = PacketWriter::new(
+            ProtocolSettings {
+                header_size: 2,
+                has_checksum: true,
+                uses_xtea: false,
+                uses_rsa: false,
+            },
+            4096,
+        );
         writer.set_max_buffer_size(9);
         writer.send(b"123");
         assert!(writer.should_flush_by_size());
@@ -482,12 +517,15 @@ mod tests {
 
     #[test]
     fn buffer_under_size_no_flush() {
-        let mut writer = PacketWriter::new(ProtocolSettings {
-            header_size: 2,
-            has_checksum: true,
-            uses_xtea: false,
-            uses_rsa: false,
-        });
+        let mut writer = PacketWriter::new(
+            ProtocolSettings {
+                header_size: 2,
+                has_checksum: true,
+                uses_xtea: false,
+                uses_rsa: false,
+            },
+            4096,
+        );
         writer.set_max_buffer_size(100);
         writer.send(b"small");
         assert!(!writer.should_flush_by_size());
@@ -495,35 +533,44 @@ mod tests {
 
     #[test]
     fn is_empty_after_new() {
-        let writer = PacketWriter::new(ProtocolSettings {
-            header_size: 2,
-            has_checksum: true,
-            uses_xtea: false,
-            uses_rsa: false,
-        });
+        let writer = PacketWriter::new(
+            ProtocolSettings {
+                header_size: 2,
+                has_checksum: true,
+                uses_xtea: false,
+                uses_rsa: false,
+            },
+            4096,
+        );
         assert!(writer.is_empty());
     }
 
     #[test]
     fn is_empty_after_send() {
-        let mut writer = PacketWriter::new(ProtocolSettings {
-            header_size: 2,
-            has_checksum: true,
-            uses_xtea: false,
-            uses_rsa: false,
-        });
+        let mut writer = PacketWriter::new(
+            ProtocolSettings {
+                header_size: 2,
+                has_checksum: true,
+                uses_xtea: false,
+                uses_rsa: false,
+            },
+            4096,
+        );
         writer.send(b"data");
         assert!(!writer.is_empty());
     }
 
     #[test]
     fn take_buffer_empties() {
-        let mut writer = PacketWriter::new(ProtocolSettings {
-            header_size: 2,
-            has_checksum: true,
-            uses_xtea: false,
-            uses_rsa: false,
-        });
+        let mut writer = PacketWriter::new(
+            ProtocolSettings {
+                header_size: 2,
+                has_checksum: true,
+                uses_xtea: false,
+                uses_rsa: false,
+            },
+            4096,
+        );
         writer.send(b"data");
         writer.take_buffer();
         assert!(writer.is_empty());
@@ -532,12 +579,15 @@ mod tests {
 
     #[test]
     fn buffer_len_tracks_accumulation() {
-        let mut writer = PacketWriter::new(ProtocolSettings {
-            header_size: 2,
-            has_checksum: true,
-            uses_xtea: false,
-            uses_rsa: false,
-        });
+        let mut writer = PacketWriter::new(
+            ProtocolSettings {
+                header_size: 2,
+                has_checksum: true,
+                uses_xtea: false,
+                uses_rsa: false,
+            },
+            4096,
+        );
         assert_eq!(writer.buffer_len(), 0);
 
         writer.send(b"hi");
@@ -548,36 +598,18 @@ mod tests {
     }
 
     #[test]
-    fn flush_interval_default() {
-        assert_eq!(default_flush_interval_ms(), 10);
-    }
-
-    #[test]
-    fn max_buffer_size_default() {
-        assert_eq!(default_max_buffer_size(), 4096);
-    }
-
-    #[test]
-    fn flush_interval_duration() {
-        let writer = PacketWriter::new(ProtocolSettings {
-            header_size: 2,
-            has_checksum: true,
-            uses_xtea: false,
-            uses_rsa: false,
-        });
-        assert_eq!(writer.flush_interval(), Duration::from_millis(10));
-    }
-
-    #[test]
     fn xtea_compression_roundtrip() {
         let key = test_key();
         let data = vec![0xABu8; 256];
-        let mut writer = PacketWriter::new(ProtocolSettings {
-            header_size: 6,
-            has_checksum: true,
-            uses_xtea: true,
-            uses_rsa: true,
-        });
+        let mut writer = PacketWriter::new(
+            ProtocolSettings {
+                header_size: 6,
+                has_checksum: true,
+                uses_xtea: true,
+                uses_rsa: true,
+            },
+            4096,
+        );
         writer.set_xtea_key(key);
         writer.send(&data);
 
@@ -589,12 +621,15 @@ mod tests {
     #[test]
     fn xtea_sequence_increments() {
         let key = test_key();
-        let mut writer = PacketWriter::new(ProtocolSettings {
-            header_size: 6,
-            has_checksum: true,
-            uses_xtea: true,
-            uses_rsa: true,
-        });
+        let mut writer = PacketWriter::new(
+            ProtocolSettings {
+                header_size: 6,
+                has_checksum: true,
+                uses_xtea: true,
+                uses_rsa: true,
+            },
+            4096,
+        );
         writer.set_xtea_key(key);
 
         writer.send(b"first");

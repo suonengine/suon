@@ -1,30 +1,8 @@
+use std::time::Duration;
+
 use serde::{Deserialize, Serialize};
 
 use crate::server::tcp::{EncryptionSettings, ProtocolSettings};
-
-fn default_flush_interval() -> u64 {
-    10
-}
-
-fn default_channel_capacity() -> usize {
-    1024
-}
-
-fn default_max_buffer_size() -> usize {
-    4096
-}
-
-fn default_max_connections() -> u32 {
-    100
-}
-
-fn default_rate_burst() -> u32 {
-    50
-}
-
-fn default_max_headers() -> usize {
-    32
-}
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[serde(tag = "type", rename_all = "lowercase")]
@@ -32,23 +10,17 @@ pub enum ServerKind {
     Tcp {
         #[serde(default)]
         protocol: ProtocolSettings,
-        #[serde(default = "default_flush_interval")]
-        flush_interval_ms: u64,
+        #[serde(rename = "flush_interval_ms", with = "suon_serde::duration_ms")]
+        flush_interval: Duration,
         #[serde(default)]
         encryption: EncryptionSettings,
-        #[serde(default = "default_channel_capacity")]
         channel_capacity: usize,
-        #[serde(default = "default_max_buffer_size")]
         max_buffer_size: usize,
-        #[serde(default = "default_max_connections")]
         max_connections: u32,
     },
     Http {
-        #[serde(default = "default_max_connections")]
         max_connections: u32,
-        #[serde(default = "default_rate_burst")]
         rate_burst: u32,
-        #[serde(default = "default_max_headers")]
         max_headers: usize,
     },
 }
@@ -57,11 +29,11 @@ impl Default for ServerKind {
     fn default() -> Self {
         ServerKind::Tcp {
             protocol: ProtocolSettings::default(),
-            flush_interval_ms: default_flush_interval(),
+            flush_interval: Duration::from_millis(10),
             encryption: EncryptionSettings::default(),
-            channel_capacity: default_channel_capacity(),
-            max_buffer_size: default_max_buffer_size(),
-            max_connections: default_max_connections(),
+            channel_capacity: 1024,
+            max_buffer_size: 4096,
+            max_connections: 100,
         }
     }
 }
@@ -103,14 +75,14 @@ mod tests {
             channel_capacity,
             max_buffer_size,
             max_connections,
-            flush_interval_ms,
+            flush_interval,
             ..
         } = kind
         {
             assert_eq!(channel_capacity, 1024);
             assert_eq!(max_buffer_size, 4096);
             assert_eq!(max_connections, 100);
-            assert_eq!(flush_interval_ms, 10);
+            assert_eq!(flush_interval, Duration::from_millis(10));
         } else {
             panic!("expected Tcp variant");
         }

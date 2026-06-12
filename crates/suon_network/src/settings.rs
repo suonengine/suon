@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, time::Duration};
 use tracing::{error, info};
 
 use crate::{
@@ -9,15 +9,33 @@ use crate::{
 const FILE: &str = "NetworkSettings.toml";
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct BufferPoolSettings {
+    pub buffer_size: usize,
+    pub prealloc: usize,
+}
+
+impl Default for BufferPoolSettings {
+    fn default() -> Self {
+        Self {
+            buffer_size: 4096,
+            prealloc: 64,
+        }
+    }
+}
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct NetworkSettings {
     pub worker_threads: usize,
     pub server: Vec<ServerSettings>,
+    #[serde(default)]
+    pub buffer_pool: BufferPoolSettings,
 }
 
 impl Default for NetworkSettings {
     fn default() -> Self {
         NetworkSettings {
             worker_threads: 2,
+            buffer_pool: BufferPoolSettings::default(),
             server: vec![
                 ServerSettings {
                     port: 7171,
@@ -29,13 +47,13 @@ impl Default for NetworkSettings {
                             uses_xtea: true,
                             uses_rsa: true,
                         },
-                        flush_interval_ms: 10,
+                        flush_interval: Duration::from_millis(10),
                         encryption: Default::default(),
                         channel_capacity: 1024,
                         max_buffer_size: 4096,
                         max_connections: 100,
                     },
-                    retry_delay_ms: 15000,
+                    retry_delay: Duration::from_millis(15000),
                 },
                 ServerSettings {
                     port: 7172,
@@ -47,13 +65,13 @@ impl Default for NetworkSettings {
                             uses_xtea: true,
                             uses_rsa: false,
                         },
-                        flush_interval_ms: 10,
+                        flush_interval: Duration::from_millis(10),
                         encryption: Default::default(),
                         channel_capacity: 1024,
                         max_buffer_size: 4096,
                         max_connections: 100,
                     },
-                    retry_delay_ms: 15000,
+                    retry_delay: Duration::from_millis(15000),
                 },
                 ServerSettings {
                     port: 8080,
@@ -63,7 +81,7 @@ impl Default for NetworkSettings {
                         rate_burst: 50,
                         max_headers: 32,
                     },
-                    retry_delay_ms: 15000,
+                    retry_delay: Duration::from_millis(15000),
                 },
             ],
         }
