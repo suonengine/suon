@@ -10,7 +10,7 @@ pub(crate) struct ConnectionEnd {
 }
 
 impl TaskHandler for ConnectionEnd {
-    fn run(self: Box<Self>, _: &mut Resources) {}
+    fn run(&mut self, _: &mut Resources) {}
 }
 
 #[cfg(test)]
@@ -20,7 +20,7 @@ mod tests {
     #[test]
     fn connection_end_task_run_does_not_panic() {
         let mut resources = suon_resource::Resources::default();
-        let task = Box::new(ConnectionEnd {
+        let mut task = Box::new(ConnectionEnd {
             id: ConnectionId::new(0, 1),
         });
         task.run(&mut resources);
