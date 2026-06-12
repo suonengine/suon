@@ -815,6 +815,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "crossbeam-channel",
+ "parking_lot",
  "suon_macros",
  "suon_resource",
  "tracing",
@@ -826,6 +827,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "mlua",
+ "parking_lot",
  "suon_app",
  "suon_channel",
  "suon_macros",
@@ -859,6 +861,7 @@ dependencies = [
  "suon_macros",
  "suon_resource",
  "suon_rsa",
+ "suon_serde",
  "suon_xtea",
  "thiserror",
  "tokio",
@@ -880,6 +883,13 @@ dependencies = [
  "criterion",
  "num-bigint-dig",
  "tracing",
+]
+
+[[package]]
+name = "suon_serde"
+version = "0.1.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

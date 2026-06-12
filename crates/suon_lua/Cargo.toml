@@ -18,7 +18,7 @@ bench = false
 
 [dependencies]
 mlua = { workspace = true, features = ["lua55", "vendored"] }
-tracing.workspace = true
+tracing = { workspace = true, features = ["std", "attributes"] }
 suon_resource.workspace = true
 suon_macros.workspace = true
 suon_channel.workspace = true
@@ -26,6 +26,7 @@ suon_app.workspace = true
 
 [dev-dependencies]
 criterion = { workspace = true, features = ["rayon", "cargo_bench_support"] }
+parking_lot.workspace = true
 
 [[bench]]
 name = "lua"

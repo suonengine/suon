@@ -17,7 +17,7 @@ description = "Application framework for the Suon MMORPG server"
 bench = false
 
 [dependencies]
-tracing.workspace = true
+tracing = { workspace = true, features = ["std", "attributes"] }
 tracing-subscriber = { workspace = true, features = [
 	"env-filter",
 	"fmt",

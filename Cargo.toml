@@ -58,21 +58,22 @@ documentation = "https://docs.rs/suon"
 [workspace.dependencies]
 # Shared third-party dependencies
 criterion = { version = "0.8.2", default-features = false }
-crossbeam-channel = "0.5.15"
-httparse = "1.10.1"
+crossbeam-channel = { version = "0.5.15", default-features = false }
+httparse = { version = "1.10.1", default-features = false }
 mlua = { version = "0.11.6", default-features = false }
 num-bigint-dig = { version = "0.9.1", default-features = false }
-proc-macro2 = "1.0.106"
-quote = "1.0.45"
+proc-macro2 = { version = "1.0.106", default-features = false }
+quote = { version = "1.0.45", default-features = false }
 tokio = { version = "1.52.3", default-features = false }
-toml = "1.1.2"
+toml = { version = "1.1.2", default-features = false }
 serde = { version = "1.0.228", default-features = false }
 serde_json = { version = "1.0.150", default-features = false }
 syn = { version = "2.0.117", default-features = false }
-dashmap = "6.2.1"
+dashmap = { version = "6.2.1", default-features = false }
 flate2 = { version = "1.1.9", default-features = false }
-thiserror = "2.0.18"
-tracing = "0.1.44"
+thiserror = { version = "2.0.18", default-features = false }
+tracing = { version = "0.1.44", default-features = false }
+parking_lot = { version = "0.12", default-features = false }
 tracing-subscriber = { version = "0.3.23", default-features = false, features = [
 	"env-filter",
 	"fmt",
@@ -87,6 +88,7 @@ suon_channel = { version = "0.1.0", path = "crates/suon_channel" }
 suon_lua = { version = "0.1.0", path = "crates/suon_lua" }
 suon_macros = { version = "0.1.0", path = "crates/suon_macros" }
 suon_resource = { version = "0.1.0", path = "crates/suon_resource" }
+suon_serde = { version = "0.1.0", path = "crates/suon_serde" }
 suon_adler32 = { version = "0.1.0", path = "crates/suon_adler32" }
 suon_network = { version = "0.1.0", path = "crates/suon_network" }
 suon_rsa = { version = "0.1.0", path = "crates/suon_rsa" }

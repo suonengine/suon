@@ -1,13 +1,17 @@
+# Package
 [package]
+# Derive macros for the Suon MMORPG server (Task, Resource)
 name = "suon_macros"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "Derive macro for suon_resource"
 
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+
+# Short crates.io summary describing what the package is
+description = "Derive macros for the Suon MMORPG server"
 
 [lib]
 proc-macro = true
@@ -21,5 +25,5 @@ syn = { workspace = true, features = [
 	"proc-macro",
 	"clone-impls",
 ] }
-quote.workspace = true
-proc-macro2.workspace = true
+quote = { workspace = true, features = ["proc-macro"] }
+proc-macro2 = { workspace = true, features = ["proc-macro"] }
