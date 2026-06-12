@@ -81,7 +81,7 @@ fn connection_handle_backpressure() {
 
 #[test]
 fn packet_writer_status_framing() {
-    let mut writer = PacketWriter::new(status_settings());
+    let mut writer = PacketWriter::new(status_settings(), 4096);
     writer.send(b"hello");
 
     let buf = writer.take_buffer();
@@ -113,7 +113,7 @@ fn packet_reader_status_passthrough() {
 #[test]
 fn packet_reader_writer_xtea_roundtrip() {
     let key = [0x0123_4567, 0x89AB_CDEF, 0xFEDC_BA98, 0x7654_3210];
-    let mut writer = PacketWriter::new(game_settings());
+    let mut writer = PacketWriter::new(game_settings(), 4096);
     writer.set_xtea_key(key);
     writer.set_xtea_enabled(true);
     writer.send(b"secret data");
@@ -134,7 +134,7 @@ fn packet_reader_writer_xtea_roundtrip() {
 
 #[test]
 fn packet_writer_includes_checksum() {
-    let mut writer = PacketWriter::new(status_settings());
+    let mut writer = PacketWriter::new(status_settings(), 4096);
     writer.send(b"hello");
     let framed = writer.take_buffer();
 
@@ -149,7 +149,7 @@ fn packet_writer_includes_checksum() {
 
 #[test]
 fn packet_writer_buffer_accumulation() {
-    let mut writer = PacketWriter::new(status_settings());
+    let mut writer = PacketWriter::new(status_settings(), 4096);
     writer.send(b"a");
     let len1 = writer.buffer_len();
     writer.send(b"b");
@@ -159,7 +159,7 @@ fn packet_writer_buffer_accumulation() {
 
 #[test]
 fn packet_writer_flush_by_size() {
-    let mut writer = PacketWriter::new(status_settings());
+    let mut writer = PacketWriter::new(status_settings(), 4096);
     writer.set_max_buffer_size(32);
     writer.send(b"hello");
     assert!(!writer.should_flush_by_size());
@@ -223,7 +223,7 @@ async fn tcp_status_echo_roundtrip() {
     let mut client = tokio::net::TcpStream::connect(addr)
         .await
         .expect("failed to connect client in echo test");
-    let mut writer = PacketWriter::new(proto);
+    let mut writer = PacketWriter::new(proto, 4096);
     let payload = b"ping";
     writer.send(payload);
     let framed = writer.take_buffer();
@@ -275,7 +275,7 @@ async fn tcp_multiple_connections() {
                 .expect("failed to read from stream in multi test");
             buf.truncate(n);
             let payload = format!("response-{i}");
-            let mut w = PacketWriter::new(proto);
+            let mut w = PacketWriter::new(proto, 4096);
             w.send(payload.as_bytes());
             let framed = w.take_buffer();
             stream
@@ -295,7 +295,7 @@ async fn tcp_multiple_connections() {
         let mut client = tokio::net::TcpStream::connect(addr)
             .await
             .expect("failed to connect client in multi test");
-        let mut w = PacketWriter::new(proto);
+        let mut w = PacketWriter::new(proto, 4096);
         let payload = format!("hello-{i}");
         w.send(payload.as_bytes());
         client
@@ -362,7 +362,7 @@ async fn tcp_large_payload_roundtrip() {
     let mut client = tokio::net::TcpStream::connect(addr)
         .await
         .expect("failed to connect client in large payload test");
-    let mut writer = PacketWriter::new(proto);
+    let mut writer = PacketWriter::new(proto, 4096);
     let payload = vec![0xABu8; 1500];
     writer.send(&payload);
     client

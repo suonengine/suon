@@ -21,12 +21,15 @@ fn bench_roundtrip(criterion: &mut Criterion) {
         group.throughput(Throughput::Bytes(size as u64));
         group.bench_function(format_size(size), |bencher| {
             bencher.iter(|| {
-                let mut writer = PacketWriter::new(ProtocolSettings {
-                    header_size: 6,
-                    has_checksum: true,
-                    uses_xtea: true,
-                    uses_rsa: true,
-                });
+                let mut writer = PacketWriter::new(
+                    ProtocolSettings {
+                        header_size: 6,
+                        has_checksum: true,
+                        uses_xtea: true,
+                        uses_rsa: true,
+                    },
+                    4096,
+                );
                 writer.set_xtea_key(XTEA_KEY);
                 writer.send(&plaintext);
 

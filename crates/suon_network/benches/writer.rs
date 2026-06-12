@@ -13,12 +13,15 @@ fn checksum(criterion: &mut Criterion) {
     for &size in PACKET_SIZES {
         group.throughput(Throughput::Bytes(size as u64));
         group.bench_function(format_size(size), |bencher| {
-            let mut writer = PacketWriter::new(ProtocolSettings {
-                header_size: 2,
-                has_checksum: true,
-                uses_xtea: false,
-                uses_rsa: false,
-            });
+            let mut writer = PacketWriter::new(
+                ProtocolSettings {
+                    header_size: 2,
+                    has_checksum: true,
+                    uses_xtea: false,
+                    uses_rsa: false,
+                },
+                4096,
+            );
 
             let data = vec![0xABu8; size];
             bencher.iter(|| {
@@ -37,12 +40,15 @@ fn xtea(criterion: &mut Criterion) {
     for &size in PACKET_SIZES {
         group.throughput(Throughput::Bytes(size as u64));
         group.bench_function(format_size(size), |bencher| {
-            let mut writer = PacketWriter::new(ProtocolSettings {
-                header_size: 6,
-                has_checksum: true,
-                uses_xtea: true,
-                uses_rsa: true,
-            });
+            let mut writer = PacketWriter::new(
+                ProtocolSettings {
+                    header_size: 6,
+                    has_checksum: true,
+                    uses_xtea: true,
+                    uses_rsa: true,
+                },
+                4096,
+            );
             writer.set_xtea_key([0x0123_4567, 0x89AB_CDEF, 0xFEDC_BA98, 0x7654_3210]);
 
             let data = vec![0xABu8; size];
@@ -62,12 +68,15 @@ fn plain(criterion: &mut Criterion) {
     for &size in PACKET_SIZES {
         group.throughput(Throughput::Bytes(size as u64));
         group.bench_function(format_size(size), |bencher| {
-            let mut writer = PacketWriter::new(ProtocolSettings {
-                header_size: 2,
-                has_checksum: true,
-                uses_xtea: false,
-                uses_rsa: false,
-            });
+            let mut writer = PacketWriter::new(
+                ProtocolSettings {
+                    header_size: 2,
+                    has_checksum: true,
+                    uses_xtea: false,
+                    uses_rsa: false,
+                },
+                4096,
+            );
             writer.set_xtea_enabled(false);
 
             let data = vec![0xABu8; size];
@@ -86,12 +95,15 @@ fn login_fallback(criterion: &mut Criterion) {
     for &size in PACKET_SIZES {
         group.throughput(Throughput::Bytes(size as u64));
         group.bench_function(format_size(size), |bencher| {
-            let mut writer = PacketWriter::new(ProtocolSettings {
-                header_size: 6,
-                has_checksum: true,
-                uses_xtea: true,
-                uses_rsa: false,
-            });
+            let mut writer = PacketWriter::new(
+                ProtocolSettings {
+                    header_size: 6,
+                    has_checksum: true,
+                    uses_xtea: true,
+                    uses_rsa: false,
+                },
+                4096,
+            );
 
             let data = vec![0xABu8; size];
             bencher.iter(|| {
