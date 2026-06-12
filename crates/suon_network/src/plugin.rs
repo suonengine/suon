@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use suon_app::{App, plugin::Plugin};
+use tracing::error;
 
 use crate::{manager::NetworkManager, settings::NetworkSettings};
 
@@ -21,8 +22,10 @@ impl Plugin for NetworkPlugin {
         let mut manager = NetworkManager::new(runtime, app.channel());
 
         for server_settings in settings.server {
+            let port = server_settings.port;
+            let kind = server_settings.kind.as_str();
             if let Err(e) = manager.spawn_server(server_settings.clone()) {
-                eprintln!(">> Failed to spawn server: {e}");
+                error!(target: "App", "Failed to spawn {kind} server on port {port}: {e}");
             }
         }
 

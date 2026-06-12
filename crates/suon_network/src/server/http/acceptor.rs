@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use suon_channel::Channel;
 use tokio::net::TcpListener;
+use tracing::info;
 
 use super::session::HttpSession;
 use crate::server::{
@@ -118,7 +119,7 @@ impl HttpAcceptor {
         let limiter = ConnectionLimiter::new(config.max_connections);
         let rate_limiter = PacketRateLimiter::new(config.rate_burst);
 
-        println!(">> HTTP server started on port {}", settings.port);
+        info!(target: "HTTP", "HTTP server started on port {}", settings.port);
 
         HttpAcceptor {
             listener: Arc::new(listener),

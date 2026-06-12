@@ -1,6 +1,7 @@
 use mlua::Function;
 use suon_channel::TaskHandler;
 use suon_resource::Resources;
+use tracing::error;
 
 use crate::LuaVm;
 
@@ -26,14 +27,11 @@ impl TaskHandler for LuaCallback {
             if let Ok(func) = lua.named_registry_value::<Function>(&key)
                 && let Err(error) = func.call::<()>(())
             {
-                eprintln!("[Lua] callback {id} error: {error}", id = self.id);
+                error!(target: "Lua", "Callback {id} error: {error}", id = self.id);
             }
 
             if let Err(error) = lua.unset_named_registry_value(&key) {
-                eprintln!(
-                    "[Lua] failed to unregister callback {id}: {error}",
-                    id = self.id
-                );
+                error!(target: "Lua", "Failed to unregister callback {id}: {error}", id = self.id);
             }
         });
     }

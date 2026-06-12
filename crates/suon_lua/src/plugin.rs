@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use tracing::{error, info, warn};
+
 use suon_app::{App, plugin::Plugin};
 
 use crate::{LuaConfig, LuaVm};
@@ -33,7 +35,7 @@ impl Plugin for LuaPlugin {
     fn build(&self, app: &mut App) {
         let vm = LuaVm::new();
 
-        println!(">> Using Lua 5.5");
+        info!(target: "Lua", "Initialized Lua interpreter via mlua");
 
         let config = app
             .try_get_resource::<LuaConfig>()
@@ -59,13 +61,24 @@ impl Plugin for LuaPlugin {
 
         if !dir.try_exists().expect("failed to access {dir_str}") {
             std::fs::create_dir_all(&dir).expect("failed to create {dir_str}");
-            println!(">> Created {dir_str} directory");
+            info!(target: "Lua", "Created {dir_str} directory");
         }
 
         {
             let mut entries: Vec<_> = match std::fs::read_dir(&dir) {
-                Ok(reader) => reader.filter_map(|e| e.ok()).collect(),
-                Err(_) => return,
+                Ok(reader) => reader
+                    .filter_map(|e| match e {
+                        Ok(entry) => Some(entry),
+                        Err(err) => {
+                            warn!(target: "Lua", "Skipping unreadable directory entry in {dir_str}: {err}");
+                            None
+                        }
+                    })
+                    .collect(),
+                Err(err) => {
+                    error!(target: "Lua", "Could not read modules directory {dir_str}: {err}");
+                    return;
+                }
             };
 
             entries.sort_by_key(|e| e.file_name());
@@ -87,8 +100,10 @@ impl Plugin for LuaPlugin {
                     });
 
                     match result {
-                        Ok(_) => println!(">> Loaded {dir_str}/{name}.lua"),
-                        Err(e) => eprintln!("[Lua] {dir_str}/{name}.lua: {e}"),
+                        Ok(_) => info!(target: "Lua", "Loaded {dir_str}/{name}.lua"),
+                        Err(e) => {
+                            error!(target: "Lua", "Failed to load module {dir_str}/{name}.lua: {e}")
+                        }
                     }
                 }
             }
@@ -116,8 +131,10 @@ impl Plugin for LuaPlugin {
                 });
 
                 match result {
-                    Ok(_) => println!(">> Loaded {dir_str}/{name}/init.lua"),
-                    Err(e) => eprintln!("[Lua] {dir_str}/{name}/init.lua: {e}"),
+                    Ok(_) => info!(target: "Lua", "Loaded {dir_str}/{name}/init.lua"),
+                    Err(e) => {
+                        error!(target: "Lua", "Failed to load module {dir_str}/{name}/init.lua: {e}")
+                    }
                 }
             }
         }

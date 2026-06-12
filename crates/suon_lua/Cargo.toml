@@ -18,6 +18,7 @@ bench = false
 
 [dependencies]
 mlua = { workspace = true, features = ["lua55", "vendored"] }
+tracing.workspace = true
 suon_resource.workspace = true
 suon_macros.workspace = true
 suon_channel.workspace = true

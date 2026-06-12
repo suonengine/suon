@@ -29,6 +29,7 @@
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use suon_macros::Resource;
 use suon_resource::Resources;
+use tracing::warn;
 
 /// Unit of asynchronous work.
 ///
@@ -109,7 +110,9 @@ impl Channel {
     /// dropped).  In normal application usage the receiver outlives
     /// every sender, so this should never happen.
     pub fn send(&self, task: impl IntoTask) {
-        assert!(self.sender.send(Box::new(task.into_task())).is_ok());
+        self.sender
+            .send(Box::new(task.into_task()))
+            .expect("Channel::send: all receiver handles dropped, cannot send more tasks");
     }
 
     /// Drain all pending tasks into `buffer` without blocking.
@@ -121,7 +124,10 @@ impl Channel {
             match self.receiver.try_recv() {
                 Ok(msg) => buffer.push(msg),
                 Err(TryRecvError::Empty) => break,
-                Err(TryRecvError::Disconnected) => break,
+                Err(TryRecvError::Disconnected) => {
+                    warn!(target: "Channel", "Channel receiver disconnected while tasks may still be pending");
+                    break;
+                }
             }
         }
     }

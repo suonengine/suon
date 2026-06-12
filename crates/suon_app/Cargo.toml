@@ -17,6 +17,8 @@ description = "Application framework for the Suon MMORPG server"
 bench = false
 
 [dependencies]
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "local-time", "time"] }
 suon_resource = { version = "0.1.0", path = "../suon_resource" }
 suon_macros = { version = "0.1.0", path = "../suon_macros" }
 suon_channel = { version = "0.1.0", path = "../suon_channel" }

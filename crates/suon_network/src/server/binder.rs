@@ -2,6 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use suon_channel::Channel;
 use tokio::{net::TcpListener, runtime::Runtime};
+use tracing::warn;
 
 use crate::server::{runner::BoundServer, settings::ServerSettings, shutdown::Shutdown};
 
@@ -53,11 +54,7 @@ impl Binder {
                 }
                 Err(e) => {
                     let kind_str = settings.kind.as_str();
-                    println!(
-                        "{kind_str} port {port} bind failed, scheduling retry in {retry_delay:?}: \
-                         {e}",
-                        port = settings.port,
-                    );
+                    warn!(target: "Binder", "{kind_str} port {port} bind failed, scheduling retry in {retry_delay:?}: {e}", port = settings.port);
 
                     tokio::spawn(async move {
                         tokio::time::sleep(retry_delay).await;

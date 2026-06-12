@@ -1,4 +1,5 @@
 use tokio::sync::watch;
+use tracing::error;
 
 #[derive(Clone)]
 pub(crate) struct Shutdown {
@@ -14,7 +15,7 @@ impl Shutdown {
 
     pub fn trigger(&self) {
         if let Err(e) = self.sender.send(true) {
-            eprintln!("[Shutdown] send error: {e}");
+            error!(target: "Shutdown", "Failed to send shutdown signal via watch channel: {e}");
         }
     }
 

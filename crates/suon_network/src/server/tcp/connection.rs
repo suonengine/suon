@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use tracing::trace;
 
 use suon_channel::Channel;
 use tokio::net::TcpStream;
@@ -26,6 +27,9 @@ impl Connection {
         handle_id: ConnectionId,
         permit: ConnectionPermit,
     ) {
+        if let Ok(addr) = stream.peer_addr() {
+            trace!(target: "Connection", "Spawning TCP connection {handle_id} from {addr}");
+        }
         let (reader_half, writer_half) = stream.into_split();
 
         ReaderSession::new(

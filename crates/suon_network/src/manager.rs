@@ -1,8 +1,11 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
+use tracing::info;
+
 use suon_channel::Channel;
 use suon_macros::Resource;
 use tokio::runtime::Runtime;
+use tracing::error;
 
 use crate::{
     error::NetworkError,
@@ -63,6 +66,9 @@ impl NetworkManager {
         let runtime = self.runtime.clone();
         let retry_delay = Duration::from_millis(settings.retry_delay_ms);
 
+        let kind_str = settings.kind.as_str();
+        info!(target: "Manager", "Spawning {kind_str} server on port {port}");
+
         Binder::new(
             runtime,
             self.channel.clone(),
@@ -78,16 +84,20 @@ impl NetworkManager {
     pub fn stop(&mut self, port: u16) -> Result<(), NetworkError> {
         match self.servers.remove(&port) {
             Some(managed_server) => {
+                info!(target: "Manager", "Stopping server on port {port}");
                 managed_server.shutdown.trigger();
                 Ok(())
             }
-            None => Err(NetworkError::NotRunning(port)),
+            None => {
+                error!(target: "Manager", "Stop failed: port {port} is not running");
+                Err(NetworkError::NotRunning(port))
+            }
         }
     }
 
     pub fn restart(&mut self, settings: &ServerSettings) -> Result<(), NetworkError> {
         if let Err(e) = self.stop(settings.port) {
-            eprintln!("[Manager] stop error: {e}");
+            error!(target: "Manager", "Stop error: {e}");
         }
         self.spawn_server(settings.clone())
     }

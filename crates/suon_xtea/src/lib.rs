@@ -29,6 +29,8 @@
 
 use std::fmt;
 
+use tracing::trace;
+
 /// Golden ratio constant used to derive per-round key material.
 /// Each round adds DELTA to a running sum, which selects different key words
 /// and provides round-specific key material.
@@ -135,9 +137,18 @@ pub fn encrypt(data: &mut [u8], expanded: &ExpandedKey) -> Result<(), XteaError>
 
     // Reject data that is not aligned to the 8-byte block boundary.
     if !data_len.is_multiple_of(BLOCK_SIZE) {
+        trace!(target: "Xtea",
+            "XTEA encrypt: invalid data length {} (not multiple of 8)",
+            data_len
+        );
         return Err(XteaError::InvalidDataLength(data_len));
     }
 
+    trace!(target: "Xtea",
+        "XTEA encrypt start: {} bytes ({} blocks)",
+        data_len,
+        data_len / BLOCK_SIZE
+    );
     // Iterate over the 32 round pairs (64 entries, step 2).
     let mut key_index = 0;
     while key_index < ROUNDS * 2 {
@@ -180,9 +191,18 @@ pub fn decrypt(data: &mut [u8], expanded: &ExpandedKey) -> Result<(), XteaError>
 
     // Reject data that is not aligned to the 8-byte block boundary.
     if !data_len.is_multiple_of(BLOCK_SIZE) {
+        trace!(target: "Xtea",
+            "XTEA decrypt: invalid data length {} (not multiple of 8)",
+            data_len
+        );
         return Err(XteaError::InvalidDataLength(data_len));
     }
 
+    trace!(target: "Xtea",
+        "XTEA decrypt start: {} bytes ({} blocks)",
+        data_len,
+        data_len / BLOCK_SIZE
+    );
     // Empty data trivially decrypts to empty data.
     if data_len == 0 {
         return Ok(());
@@ -221,6 +241,7 @@ pub fn decrypt(data: &mut [u8], expanded: &ExpandedKey) -> Result<(), XteaError>
         key_index -= 2;
     }
 
+    trace!(target: "Xtea", "XTEA decrypt done");
     Ok(())
 }
 

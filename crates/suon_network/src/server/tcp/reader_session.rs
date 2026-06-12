@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use tracing::{error, trace};
 
 use suon_channel::Channel;
 use tokio::io::AsyncReadExt;
@@ -53,6 +54,7 @@ impl ReaderSession {
         let mut size_buf = [0u8; 2];
         let mut body_buf = Vec::new();
         let mut rx = self.shutdown.receiver();
+        trace!(target: "TCP", "Reader session {} started", self.id);
 
         loop {
             let size = tokio::select! {
@@ -84,6 +86,7 @@ impl ReaderSession {
                 }
             }
 
+            trace!(target: "TCP", "Reader session {} processing {} bytes", self.id, size);
             match reader.process(&body_buf[..size]) {
                 Ok(Some(plaintext)) => {
                     self.reader_channel.send(RawPacket {
@@ -92,7 +95,10 @@ impl ReaderSession {
                     });
                 }
                 Ok(None) => {}
-                Err(_) => break,
+                Err(e) => {
+                    error!(target: "TCP", "Reader session {} processing error: {e}", self.id);
+                    break;
+                }
             }
         }
 

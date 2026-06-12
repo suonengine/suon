@@ -36,6 +36,7 @@ flate2 = { workspace = true, features = ["rust_backend"] }
 dashmap.workspace = true
 thiserror.workspace = true
 # Shared internal dependencies
+tracing.workspace = true
 suon_resource.workspace = true
 suon_macros.workspace = true
 suon_channel.workspace = true

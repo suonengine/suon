@@ -1,4 +1,5 @@
 use std::path::Path;
+use tracing::{error, info};
 
 use crate::{
     server::{kind::ServerKind, settings::ServerSettings, tcp::ProtocolSettings},
@@ -107,6 +108,7 @@ impl NetworkSettings {
 
     pub fn load() -> Self {
         let path = Path::new(FILE);
+        info!(target: "Settings", "Loading network settings from {FILE}");
 
         match Self::read(path) {
             Ok(settings) => settings,
@@ -120,10 +122,12 @@ impl NetworkSettings {
                 if not_found {
                     let settings = NetworkSettings::default();
                     settings.write(path).unwrap_or_else(|write_err| {
+                        error!(target: "Settings", "Failed to write default settings: {write_err}");
                         panic!("Failed to write default settings: {write_err}")
                     });
                     settings
                 } else {
+                    error!(target: "Settings", "Failed to load settings from {FILE}: {err}");
                     panic!("Failed to load settings from {FILE}: {err}");
                 }
             }

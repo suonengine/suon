@@ -63,6 +63,7 @@
 use std::fmt;
 
 use num_bigint_dig::BigUint;
+use tracing::{info, trace};
 
 /// Key size in bytes for a 1024-bit RSA key.  Useful for pre-allocating
 /// buffers when the key size is known at compile time.
@@ -192,6 +193,12 @@ pub fn load_pem(pem_data: &str) -> Result<Rsa, RsaError> {
     let coefficient = BigUint::from_bytes_be(read_der_integer(&der_bytes, &mut offset)?);
 
     let key_size = modulus.bits().div_ceil(8);
+
+    info!(target: "Rsa",
+        "RSA key loaded: {} bits, key_size={} bytes",
+        key_size * 8,
+        key_size
+    );
 
     Ok(Rsa {
         key_size,
@@ -347,9 +354,15 @@ fn read_der_integer<'a>(data: &'a [u8], offset: &mut usize) -> Result<&'a [u8], 
 /// key size in bytes.
 pub fn decrypt(key: &Rsa, data: &mut [u8]) -> Result<(), RsaError> {
     if data.len() != key.key_size {
+        trace!(target: "Rsa",
+            "RSA decrypt: data length {} != key size {}",
+            data.len(),
+            key.key_size
+        );
         return Err(RsaError::InvalidKey);
     }
 
+    trace!(target: "Rsa", "RSA decrypt start: {} bytes", data.len());
     let ciphertext = BigUint::from_bytes_be(data);
 
     // CRT: m1 = c^dP mod p, m2 = c^dQ mod q.
@@ -380,6 +393,7 @@ pub fn decrypt(key: &Rsa, data: &mut [u8]) -> Result<(), RsaError> {
     let plaintext = result_prime_q + &prod;
 
     write_bigint_be(&plaintext, data);
+    trace!(target: "Rsa", "RSA decrypt done");
     Ok(())
 }
 
@@ -395,15 +409,22 @@ pub fn decrypt(key: &Rsa, data: &mut [u8]) -> Result<(), RsaError> {
 /// key size in bytes.
 pub fn encrypt(key: &Rsa, data: &mut [u8]) -> Result<(), RsaError> {
     if data.len() != key.key_size {
+        trace!(target: "Rsa",
+            "RSA encrypt: data length {} != key size {}",
+            data.len(),
+            key.key_size
+        );
         return Err(RsaError::InvalidKey);
     }
 
+    trace!(target: "Rsa", "RSA encrypt start: {} bytes", data.len());
     let plaintext = BigUint::from_bytes_be(data);
 
     // Raw RSA encryption: c = m^e mod n.
     let ciphertext = plaintext.modpow(&key.public_exponent, &key.modulus);
 
     write_bigint_be(&ciphertext, data);
+    trace!(target: "Rsa", "RSA encrypt done");
     Ok(())
 }
 

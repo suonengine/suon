@@ -1,6 +1,7 @@
 use mlua::{Error, Function, IntoLuaMulti, Lua, ObjectLike, Table, Value};
 use std::sync::atomic::{AtomicU64, Ordering};
 use suon_macros::Resource;
+use tracing::{debug, error, info, warn};
 
 /// Resource that owns the Lua scripting virtual machine.
 ///
@@ -34,6 +35,7 @@ unsafe impl Sync for LuaVm {}
 impl LuaVm {
     /// Creates a new Lua VM with the standard library loaded.
     pub fn new() -> Self {
+        info!(target: "Lua", "Creating Lua VM");
         LuaVm {
             lua: Lua::new(),
             next_id: AtomicU64::new(1),
@@ -57,12 +59,12 @@ impl LuaVm {
             Ok(events) => match events.call_method::<Value>("trigger", (name, args)) {
                 Ok(result) => result.as_boolean().unwrap_or(true),
                 Err(error) => {
-                    eprintln!("[Lua] dispatch error for {name}: {error}");
+                    error!(target: "Lua", "Dispatch error for {name}: {error}");
                     false
                 }
             },
             Err(error) => {
-                eprintln!("[Lua] Events global not found: {error}");
+                warn!(target: "Lua", "Events global not found: {error}");
                 false
             }
         }
@@ -73,19 +75,24 @@ impl LuaVm {
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
         let key = format!("_lua_fn_{id}");
         self.lua.set_named_registry_value(&key, func)?;
+        debug!(target: "Lua", "Stored callback function as id={id}");
         Ok(id)
     }
 
     /// Retrieves a previously stored Lua function by its handle.
     pub fn restore(&self, id: u64) -> Result<Function, Error> {
         let key = format!("_lua_fn_{id}");
-        self.lua.named_registry_value(&key)
+        let func = self.lua.named_registry_value(&key)?;
+        debug!(target: "Lua", "Restored callback function id={id}");
+        Ok(func)
     }
 
     /// Removes a previously stored Lua function from the registry.
     pub fn remove(&self, id: u64) -> Result<(), Error> {
         let key = format!("_lua_fn_{id}");
-        self.lua.unset_named_registry_value(&key)
+        self.lua.unset_named_registry_value(&key)?;
+        debug!(target: "Lua", "Removed callback function id={id}");
+        Ok(())
     }
 }
 

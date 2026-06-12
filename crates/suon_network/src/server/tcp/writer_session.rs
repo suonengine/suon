@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use tokio::io::{AsyncWriteExt, BufWriter};
+use tracing::{error, trace};
 
 use crate::{
     protocol::{command::Command, writer::PacketWriter},
@@ -46,6 +47,7 @@ impl WriterSession {
         flush_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
         let mut rx = self.shutdown.receiver();
+        trace!(target: "TCP", "Writer session started");
         loop {
             tokio::select! {
                 biased;
@@ -53,12 +55,12 @@ impl WriterSession {
                     if !packet_writer.is_empty() {
                         let buf = packet_writer.take_buffer();
                         if let Err(e) = buf_writer.write_all(&buf).await {
-                            eprintln!("[TCP] writer flush error: {e}");
+                            error!(target: "TCP", "Failed to flush buffered TCP data to socket: {e}");
                             break;
                         }
                     }
                     if let Err(e) = buf_writer.flush().await {
-                        eprintln!("[TCP] writer flush error: {e}");
+                        error!(target: "TCP", "Failed to flush buffered TCP data to socket: {e}");
                         break;
                     }
                 }
@@ -66,9 +68,9 @@ impl WriterSession {
                     if *rx.borrow() {
                         if !packet_writer.is_empty() {
                             let buf = packet_writer.take_buffer();
-                            if let Err(e) = buf_writer.write_all(&buf).await { eprintln!("[TCP] shutdown write error: {e}"); }
+                            if let Err(e) = buf_writer.write_all(&buf).await { error!(target: "TCP", "Failed to flush remaining data during TCP connection shutdown: {e}"); }
                         }
-                        if let Err(e) = buf_writer.flush().await { eprintln!("[TCP] shutdown flush error: {e}"); }
+                        if let Err(e) = buf_writer.flush().await { error!(target: "TCP", "Failed to flush TCP socket during connection shutdown: {e}"); }
                         break;
                     }
                 }
@@ -81,7 +83,7 @@ impl WriterSession {
                         if packet_writer.should_flush_by_size() {
                             let buf = packet_writer.take_buffer();
                             if let Err(e) = buf_writer.write_all(&buf).await {
-                                eprintln!("[TCP] writer error: {e}");
+                                error!(target: "TCP", "Failed to write framed packet to TCP socket: {e}");
                                 return;
                             }
                         }
@@ -91,7 +93,7 @@ impl WriterSession {
                         if packet_writer.should_flush_by_size() {
                             let buf = packet_writer.take_buffer();
                             if let Err(e) = buf_writer.write_all(&buf).await {
-                                eprintln!("[TCP] writer error: {e}");
+                                error!(target: "TCP", "Failed to write raw data to TCP socket: {e}");
                                 return;
                             }
                         }
@@ -109,14 +111,14 @@ impl WriterSession {
                         if !packet_writer.is_empty() {
                             let buf = packet_writer.take_buffer();
                             if let Err(e) = buf_writer.write_all(&buf).await {
-                                eprintln!("[TCP] final write error: {e}");
+                                error!(target: "TCP", "Failed to write remaining data during TCP socket close: {e}");
                             }
                         }
                         if let Err(e) = buf_writer.flush().await {
-                            eprintln!("[TCP] final flush error: {e}");
+                            error!(target: "TCP", "Failed to flush TCP socket during close: {e}");
                         }
                         if let Err(e) = buf_writer.shutdown().await {
-                            eprintln!("[TCP] shutdown error: {e}");
+                            error!(target: "TCP", "Failed to shutdown TCP socket gracefully: {e}");
                         }
                         return;
                     }

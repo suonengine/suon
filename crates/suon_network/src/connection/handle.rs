@@ -1,4 +1,5 @@
 use std::net::SocketAddr;
+use tracing::trace;
 
 use crossbeam_channel::TrySendError;
 
@@ -28,31 +29,57 @@ impl ConnectionHandle {
     }
 
     pub fn send(&self, data: Vec<u8>) -> Result<(), TrySendError<Command>> {
+        trace!(target: "Connection",
+            "Connection {} send {} bytes to {}",
+            self.id,
+            data.len(),
+            self.addr
+        );
         self.sender.try_send(Command::Send(data))
     }
 
     pub fn send_raw(&self, data: Vec<u8>) -> Result<(), TrySendError<Command>> {
+        trace!(target: "Connection",
+            "Connection {} send_raw {} bytes to {}",
+            self.id,
+            data.len(),
+            self.addr
+        );
         self.sender.try_send(Command::SendRaw(data))
     }
 
     pub fn set_xtea_key(&self, key: [u32; 4]) -> Result<(), TrySendError<Command>> {
+        trace!(target: "Connection", "Connection {} set_xtea_key to {}", self.id, self.addr);
         self.sender.try_send(Command::SetXteaKey(key))
     }
 
     pub fn set_encryption_enabled(&self, enabled: bool) -> Result<(), TrySendError<Command>> {
+        trace!(target: "Connection",
+            "Connection {} set_encryption_enabled({enabled}) to {}",
+            self.id, self.addr
+        );
         self.sender.try_send(Command::SetEncryptionEnabled(enabled))
     }
 
     pub fn set_compression_threshold(&self, threshold: usize) -> Result<(), TrySendError<Command>> {
+        trace!(target: "Connection",
+            "Connection {} set_compression_threshold({threshold}) to {}",
+            self.id, self.addr
+        );
         self.sender
             .try_send(Command::SetCompressionThreshold(threshold))
     }
 
     pub fn close_with_reason(&self, reason: String) -> Result<(), TrySendError<Command>> {
+        trace!(target: "Connection",
+            "Connection {} close_with_reason({reason}) to {}",
+            self.id, self.addr
+        );
         self.sender.try_send(Command::CloseWithReason(reason))
     }
 
     pub fn close(&self) -> Result<(), TrySendError<Command>> {
+        trace!(target: "Connection", "Connection {} close to {}", self.id, self.addr);
         self.sender.try_send(Command::Close)
     }
 }

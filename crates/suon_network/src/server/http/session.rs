@@ -3,6 +3,7 @@ use tokio::{
     net::TcpStream,
     sync::oneshot,
 };
+use tracing::{error, warn};
 
 use super::{acceptor::HttpSettings, request::HttpRequest};
 use crate::server::{shutdown::Shutdown, throttle::ConnectionPermit};
@@ -52,14 +53,14 @@ impl HttpSession {
                 Ok(0) => return,
                 Ok(bytes) => bytes,
                 Err(error) => {
-                    eprintln!("[HTTP] read error: {error}");
+                    error!(target: "HTTP", "Request {id} read error while receiving header: {error}", id = self.request_id);
                     return;
                 }
             };
             buffer.extend_from_slice(&chunk[..bytes_read]);
 
             if buffer.len() > MAX_BODY_SIZE {
-                eprintln!("[HTTP] request too large");
+                warn!(target: "HTTP", "Request {id} rejected: body reached {len} bytes, exceeds maximum of {MAX} bytes", id = self.request_id, len = buffer.len(), MAX = MAX_BODY_SIZE);
                 return;
             }
 
@@ -89,7 +90,7 @@ impl HttpSession {
             .unwrap_or(0);
 
         if content_length > MAX_BODY_SIZE {
-            eprintln!("[HTTP] body too large: {content_length}");
+            warn!(target: "HTTP", "Request {id} rejected: Content-Length {content_length} exceeds maximum body size of {MAX} bytes", id = self.request_id, MAX = MAX_BODY_SIZE);
             return;
         }
 
@@ -102,7 +103,7 @@ impl HttpSession {
                 Ok(0) => return,
                 Ok(bytes) => bytes,
                 Err(error) => {
-                    eprintln!("[HTTP] read error: {error}");
+                    error!(target: "HTTP", "Request {id} read error while receiving body: {error}", id = self.request_id);
                     return;
                 }
             };
@@ -135,7 +136,7 @@ impl HttpSession {
                 (method, path, headers, body)
             }
             Err(e) => {
-                eprintln!("[HTTP] parse error: {e}");
+                error!(target: "HTTP", "Request {id} parse error: {e}", id = self.request_id);
                 ("GET".into(), "/".into(), Vec::new(), Vec::new())
             }
         };
@@ -155,8 +156,8 @@ impl HttpSession {
             _ = rx.changed() => {}
             result = response_receiver => {
                 if let Ok(data) = result {
-                    if let Err(e) = self.stream.write_all(&data).await { eprintln!("[HTTP] write error: {e}"); }
-                    if let Err(e) = self.stream.flush().await { eprintln!("[HTTP] flush error: {e}"); }
+                    if let Err(e) = self.stream.write_all(&data).await { error!(target: "HTTP", "Request {id} write error: {e}", id = self.request_id); }
+                    if let Err(e) = self.stream.flush().await { error!(target: "HTTP", "Request {id} flush error: {e}", id = self.request_id); }
                 }
             }
         }

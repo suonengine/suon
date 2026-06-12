@@ -26,6 +26,7 @@
 use suon_channel::Channel;
 use suon_resource::{Resource, Resources};
 use system::{IntoSystem, System};
+use tracing::{debug, info};
 
 use self::plugin::Plugin;
 
@@ -47,6 +48,21 @@ pub struct App {
 impl App {
     /// Creates a new, empty `App` with no systems or resources registered.
     pub fn new() -> Self {
+        tracing_subscriber::fmt()
+            .with_target(false)
+            .with_level(true)
+            .with_thread_ids(false)
+            .with_thread_names(false)
+            .with_file(false)
+            .with_line_number(false)
+            .with_env_filter(
+                tracing_subscriber::EnvFilter::builder()
+                    .with_default_directive(tracing_subscriber::filter::LevelFilter::INFO.into())
+                    .from_env_lossy(),
+            )
+            .try_init()
+            .expect("tracing subscriber global default should be set once only");
+
         Self {
             resources: Resources::default(),
             channel: Channel::default(),
@@ -111,12 +127,15 @@ impl App {
 
     /// Registers a plugin, which may add resources and systems to the app.
     pub fn add_plugin(&mut self, plugin: impl Plugin) -> &mut Self {
+        let name = std::any::type_name_of_val(&plugin);
+        debug!(target: "App", "Adding plugin: {name}");
         plugin.build(self);
         self
     }
 
     /// Registers a system that runs once at startup, before the task loop.
     pub fn add_startup_system(&mut self, system: impl IntoSystem) -> &mut Self {
+        debug!(target: "App", "Registered startup system: {}", std::any::type_name_of_val(&system));
         self.startup_systems.push(Box::new(system.into_system()));
         self
     }
@@ -124,6 +143,7 @@ impl App {
     /// Registers a system that runs once during shutdown, after the task
     /// loop exits.
     pub fn add_shutdown_system(&mut self, system: impl IntoSystem) -> &mut Self {
+        debug!(target: "App", "Registered shutdown system: {}", std::any::type_name_of_val(&system));
         self.shutdown_systems.push(Box::new(system.into_system()));
         self
     }
@@ -138,10 +158,14 @@ impl App {
         self.resources.init::<crate::shutdown::Exit>();
         self.resources.insert(self.channel.clone());
 
+        let startup_count = self.startup_systems.len();
+        info!(target: "App", "Running {startup_count} startup systems");
         for system in std::mem::take(&mut self.startup_systems) {
             system.run(&mut self.resources);
         }
+        info!(target: "App", "Startup systems complete");
 
+        info!(target: "App", "Entering task dispatch loop");
         let mut buffer = Vec::with_capacity(64);
         loop {
             self.channel.drain_into(&mut buffer);
@@ -151,13 +175,18 @@ impl App {
             }
 
             if **self.resources.get::<crate::shutdown::Exit>() {
+                info!(target: "App", "Shutdown signal received, exiting task loop");
                 break;
             }
         }
 
+        let shutdown_count = self.shutdown_systems.len();
+        info!(target: "App", "Running {shutdown_count} shutdown systems");
+
         for system in std::mem::take(&mut self.shutdown_systems) {
             system.run(&mut self.resources);
         }
+        info!(target: "App", "Shutdown complete");
     }
 }
 

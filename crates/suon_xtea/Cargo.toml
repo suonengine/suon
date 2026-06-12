@@ -16,6 +16,9 @@ description = "XTEA cipher implementation for the Suon MMORPG server"
 [lib]
 bench = false
 
+[dependencies]
+tracing.workspace = true
+
 [dev-dependencies]
 # Shared third-party dependencies
 criterion = { workspace = true, features = ["rayon", "cargo_bench_support"] }

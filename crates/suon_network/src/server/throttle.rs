@@ -7,6 +7,7 @@ use std::{
     },
     time::Instant,
 };
+use tracing::{debug, trace};
 
 use tokio::sync::{OwnedSemaphorePermit, Semaphore, TryAcquireError};
 
@@ -79,6 +80,7 @@ impl PacketRateLimiter {
             .retain(|t| now.duration_since(*t).as_secs() < 1);
 
         if state.timestamps.len() >= self.max_burst as usize {
+            debug!(target: "Throttle", "Rate limiting {addr}: burst exceeded");
             return false;
         }
 
@@ -93,6 +95,7 @@ impl PacketRateLimiter {
                 .unwrap_or_else(|e| e.into_inner())
                 .remove(addr),
         );
+        trace!(target: "Throttle", "Rate limiter removed {addr}");
     }
 }
 

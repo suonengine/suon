@@ -2,6 +2,7 @@ use std::{io::Write, time::Duration};
 
 use flate2::{Compression, write::DeflateEncoder};
 use suon_xtea::ExpandedKey;
+use tracing::error;
 
 use crate::server::tcp::protocol::{self, ProtocolSettings, SEQ_FIELD_LEN, SIZE_FIELD_LEN};
 
@@ -134,7 +135,7 @@ impl PacketWriter {
             let compressed = {
                 let mut encoder = DeflateEncoder::new(Vec::new(), Compression::default());
                 if let Err(e) = encoder.write_all(plaintext) {
-                    eprintln!("[Writer] compression write error: {e}");
+                    error!(target: "Writer", "Deflate compression error during XTEA packet framing: {e}");
                 }
                 encoder.finish().ok()
             };

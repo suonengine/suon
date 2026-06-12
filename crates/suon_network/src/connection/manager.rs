@@ -6,6 +6,7 @@ use std::{
     },
     time::Instant,
 };
+use tracing::{trace, warn};
 
 use dashmap::DashMap;
 
@@ -59,6 +60,7 @@ impl ConnectionManager {
         self.connections
             .insert(id.as_u64(), (handle, protocol, Instant::now()));
         self.stats.record_accepted();
+        trace!(target: "Connection", "Registered connection {id} from {peer}");
         id
     }
 
@@ -66,6 +68,7 @@ impl ConnectionManager {
     pub fn unregister(&self, id: ConnectionId) {
         self.connections.remove(&id.as_u64());
         self.stats.record_closed();
+        trace!(target: "Connection", "Unregistered connection {id}");
     }
 
     /// Returns a snapshot of the connection handle, if it is still active.
@@ -95,6 +98,7 @@ impl ConnectionManager {
     pub fn clear(&self) -> usize {
         let count = self.connections.len();
         self.connections.clear();
+        warn!(target: "Connection", "Connection manager cleared {count} connections");
         count
     }
 }

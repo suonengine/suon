@@ -1,3 +1,5 @@
+use tracing::info;
+
 use tokio::net::TcpListener;
 
 use crate::server::{
@@ -28,6 +30,12 @@ impl BoundServer {
     }
 
     pub fn into_server(self) -> ActiveServer {
+        info!(
+            target: "Server",
+            "Starting {} server on port {}",
+            self.settings.kind.as_str(),
+            self.settings.port
+        );
         match self.settings.kind {
             ServerKind::Tcp { .. } => ActiveServer::Tcp(TcpAcceptor::new(
                 self.listener,

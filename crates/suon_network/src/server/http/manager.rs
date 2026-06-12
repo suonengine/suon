@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use serde::Serialize;
+use tracing::error;
 
 use crate::connection::{id::ConnectionId, manager::ConnectionManager, stats::ConnectionStats};
 
@@ -30,7 +31,13 @@ impl HttpManager {
     /// GET /api/connections — list all active connections as JSON.
     pub fn list_connections(&self) -> HttpResponse {
         let connections = self.manager.active_connections();
-        let body = serde_json::to_string_pretty(&connections).unwrap_or_default();
+        let body = match serde_json::to_string_pretty(&connections) {
+            Ok(json) => json,
+            Err(e) => {
+                error!(target: "Http", "Failed to serialize connections list: {e}");
+                String::new()
+            }
+        };
         HttpResponse {
             status: 200,
             body,

@@ -18,6 +18,7 @@ bench = false
 
 [dependencies]
 # Shared third-party dependencies
+tracing.workspace = true
 crossbeam-channel.workspace = true
 # Shared internal dependencies
 suon_macros = { version = "0.1.0", path = "../suon_macros" }

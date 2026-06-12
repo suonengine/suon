@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use suon_channel::Channel;
 use tokio::net::TcpListener;
+use tracing::info;
 
 use crate::{connection::manager::ConnectionManager, server::tcp::settings::TcpSettings};
 
@@ -34,10 +35,7 @@ impl TcpAcceptor {
         let limiter = ConnectionLimiter::new(config.max_connections as usize);
         let rate_limiter = PacketRateLimiter::new(50);
 
-        println!(
-            ">> TCP {} server started on port {}",
-            config.protocol, settings.port
-        );
+        info!(target: "TCP", "TCP server started on port {} [protocol: {}]", settings.port, config.protocol);
 
         TcpAcceptor {
             listener: Arc::new(listener),
