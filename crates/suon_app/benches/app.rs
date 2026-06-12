@@ -14,7 +14,7 @@ use suon_resource::Resources;
 struct NoOp;
 
 impl TaskHandler for NoOp {
-    fn run(self: Box<Self>, _: &mut Resources) {}
+    fn run(&mut self, _: &mut Resources) {}
 }
 
 fn bench_empty_shutdown(criterion: &mut Criterion) {

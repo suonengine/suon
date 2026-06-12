@@ -20,7 +20,7 @@ pub struct LuaCallback {
 }
 
 impl TaskHandler for LuaCallback {
-    fn run(self: Box<Self>, resources: &mut Resources) {
+    fn run(&mut self, resources: &mut Resources) {
         let vm = resources.get::<LuaVm>();
         vm.execute(|lua| {
             let key = format!("_lua_fn_{}", self.id);
@@ -68,7 +68,7 @@ mod tests {
             })
         };
 
-        let task = Box::new(LuaCallback { id });
+        let mut task = Box::new(LuaCallback { id });
         task.run(&mut resources);
 
         assert!(
@@ -82,7 +82,7 @@ mod tests {
         let mut resources = Resources::default();
         resources.insert(LuaVm::new());
 
-        let task = Box::new(LuaCallback { id: 999 });
+        let mut task = Box::new(LuaCallback { id: 999 });
         task.run(&mut resources);
     }
 
@@ -102,7 +102,7 @@ mod tests {
             })
         };
 
-        let task = Box::new(LuaCallback { id });
+        let mut task = Box::new(LuaCallback { id });
         task.run(&mut resources);
 
         let vm_ref = resources.get::<LuaVm>();

@@ -170,7 +170,7 @@ impl App {
         loop {
             self.channel.wait_and_drain(&mut buffer);
 
-            for task in buffer.drain(..) {
+            for mut task in buffer.drain(..) {
                 task.run(&mut self.resources);
             }
 
@@ -287,7 +287,7 @@ mod tests {
     struct ChannelCheck;
 
     impl TaskHandler for ChannelCheck {
-        fn run(self: Box<Self>, resources: &mut Resources) {
+        fn run(&mut self, resources: &mut Resources) {
             resources.get::<Channel>();
         }
     }
@@ -362,7 +362,7 @@ mod tests {
         #[derive(Task)]
         struct FirstStep;
         impl TaskHandler for FirstStep {
-            fn run(self: Box<Self>, resources: &mut Resources) {
+            fn run(&mut self, resources: &mut Resources) {
                 **resources.get_mut::<Num>() = 1;
                 let channel = resources.get::<Channel>();
                 channel.send(SecondStep);
@@ -372,7 +372,7 @@ mod tests {
         #[derive(Task)]
         struct SecondStep;
         impl TaskHandler for SecondStep {
-            fn run(self: Box<Self>, resources: &mut Resources) {
+            fn run(&mut self, resources: &mut Resources) {
                 **resources.get_mut::<Num>() = 2;
                 let channel = resources.get::<Channel>();
                 channel.send(Shutdown);

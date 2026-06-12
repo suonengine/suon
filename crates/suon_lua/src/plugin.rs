@@ -145,7 +145,7 @@ impl Plugin for LuaPlugin {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
+    use parking_lot::Mutex;
     use suon_app::{App, shutdown::Shutdown};
     use suon_channel::Channel;
     use suon_resource::Resources;
@@ -155,7 +155,7 @@ mod tests {
     static MODULES_LOCK: Mutex<()> = Mutex::new(());
 
     fn with_modules_dir(callback: impl FnOnce()) {
-        let _guard = MODULES_LOCK.lock().expect("failed to acquire modules lock");
+        let _guard = MODULES_LOCK.lock();
         drop(std::fs::remove_dir_all("modules"));
         callback();
         drop(std::fs::remove_dir_all("modules"));

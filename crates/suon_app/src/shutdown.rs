@@ -14,7 +14,7 @@ use suon_resource::Resources;
 pub struct Shutdown;
 
 impl TaskHandler for Shutdown {
-    fn run(self: Box<Self>, resources: &mut Resources) {
+    fn run(&mut self, resources: &mut Resources) {
         **resources.get_mut::<Exit>() = true;
     }
 }
