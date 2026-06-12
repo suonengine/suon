@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781224598009,
+  "lastUpdate": 1781307468170,
   "repoUrl": "https://github.com/suonengine/suon",
   "entries": {
     "Benchmark": [
@@ -4343,6 +4343,156 @@ window.BENCHMARK_DATA = {
             "name": "adler32/1_mb",
             "value": 3866479,
             "range": "± 46287",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ramonbernardo.contato@gmail.com",
+            "name": "ramon-bernardo",
+            "username": "ramon-bernardo"
+          },
+          "committer": {
+            "email": "ramonbernardo.contato@gmail.com",
+            "name": "ramon-bernardo",
+            "username": "ramon-bernardo"
+          },
+          "distinct": true,
+          "id": "fd68d38fa5c79129d3fc790c9d7e4c0d35fbf718",
+          "message": "feat(suon_network): add ConnectionManager::stats()",
+          "timestamp": "2026-06-12T20:27:17-03:00",
+          "tree_id": "94f6273315386fb37e285c751b591ba897918d52",
+          "url": "https://github.com/suonengine/suon/commit/fd68d38fa5c79129d3fc790c9d7e4c0d35fbf718"
+        },
+        "date": 1781307467567,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "adler32/0_bytes",
+            "value": 0,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/2_bytes",
+            "value": 2,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/4_bytes",
+            "value": 4,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/8_bytes",
+            "value": 10,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/16_bytes",
+            "value": 23,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/32_bytes",
+            "value": 55,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/64_bytes",
+            "value": 123,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/128_bytes",
+            "value": 248,
+            "range": "± 5",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/256_bytes",
+            "value": 521,
+            "range": "± 22",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/512_bytes",
+            "value": 1051,
+            "range": "± 27",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/1_kb",
+            "value": 2109,
+            "range": "± 105",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/2_kb",
+            "value": 4168,
+            "range": "± 90",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/4_kb",
+            "value": 8369,
+            "range": "± 427",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/8_kb",
+            "value": 16898,
+            "range": "± 807",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/16_kb",
+            "value": 33963,
+            "range": "± 1297",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/32_kb",
+            "value": 68307,
+            "range": "± 3534",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/64_kb",
+            "value": 133553,
+            "range": "± 9203",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/128_kb",
+            "value": 264133,
+            "range": "± 14803",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/256_kb",
+            "value": 525190,
+            "range": "± 9562",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/512_kb",
+            "value": 1065951,
+            "range": "± 53387",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "adler32/1_mb",
+            "value": 2129728,
+            "range": "± 35767",
             "unit": "ns/iter"
           }
         ]
