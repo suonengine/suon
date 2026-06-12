@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use tracing::{error, trace};
 
-use suon_channel::Channel;
+use suon_channel::{Channel, buffer_pool::BufferPool};
 use tokio::io::AsyncReadExt;
 
 use crate::{
@@ -17,6 +17,7 @@ pub(crate) struct ReaderSession {
     id: ConnectionId,
     reader_half: tokio::net::tcp::OwnedReadHalf,
     reader_channel: Channel,
+    buffer_pool: Arc<BufferPool>,
     config: TcpSettings,
     shutdown: Shutdown,
     manager: Arc<ConnectionManager>,
@@ -32,11 +33,13 @@ impl ReaderSession {
         shutdown: Shutdown,
         manager: Arc<ConnectionManager>,
         permit: ConnectionPermit,
+        buffer_pool: Arc<BufferPool>,
     ) -> Self {
         ReaderSession {
             id,
             reader_half,
             reader_channel,
+            buffer_pool,
             config,
             shutdown,
             manager,
@@ -51,8 +54,9 @@ impl ReaderSession {
     async fn run(mut self) {
         let mut reader = PacketReader::new(self.config.protocol);
         reader.set_xtea_enabled(self.config.encryption.incoming);
+
         let mut size_buf = [0u8; 2];
-        let mut body_buf = Vec::new();
+        let mut body_buf = self.buffer_pool.acquire();
         let mut rx = self.shutdown.receiver();
         trace!(target: "TCP", "Reader session {} started", self.id);
 
@@ -89,6 +93,7 @@ impl ReaderSession {
             trace!(target: "TCP", "Reader session {} processing {} bytes", self.id, size);
             match reader.process(&body_buf[..size]) {
                 Ok(Some(plaintext)) => {
+                    self.buffer_pool.release(std::mem::take(&mut body_buf));
                     self.reader_channel.send(RawPacket {
                         id: self.id,
                         data: plaintext,
@@ -102,6 +107,7 @@ impl ReaderSession {
             }
         }
 
+        self.buffer_pool.release(body_buf);
         self.reader_channel.send(ConnectionEnd { id: self.id });
         self.manager.unregister(self.id);
         drop(self.permit.take());
@@ -112,7 +118,7 @@ impl ReaderSession {
 mod tests {
     use super::*;
     use crate::server::throttle::ConnectionLimiter;
-    use std::sync::Arc;
+    use std::{sync::Arc, time::Duration};
     use tokio::net::TcpListener;
 
     fn make_config() -> TcpSettings {
@@ -123,7 +129,7 @@ mod tests {
                 uses_xtea: false,
                 uses_rsa: false,
             },
-            flush_interval_ms: 50,
+            flush_interval: Duration::from_millis(50),
             encryption: crate::server::tcp::EncryptionSettings {
                 incoming: false,
                 outgoing: false,
@@ -165,7 +171,17 @@ mod tests {
             let (sender, ..) = crossbeam_channel::bounded(64);
             let id = manager.register(addr, config.protocol, sender);
 
-            ReaderSession::new(id, reader_half, channel, config, shutdown, manager, permit).spawn();
+            ReaderSession::new(
+                id,
+                reader_half,
+                channel,
+                config,
+                shutdown,
+                manager,
+                permit,
+                crate::test_buffer_pool(),
+            )
+            .spawn();
         });
 
         let client = tokio::net::TcpStream::connect(addr)
@@ -198,7 +214,17 @@ mod tests {
             let (sender, ..) = crossbeam_channel::bounded(64);
             let id = manager.register(addr, config.protocol, sender);
 
-            ReaderSession::new(id, reader_half, channel, config, shutdown, manager, permit).spawn();
+            ReaderSession::new(
+                id,
+                reader_half,
+                channel,
+                config,
+                shutdown,
+                manager,
+                permit,
+                crate::test_buffer_pool(),
+            )
+            .spawn();
         });
 
         let client = tokio::net::TcpStream::connect(addr)
@@ -231,7 +257,17 @@ mod tests {
             let (sender, ..) = crossbeam_channel::bounded(64);
             let id = manager.register(addr, config.protocol, sender);
 
-            ReaderSession::new(id, reader_half, channel, config, shutdown, manager, permit).spawn();
+            ReaderSession::new(
+                id,
+                reader_half,
+                channel,
+                config,
+                shutdown,
+                manager,
+                permit,
+                crate::test_buffer_pool(),
+            )
+            .spawn();
         });
 
         let mut client = tokio::net::TcpStream::connect(addr)

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use tracing::trace;
 
-use suon_channel::Channel;
+use suon_channel::{Channel, buffer_pool::BufferPool};
 use tokio::net::TcpStream;
 
 use crate::{
@@ -26,10 +26,12 @@ impl Connection {
         shutdown: Shutdown,
         handle_id: ConnectionId,
         permit: ConnectionPermit,
+        buffer_pool: Arc<BufferPool>,
     ) {
         if let Ok(addr) = stream.peer_addr() {
             trace!(target: "Connection", "Spawning TCP connection {handle_id} from {addr}");
         }
+
         let (reader_half, writer_half) = stream.into_split();
 
         ReaderSession::new(
@@ -40,10 +42,11 @@ impl Connection {
             shutdown.clone(),
             manager,
             permit,
+            buffer_pool.clone(),
         )
         .spawn();
 
-        WriterSession::new(command_receiver, writer_half, config, shutdown).spawn();
+        WriterSession::new(command_receiver, writer_half, config, shutdown, buffer_pool).spawn();
     }
 }
 
@@ -51,7 +54,7 @@ impl Connection {
 mod tests {
     use super::*;
     use crate::server::throttle::ConnectionLimiter;
-    use std::sync::Arc;
+    use std::{sync::Arc, time::Duration};
     use tokio::net::TcpListener;
 
     fn make_config() -> TcpSettings {
@@ -62,7 +65,7 @@ mod tests {
                 uses_xtea: false,
                 uses_rsa: false,
             },
-            flush_interval_ms: 50,
+            flush_interval: Duration::from_millis(50),
             encryption: crate::server::tcp::EncryptionSettings {
                 incoming: false,
                 outgoing: false,
@@ -105,6 +108,7 @@ mod tests {
                 shutdown,
                 ConnectionId::new(0, 1),
                 permit,
+                crate::test_buffer_pool(),
             );
         });
 
@@ -148,6 +152,7 @@ mod tests {
                     shutdown.clone(),
                     ConnectionId::new(0, 1),
                     permit,
+                    crate::test_buffer_pool(),
                 );
             }
         });

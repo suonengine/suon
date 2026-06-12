@@ -19,13 +19,9 @@ pub const RSA_KEY_SIZE: usize = 128;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct ProtocolSettings {
-    #[serde(default = "default_header_size")]
     pub header_size: usize,
-    #[serde(default = "default_true")]
     pub has_checksum: bool,
-    #[serde(default)]
     pub uses_xtea: bool,
-    #[serde(default)]
     pub uses_rsa: bool,
 }
 
@@ -50,14 +46,6 @@ impl fmt::Display for ProtocolSettings {
     }
 }
 
-fn default_header_size() -> usize {
-    6
-}
-
-fn default_true() -> bool {
-    true
-}
-
 pub fn xtea_padding_byte() -> u8 {
     0x33
 }
@@ -76,12 +64,14 @@ pub fn xtea_unpad(data: &[u8]) -> &[u8] {
     if data.is_empty() {
         return data;
     }
+
     let padding = data[0] as usize;
     let end = data.len().saturating_sub(padding);
     let start = 1;
     if start >= end {
         return &[];
     }
+
     &data[start..end]
 }
 
@@ -89,6 +79,7 @@ pub fn read_u16_le(data: &[u8]) -> Option<(u16, &[u8])> {
     if data.len() < 2 {
         return None;
     }
+
     let value = u16::from_le_bytes([data[0], data[1]]);
     Some((value, &data[2..]))
 }
@@ -97,6 +88,7 @@ pub fn read_u32_le(data: &[u8]) -> Option<(u32, &[u8])> {
     if data.len() < 4 {
         return None;
     }
+
     let value = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
     Some((value, &data[4..]))
 }

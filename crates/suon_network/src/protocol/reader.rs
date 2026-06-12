@@ -104,11 +104,13 @@ impl PacketReader {
         if body.len() < SEQ_FIELD_LEN {
             return Err(ProcessError::NotEnoughData);
         }
+
         let stored_checksum = u32::from_le_bytes(
             body[..SEQ_FIELD_LEN]
                 .try_into()
                 .expect("SEQ_FIELD_LEN is 4 bytes, slice is guaranteed"),
         );
+
         let data = &body[SEQ_FIELD_LEN..];
 
         if stored_checksum != 0 {
@@ -169,8 +171,8 @@ impl PacketReader {
                 .try_into()
                 .expect("SEQ_FIELD_LEN is 4 bytes, slice is guaranteed"),
         );
-        let encrypted = &body[SEQ_FIELD_LEN..];
 
+        let encrypted = &body[SEQ_FIELD_LEN..];
         if encrypted.is_empty() || !encrypted.len().is_multiple_of(8) {
             return Err(ProcessError::NotEnoughData);
         }
@@ -186,6 +188,7 @@ impl PacketReader {
         if data_end <= 1 {
             return Err(ProcessError::InvalidSize);
         }
+
         buf.copy_within(1..data_end, 0);
         let unpadded_len = data_end - 1;
         buf.truncate(unpadded_len);

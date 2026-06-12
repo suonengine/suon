@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use suon_channel::Channel;
+use suon_channel::{Channel, buffer_pool::BufferPool};
 use tokio::net::TcpListener;
 use tracing::info;
 
@@ -16,6 +16,7 @@ use crate::server::{
 pub(crate) struct TcpAcceptor {
     listener: Arc<TcpListener>,
     channel: Channel,
+    buffer_pool: Arc<BufferPool>,
     manager: Arc<ConnectionManager>,
     config: TcpSettings,
     limiter: ConnectionLimiter,
@@ -29,6 +30,7 @@ impl TcpAcceptor {
         channel: Channel,
         settings: &ServerSettings,
         shutdown: Shutdown,
+        buffer_pool: Arc<BufferPool>,
     ) -> Self {
         let config = TcpSettings::from_settings(settings);
         let manager = Arc::new(ConnectionManager::new(0));
@@ -40,6 +42,7 @@ impl TcpAcceptor {
         TcpAcceptor {
             listener: Arc::new(listener),
             channel,
+            buffer_pool,
             manager,
             config,
             limiter,
@@ -60,11 +63,14 @@ impl TcpAcceptor {
                     if *rx.borrow() { break; }
                 }
                 result = self.listener.accept() => {
-                    let Ok((stream, address)) = result else { continue };
+                    let Ok((stream, address)) = result else {
+                        continue
+                    };
 
                     if !self.rate_limiter.allow(address) {
                         continue;
                     }
+
                     let Ok(permit) = self.limiter.try_acquire() else {
                         continue;
                     };
@@ -74,8 +80,7 @@ impl TcpAcceptor {
 
                     self.channel.send(ConnectionBegin {
                         id,
-                        ip: address.ip().to_string(),
-                        port: address.port(),
+                        address,
                     });
 
                     Connection::spawn(
@@ -87,6 +92,7 @@ impl TcpAcceptor {
                         self.shutdown.clone(),
                         id,
                         permit,
+                        self.buffer_pool.clone(),
                     );
                 }
             }
@@ -117,7 +123,7 @@ mod tests {
                     uses_xtea: false,
                     uses_rsa: false,
                 },
-                flush_interval_ms: 50,
+                flush_interval: Duration::from_millis(50),
                 encryption: EncryptionSettings {
                     incoming: false,
                     outgoing: false,
@@ -126,7 +132,7 @@ mod tests {
                 max_buffer_size: 256,
                 max_connections: 5,
             },
-            retry_delay_ms: 100,
+            retry_delay: Duration::from_millis(100),
         }
     }
 
@@ -139,7 +145,14 @@ mod tests {
         let shutdown = Shutdown::new();
         let settings = test_tcp_settings();
 
-        TcpAcceptor::new(listener, channel, &settings, shutdown.clone()).spawn();
+        TcpAcceptor::new(
+            listener,
+            channel,
+            &settings,
+            shutdown.clone(),
+            crate::test_buffer_pool(),
+        )
+        .spawn();
         tokio::time::sleep(Duration::from_millis(50)).await;
         shutdown.trigger();
         tokio::time::sleep(Duration::from_millis(50)).await;
@@ -157,7 +170,14 @@ mod tests {
         let shutdown = Shutdown::new();
         let settings = test_tcp_settings();
 
-        TcpAcceptor::new(listener, channel.clone(), &settings, shutdown.clone()).spawn();
+        TcpAcceptor::new(
+            listener,
+            channel.clone(),
+            &settings,
+            shutdown.clone(),
+            crate::test_buffer_pool(),
+        )
+        .spawn();
         tokio::time::sleep(Duration::from_millis(50)).await;
 
         let client = tokio::net::TcpStream::connect(addr)
@@ -173,7 +193,7 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(200)).await;
 
         let mut buf2 = Vec::new();
-        channel.drain_into(&mut buf2);
+        channel.wait_and_drain(&mut buf2);
         assert!(!buf2.is_empty(), "expected ConnectionEnd on disconnect");
 
         shutdown.trigger();
@@ -200,7 +220,7 @@ mod tests {
                     uses_xtea: false,
                     uses_rsa: false,
                 },
-                flush_interval_ms: 50,
+                flush_interval: Duration::from_millis(50),
                 encryption: EncryptionSettings {
                     incoming: false,
                     outgoing: false,
@@ -209,10 +229,17 @@ mod tests {
                 max_buffer_size: 256,
                 max_connections: 1, // only 1 connection
             },
-            retry_delay_ms: 100,
+            retry_delay: Duration::from_millis(100),
         };
 
-        TcpAcceptor::new(listener, channel.clone(), &settings, shutdown.clone()).spawn();
+        TcpAcceptor::new(
+            listener,
+            channel.clone(),
+            &settings,
+            shutdown.clone(),
+            crate::test_buffer_pool(),
+        )
+        .spawn();
         tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
 
         // First connection should succeed
@@ -258,7 +285,7 @@ mod tests {
                     uses_xtea: false,
                     uses_rsa: false,
                 },
-                flush_interval_ms: 50,
+                flush_interval: Duration::from_millis(50),
                 encryption: EncryptionSettings {
                     incoming: false,
                     outgoing: false,
@@ -267,10 +294,17 @@ mod tests {
                 max_buffer_size: 256,
                 max_connections: 0, // reject all
             },
-            retry_delay_ms: 100,
+            retry_delay: Duration::from_millis(100),
         };
 
-        TcpAcceptor::new(listener, channel, &settings, shutdown.clone()).spawn();
+        TcpAcceptor::new(
+            listener,
+            channel,
+            &settings,
+            shutdown.clone(),
+            crate::test_buffer_pool(),
+        )
+        .spawn();
         tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
 
         let client = tokio::net::TcpStream::connect(addr)

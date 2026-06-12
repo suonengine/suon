@@ -1,14 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-fn default_true() -> bool {
-    true
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct EncryptionSettings {
-    #[serde(default = "default_true")]
     pub incoming: bool,
-    #[serde(default = "default_true")]
     pub outgoing: bool,
 }
 

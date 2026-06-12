@@ -1,5 +1,6 @@
-use std::time::Duration;
+use std::sync::Arc;
 
+use suon_channel::buffer_pool::BufferPool;
 use tokio::io::{AsyncWriteExt, BufWriter};
 use tracing::{error, trace};
 
@@ -13,6 +14,7 @@ use crate::server::shutdown::Shutdown;
 pub(crate) struct WriterSession {
     command_receiver: crossbeam_channel::Receiver<Command>,
     writer_half: tokio::net::tcp::OwnedWriteHalf,
+    buffer_pool: Arc<BufferPool>,
     config: TcpSettings,
     shutdown: Shutdown,
 }
@@ -23,10 +25,12 @@ impl WriterSession {
         writer_half: tokio::net::tcp::OwnedWriteHalf,
         config: TcpSettings,
         shutdown: Shutdown,
+        buffer_pool: Arc<BufferPool>,
     ) -> Self {
         WriterSession {
             command_receiver,
             writer_half,
+            buffer_pool,
             config,
             shutdown,
         }
@@ -37,12 +41,12 @@ impl WriterSession {
     }
 
     async fn run(self) {
-        let mut packet_writer = PacketWriter::new(self.config.protocol);
+        let mut packet_writer =
+            PacketWriter::new(self.config.protocol, self.config.max_buffer_size);
         packet_writer.set_xtea_enabled(self.config.encryption.outgoing);
-        packet_writer.set_max_buffer_size(self.config.max_buffer_size);
 
         let mut buf_writer = BufWriter::new(self.writer_half);
-        let flush_interval = Duration::from_millis(self.config.flush_interval_ms);
+        let flush_interval = self.config.flush_interval;
         let mut flush_timer = tokio::time::interval(flush_interval);
         flush_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
@@ -58,6 +62,8 @@ impl WriterSession {
                             error!(target: "TCP", "Failed to flush buffered TCP data to socket: {e}");
                             break;
                         }
+
+                        self.buffer_pool.release(buf);
                     }
                     if let Err(e) = buf_writer.flush().await {
                         error!(target: "TCP", "Failed to flush buffered TCP data to socket: {e}");
@@ -68,9 +74,15 @@ impl WriterSession {
                     if *rx.borrow() {
                         if !packet_writer.is_empty() {
                             let buf = packet_writer.take_buffer();
-                            if let Err(e) = buf_writer.write_all(&buf).await { error!(target: "TCP", "Failed to flush remaining data during TCP connection shutdown: {e}"); }
+                            if let Err(e) = buf_writer.write_all(&buf).await {
+                                error!(target: "TCP", "Failed to flush remaining data during TCP connection shutdown: {e}");
+                            }
+                            self.buffer_pool.release(buf);
                         }
-                        if let Err(e) = buf_writer.flush().await { error!(target: "TCP", "Failed to flush TCP socket during connection shutdown: {e}"); }
+
+                        if let Err(e) = buf_writer.flush().await {
+                            error!(target: "TCP", "Failed to flush TCP socket during connection shutdown: {e}");
+                        }
                         break;
                     }
                 }
@@ -86,6 +98,8 @@ impl WriterSession {
                                 error!(target: "TCP", "Failed to write framed packet to TCP socket: {e}");
                                 return;
                             }
+
+                            self.buffer_pool.release(buf);
                         }
                     }
                     Command::SendRaw(data) => {
@@ -96,6 +110,8 @@ impl WriterSession {
                                 error!(target: "TCP", "Failed to write raw data to TCP socket: {e}");
                                 return;
                             }
+
+                            self.buffer_pool.release(buf);
                         }
                     }
                     Command::SetXteaKey(key) => {
@@ -113,10 +129,13 @@ impl WriterSession {
                             if let Err(e) = buf_writer.write_all(&buf).await {
                                 error!(target: "TCP", "Failed to write remaining data during TCP socket close: {e}");
                             }
+                            self.buffer_pool.release(buf);
                         }
+
                         if let Err(e) = buf_writer.flush().await {
                             error!(target: "TCP", "Failed to flush TCP socket during close: {e}");
                         }
+
                         if let Err(e) = buf_writer.shutdown().await {
                             error!(target: "TCP", "Failed to shutdown TCP socket gracefully: {e}");
                         }
@@ -132,6 +151,7 @@ impl WriterSession {
 mod tests {
     use super::*;
     use crate::server::tcp::{EncryptionSettings, ProtocolSettings};
+    use std::time::Duration;
     use tokio::{io::AsyncWriteExt, net::TcpListener};
 
     fn make_config() -> TcpSettings {
@@ -142,7 +162,7 @@ mod tests {
                 uses_xtea: false,
                 uses_rsa: false,
             },
-            flush_interval_ms: 50,
+            flush_interval: Duration::from_millis(50),
             encryption: EncryptionSettings {
                 incoming: false,
                 outgoing: false,
@@ -171,7 +191,8 @@ mod tests {
                 .expect("failed to accept incoming connection");
             let (.., writer_half) = stream.into_split();
             let (_, rx) = crossbeam_channel::bounded(16);
-            WriterSession::new(rx, writer_half, config, shutdown).spawn();
+            WriterSession::new(rx, writer_half, config, shutdown, crate::test_buffer_pool())
+                .spawn();
         });
 
         let mut client = tokio::net::TcpStream::connect(addr)
@@ -205,7 +226,8 @@ mod tests {
                 .expect("failed to accept incoming connection");
             let (.., writer_half) = stream.into_split();
             let (_, rx) = crossbeam_channel::bounded(16);
-            WriterSession::new(rx, writer_half, config, shutdown).spawn();
+            WriterSession::new(rx, writer_half, config, shutdown, crate::test_buffer_pool())
+                .spawn();
         });
 
         let client = tokio::net::TcpStream::connect(addr)
@@ -234,7 +256,8 @@ mod tests {
                 .expect("failed to accept incoming connection");
             let (.., writer_half) = stream.into_split();
             let (tx, rx) = crossbeam_channel::bounded(16);
-            WriterSession::new(rx, writer_half, config, shutdown).spawn();
+            WriterSession::new(rx, writer_half, config, shutdown, crate::test_buffer_pool())
+                .spawn();
             // Wait for client to connect, then send Close
             tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
             tx.send(Command::Close).ok();
@@ -285,7 +308,8 @@ mod tests {
                 .expect("failed to accept incoming connection");
             let (.., writer_half) = stream.into_split();
             let (tx, rx) = crossbeam_channel::bounded(16);
-            WriterSession::new(rx, writer_half, config, shutdown).spawn();
+            WriterSession::new(rx, writer_half, config, shutdown, crate::test_buffer_pool())
+                .spawn();
             // Send data through the command channel
             tx.send(Command::Send(b"hello".to_vec())).ok();
             tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;

@@ -57,6 +57,7 @@ impl HttpSession {
                     return;
                 }
             };
+
             buffer.extend_from_slice(&chunk[..bytes_read]);
 
             if buffer.len() > MAX_BODY_SIZE {
@@ -74,8 +75,8 @@ impl HttpSession {
             .position(|window| window == b"\r\n\r\n")
             .map(|pos| pos + 4)
             .unwrap_or(0);
-        let header_bytes = &buffer[..header_end];
 
+        let header_bytes = &buffer[..header_end];
         let content_length = std::str::from_utf8(header_bytes)
             .ok()
             .and_then(|headers| {
@@ -107,6 +108,7 @@ impl HttpSession {
                     return;
                 }
             };
+
             buffer.extend_from_slice(&chunk[..bytes_read]);
         }
 
