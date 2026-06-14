@@ -45,8 +45,9 @@ fn bench_roundtrip(criterion: &mut Criterion) {
                 reader.set_rsa_done(true);
 
                 let body = &framed[2..];
-                let result = reader.process(black_box(body)).ok().flatten();
-                black_box(result);
+                let mut proc_buf = body.to_vec();
+                let outcome = reader.process_in_place(&mut proc_buf);
+                black_box(outcome);
             });
         });
     }

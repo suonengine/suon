@@ -4,7 +4,7 @@ use flate2::{Compression, write::DeflateEncoder};
 use suon_xtea::ExpandedKey;
 use tracing::error;
 
-use crate::server::tcp::protocol::{self, ProtocolSettings, SEQ_FIELD_LEN, SIZE_FIELD_LEN};
+use crate::server::tcp::protocol::{self, ProtocolSettings, SEQUENCE_FIELD_LEN, SIZE_FIELD_LEN};
 
 /// Bit flag indicating the packet payload is zlib-compressed.
 const COMPRESSION_FLAG: u32 = 0x8000_0000;
@@ -105,8 +105,8 @@ impl PacketWriter {
 
     fn frame_checksum_packet(&self, plaintext: &[u8]) -> Vec<u8> {
         let checksum = suon_adler32::generate(plaintext);
-        let size = (SEQ_FIELD_LEN + plaintext.len()) as u16;
-        let mut out = Vec::with_capacity(SIZE_FIELD_LEN + SEQ_FIELD_LEN + plaintext.len());
+        let size = (SEQUENCE_FIELD_LEN + plaintext.len()) as u16;
+        let mut out = Vec::with_capacity(SIZE_FIELD_LEN + SEQUENCE_FIELD_LEN + plaintext.len());
         out.extend_from_slice(&size.to_le_bytes());
         out.extend_from_slice(&checksum.to_le_bytes());
         out.extend_from_slice(plaintext);
@@ -150,7 +150,7 @@ impl PacketWriter {
             (padded, seq_field)
         };
 
-        let total_body = SEQ_FIELD_LEN + payload.0.len();
+        let total_body = SEQUENCE_FIELD_LEN + payload.0.len();
         let mut out = Vec::with_capacity(SIZE_FIELD_LEN + total_body);
         out.extend_from_slice(&(total_body as u16).to_le_bytes());
         out.extend_from_slice(&payload.1.to_le_bytes());

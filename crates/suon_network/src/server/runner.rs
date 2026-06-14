@@ -4,15 +4,19 @@ use tracing::info;
 use suon_channel::buffer_pool::BufferPool;
 use tokio::net::TcpListener;
 
-use crate::server::{
-    http::acceptor::HttpAcceptor, kind::ServerKind, settings::ServerSettings, shutdown::Shutdown,
-    tcp::acceptor::TcpAcceptor,
+use crate::{
+    connection::manager::ConnectionManager,
+    server::{
+        http::acceptor::HttpAcceptor, kind::ServerKind, settings::ServerSettings,
+        shutdown::Shutdown, tcp::acceptor::TcpAcceptor,
+    },
 };
 
 pub(crate) struct BoundServer {
     listener: TcpListener,
     channel: suon_channel::Channel,
     buffer_pool: Arc<BufferPool>,
+    connection_manager: Arc<ConnectionManager>,
     settings: ServerSettings,
     shutdown: Shutdown,
 }
@@ -24,11 +28,13 @@ impl BoundServer {
         settings: ServerSettings,
         shutdown: Shutdown,
         buffer_pool: Arc<BufferPool>,
+        connection_manager: Arc<ConnectionManager>,
     ) -> Self {
         BoundServer {
             listener,
             channel,
             buffer_pool,
+            connection_manager,
             settings,
             shutdown,
         }
@@ -49,6 +55,7 @@ impl BoundServer {
                 &self.settings,
                 self.shutdown,
                 self.buffer_pool,
+                self.connection_manager,
             )),
             ServerKind::Http { .. } => ActiveServer::Http(HttpAcceptor::new(
                 self.listener,
@@ -103,6 +110,7 @@ mod bound_server_tests {
                 channel_capacity: 16,
                 max_buffer_size: 256,
                 max_connections: 5,
+                rate_burst: 50,
             },
             retry_delay: Duration::from_millis(100),
         }
@@ -121,6 +129,10 @@ mod bound_server_tests {
         }
     }
 
+    fn test_manager() -> Arc<ConnectionManager> {
+        Arc::new(ConnectionManager::new(0))
+    }
+
     #[tokio::test]
     async fn bound_server_into_tcp_server_and_spawn() {
         let listener = TcpListener::bind("127.0.0.1:0")
@@ -136,6 +148,7 @@ mod bound_server_tests {
             settings,
             shutdown.clone(),
             crate::test_buffer_pool(),
+            test_manager(),
         )
         .into_server()
         .spawn();
@@ -159,6 +172,7 @@ mod bound_server_tests {
             settings,
             shutdown.clone(),
             crate::test_buffer_pool(),
+            test_manager(),
         )
         .into_server()
         .spawn();
@@ -187,6 +201,7 @@ mod bound_server_tests {
                     settings,
                     shutdown.clone(),
                     crate::test_buffer_pool(),
+                    test_manager(),
                 )
                 .into_server();
                 server.spawn();
@@ -203,11 +218,14 @@ mod bound_server_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::server::{
-        kind::ServerKind,
-        tcp::{EncryptionSettings, ProtocolSettings},
+    use crate::{
+        connection::manager::ConnectionManager,
+        server::{
+            kind::ServerKind,
+            tcp::{EncryptionSettings, ProtocolSettings},
+        },
     };
-    use std::time::Duration;
+    use std::{sync::Arc, time::Duration};
 
     fn test_settings(kind: ServerKind) -> ServerSettings {
         ServerSettings {
@@ -216,6 +234,10 @@ mod tests {
             kind,
             retry_delay: Duration::from_millis(100),
         }
+    }
+
+    fn test_manager() -> Arc<ConnectionManager> {
+        Arc::new(ConnectionManager::new(0))
     }
 
     #[tokio::test]
@@ -241,6 +263,7 @@ mod tests {
             channel_capacity: 16,
             max_buffer_size: 256,
             max_connections: 5,
+            rate_burst: 50,
         });
 
         BoundServer::new(
@@ -249,6 +272,7 @@ mod tests {
             settings,
             shutdown.clone(),
             crate::test_buffer_pool(),
+            test_manager(),
         )
         .into_server()
         .spawn();
@@ -277,6 +301,7 @@ mod tests {
             settings,
             shutdown.clone(),
             crate::test_buffer_pool(),
+            test_manager(),
         )
         .into_server()
         .spawn();

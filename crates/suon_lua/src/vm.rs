@@ -1,27 +1,36 @@
+use std::{
+    cell::UnsafeCell,
+    sync::atomic::{AtomicU64, Ordering},
+    thread::{self, ThreadId},
+};
+
 use mlua::{Error, Function, IntoLuaMulti, Lua, ObjectLike, Table, Value};
-use std::sync::atomic::{AtomicU64, Ordering};
 use suon_macros::Resource;
 use tracing::{debug, error, info, warn};
 
+use crate::error::DispatchError;
+
 /// Resource that owns the Lua scripting virtual machine.
-///
-/// Inserted into [`Resources`](suon_resource::Resources) by
-/// [`LuaPlugin`](crate::LuaPlugin).  Access it from systems or task
-/// handlers via `resources.get::<LuaVm>()`.
 ///
 /// # Thread safety
 ///
-/// `Lua` is not `Send` or `Sync`.  All systems and tasks in Suon
-/// run on the single thread that called [`App::run`], so the VM is
-/// never accessed concurrently.  The `Send + Sync + Resource` impl is
-/// safe under this guarantee.
-///
-/// [`App::run`]: suon_app::App::run
+/// `LuaVm` wraps `mlua::Lua` which is `!Send + !Sync` because the Lua C API
+/// uses thread-local state internally.  Access to the underlying `Lua` value
+/// is restricted to the thread that created the VM (the "owner" thread) via
+/// a runtime `debug_assert!`.  This is sound because the application's event
+/// loop processes all tasks sequentially on a single thread.
 #[derive(Resource)]
 pub struct LuaVm {
-    lua: Lua,
+    lua: UnsafeCell<Lua>,
+    owner: ThreadId,
     next_id: AtomicU64,
 }
+
+// SAFETY: All access to `self.lua` is gated by a runtime thread-ownership
+// check (debug builds).  The application architecture guarantees that only
+// the single event-loop thread touches the Lua state.
+unsafe impl Send for LuaVm {}
+unsafe impl Sync for LuaVm {}
 
 impl Default for LuaVm {
     fn default() -> Self {
@@ -29,68 +38,101 @@ impl Default for LuaVm {
     }
 }
 
-unsafe impl Send for LuaVm {}
-unsafe impl Sync for LuaVm {}
-
 impl LuaVm {
     /// Creates a new Lua VM with the standard library loaded.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the underlying `mlua::Lua` state cannot be initialized.
     pub fn new() -> Self {
         info!(target: "Lua", "Creating Lua VM");
         LuaVm {
-            lua: Lua::new(),
+            lua: UnsafeCell::new(Lua::new()),
+            owner: thread::current().id(),
             next_id: AtomicU64::new(1),
         }
     }
 
-    /// Provides scoped access to the underlying `Lua` state.
-    ///
-    /// ```rust,ignore
-    /// vm.execute(|lua| {
-    ///     lua.load("print('hello')").exec()
-    /// });
-    /// ```
-    pub fn execute<R>(&self, callback: impl FnOnce(&Lua) -> R) -> R {
-        callback(&self.lua)
+    fn assert_owner(&self) {
+        debug_assert_eq!(
+            thread::current().id(),
+            self.owner,
+            "LuaVm accessed from a different thread than the one that created it"
+        );
     }
 
-    /// Dispatches a named event to Lua by calling
-    pub fn dispatch(&self, name: &str, args: impl IntoLuaMulti) -> bool {
-        match self.lua.globals().get::<Table>("Events") {
-            Ok(events) => match events.call_method::<Value>("trigger", (name, args)) {
-                Ok(result) => result.as_boolean().unwrap_or(true),
-                Err(error) => {
-                    error!(target: "Lua", "Dispatch error for {name}: {error}");
-                    false
-                }
-            },
-            Err(error) => {
-                warn!(target: "Lua", "Events global not found: {error}");
-                false
+    /// Provides scoped access to the underlying `Lua` state.
+    pub fn execute<R>(&self, callback: impl FnOnce(&Lua) -> R) -> R {
+        self.assert_owner();
+
+        // SAFETY: We are on the owner thread; no other thread holds a
+        // reference to the inner `Lua`.
+        callback(unsafe { &*self.lua.get() })
+    }
+
+    /// Calls `EventClass:trigger(arguments...)` on the global `EventClass`.
+    ///
+    /// Errors are logged via `tracing`; returns [`DispatchError`] on failure.
+    pub fn trigger_event(&self, name: &str, args: impl IntoLuaMulti) -> Result<(), DispatchError> {
+        self.assert_owner();
+
+        let lua = unsafe { &*self.lua.get() };
+        let class: Table = lua.globals().get(name).map_err(|_| {
+            warn!(target: "Lua", "Event class {name} not found");
+            DispatchError::NoHandler
+        })?;
+
+        let result: Value = class.call_method("trigger", args).map_err(|e| {
+            error!(target: "Lua", "Event {name} error: {e}");
+            DispatchError::HandlerError
+        })?;
+
+        match result {
+            Value::Boolean(true) => Ok(()),
+            Value::Boolean(false) => {
+                debug!(target: "Lua", "Event {name} was cancelled");
+                Err(DispatchError::Cancelled)
+            }
+            other => {
+                warn!(
+                    target: "Lua",
+                    "Event {name} returned non-boolean value ({other:?}), treating as cancelled"
+                );
+                Err(DispatchError::NoResult)
             }
         }
     }
 
-    /// Stores a Lua function in the registry and returns a numeric handle.
+    /// Store a Lua function and return its numeric handle.
     pub fn store(&self, func: Function) -> Result<u64, Error> {
+        self.assert_owner();
+
+        let lua = unsafe { &*self.lua.get() };
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
         let key = format!("_lua_fn_{id}");
-        self.lua.set_named_registry_value(&key, func)?;
+        lua.set_named_registry_value(&key, func)?;
         debug!(target: "Lua", "Stored callback function as id={id}");
         Ok(id)
     }
 
     /// Retrieves a previously stored Lua function by its handle.
     pub fn restore(&self, id: u64) -> Result<Function, Error> {
+        self.assert_owner();
+
+        let lua = unsafe { &*self.lua.get() };
         let key = format!("_lua_fn_{id}");
-        let func = self.lua.named_registry_value(&key)?;
+        let func = lua.named_registry_value(&key)?;
         debug!(target: "Lua", "Restored callback function id={id}");
         Ok(func)
     }
 
     /// Removes a previously stored Lua function from the registry.
     pub fn remove(&self, id: u64) -> Result<(), Error> {
+        self.assert_owner();
+
+        let lua = unsafe { &*self.lua.get() };
         let key = format!("_lua_fn_{id}");
-        self.lua.unset_named_registry_value(&key)?;
+        lua.unset_named_registry_value(&key)?;
         debug!(target: "Lua", "Removed callback function id={id}");
         Ok(())
     }
@@ -136,6 +178,7 @@ mod tests {
                 .expect("failed to store function in registry");
 
             let restored = vm.restore(id).expect("failed to restore function by id");
+
             restored
                 .call::<()>(())
                 .expect("restored function should execute without error");
@@ -149,11 +192,13 @@ mod tests {
             let callback = lua
                 .create_function(|_, ()| -> Result<(), Error> { Ok(()) })
                 .expect("failed to create first function");
+
             let first_id = vm.store(callback).expect("failed to store first function");
 
             let callback = lua
                 .create_function(|_, ()| -> Result<(), Error> { Ok(()) })
                 .expect("failed to create second function");
+
             let second_id = vm.store(callback).expect("failed to store second function");
             assert!(second_id > first_id, "each store should return a higher id");
         });
@@ -190,32 +235,62 @@ mod tests {
     }
 
     #[test]
-    fn dispatch_returns_false_when_no_events_global() {
+    fn trigger_event_ok_on_true() {
         let vm = LuaVm::new();
-        let result = vm.dispatch("TestEvent", (42,));
-        assert!(!result, "dispatch should return false without Events table");
+
+        let _ = vm.execute(|lua| {
+            let class = lua.create_table()?;
+            let trigger = lua.create_function(|_, value: bool| Ok(value))?;
+            class.set("trigger", trigger)?;
+            lua.globals().set("TestEvent", class)?;
+            Ok::<(), mlua::Error>(())
+        });
+
+        assert!(vm.trigger_event("TestEvent", (true,)).is_ok());
     }
 
     #[test]
-    fn dispatch_evaluates_trivial_events_table() {
+    fn trigger_event_cancelled_on_false() {
         let vm = LuaVm::new();
 
-        vm.execute(|lua| {
-            let events = lua.create_table().expect("failed to create Events table");
-            let trigger = lua
-                .create_function(|_, ()| Ok(true))
-                .expect("failed to create trigger function");
-
-            events
-                .set("trigger", trigger)
-                .expect("failed to set Events.trigger");
-
-            lua.globals()
-                .set("Events", events)
-                .expect("failed to set global Events");
+        let _ = vm.execute(|lua| {
+            let class = lua.create_table()?;
+            let trigger = lua.create_function(|_, ()| Ok(false))?;
+            class.set("trigger", trigger)?;
+            lua.globals().set("TestEvent", class)?;
+            Ok::<(), mlua::Error>(())
         });
 
-        let result = vm.dispatch("TestEvent", ());
-        assert!(result, "dispatch should return the Events.trigger result");
+        let result = vm.trigger_event("TestEvent", ());
+        assert!(
+            matches!(&result, Err(DispatchError::Cancelled)),
+            "expected Cancelled, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn trigger_event_no_result_on_nil() {
+        let vm = LuaVm::new();
+
+        let _ = vm.execute(|lua| {
+            let class = lua.create_table()?;
+            let trigger = lua.create_function(|_, ()| Ok(mlua::Value::Nil))?;
+            class.set("trigger", trigger)?;
+            lua.globals().set("TestEvent", class)?;
+            Ok::<(), mlua::Error>(())
+        });
+
+        let result = vm.trigger_event("TestEvent", ());
+        assert!(
+            matches!(&result, Err(DispatchError::NoResult)),
+            "expected NoResult, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn trigger_event_missing_class_returns_error() {
+        let vm = LuaVm::new();
+        let result = vm.trigger_event("MissingEvent", ());
+        assert!(matches!(result, Err(DispatchError::NoHandler)));
     }
 }

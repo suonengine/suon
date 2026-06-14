@@ -59,8 +59,12 @@ impl Plugin for LuaPlugin {
             });
         }
 
-        if !dir.try_exists().expect("failed to access {dir_str}") {
-            std::fs::create_dir_all(&dir).expect("failed to create {dir_str}");
+        if !dir
+            .try_exists()
+            .unwrap_or_else(|e| panic!("failed to access {dir_str}: {e}"))
+        {
+            std::fs::create_dir_all(&dir)
+                .unwrap_or_else(|e| panic!("failed to create {dir_str}: {e}"));
             info!(target: "Lua", "Created {dir_str} directory");
         }
 
@@ -94,9 +98,11 @@ impl Plugin for LuaPlugin {
                         .to_owned();
 
                     let result = vm.execute(|lua| {
-                        lua.load(std::fs::read_to_string(&path).expect("read"))
-                            .set_name(&name)
-                            .exec()
+                        lua.load(
+                            std::fs::read_to_string(&path).expect("failed to read Lua module file"),
+                        )
+                        .set_name(&name)
+                        .exec()
                     });
 
                     match result {
@@ -125,7 +131,7 @@ impl Plugin for LuaPlugin {
                     .to_owned();
 
                 let result = vm.execute(|lua| {
-                    lua.load(std::fs::read_to_string(&init).expect("read"))
+                    lua.load(std::fs::read_to_string(&init).expect("failed to read Lua init file"))
                         .set_name(format!("{dir_str}/{name}/init.lua"))
                         .exec()
                 });

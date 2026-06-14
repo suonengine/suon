@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::server::{
     kind::ServerKind,
@@ -9,17 +9,17 @@ use crate::server::{
 };
 
 /// Configuration for a TCP listener port.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq, Hash)]
 pub struct TcpSettings {
-    #[serde(default)]
     pub protocol: ProtocolSettings,
     #[serde(rename = "flush_interval_ms", with = "suon_serde::duration_ms")]
     pub flush_interval: Duration,
-    #[serde(default)]
     pub encryption: EncryptionSettings,
     pub channel_capacity: usize,
     pub max_buffer_size: usize,
     pub max_connections: u32,
+    pub connection_timeout_secs: u64,
+    pub rate_burst: u32,
 }
 
 impl Default for TcpSettings {
@@ -31,6 +31,8 @@ impl Default for TcpSettings {
             channel_capacity: 1024,
             max_buffer_size: 4096,
             max_connections: 100,
+            connection_timeout_secs: 10,
+            rate_burst: 50,
         }
     }
 }
@@ -45,6 +47,8 @@ impl TcpSettings {
                 channel_capacity,
                 max_buffer_size,
                 max_connections,
+                rate_burst,
+                ..
             } => TcpSettings {
                 protocol: *protocol,
                 flush_interval: *flush_interval,
@@ -52,6 +56,8 @@ impl TcpSettings {
                 channel_capacity: *channel_capacity,
                 max_buffer_size: *max_buffer_size,
                 max_connections: *max_connections,
+                connection_timeout_secs: 10,
+                rate_burst: *rate_burst,
             },
             _ => unreachable!(),
         }
@@ -83,6 +89,7 @@ mod tests {
                 channel_capacity: 512,
                 max_buffer_size: 8192,
                 max_connections: 50,
+                rate_burst: 50,
             },
             retry_delay: Duration::from_millis(5000),
         }

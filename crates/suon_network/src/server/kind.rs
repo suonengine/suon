@@ -8,15 +8,14 @@ use crate::server::tcp::{EncryptionSettings, ProtocolSettings};
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum ServerKind {
     Tcp {
-        #[serde(default)]
         protocol: ProtocolSettings,
         #[serde(rename = "flush_interval_ms", with = "suon_serde::duration_ms")]
         flush_interval: Duration,
-        #[serde(default)]
         encryption: EncryptionSettings,
         channel_capacity: usize,
         max_buffer_size: usize,
         max_connections: u32,
+        rate_burst: u32,
     },
     Http {
         max_connections: u32,
@@ -34,6 +33,7 @@ impl Default for ServerKind {
             channel_capacity: 1024,
             max_buffer_size: 4096,
             max_connections: 100,
+            rate_burst: 50,
         }
     }
 }

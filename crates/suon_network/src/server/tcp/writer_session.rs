@@ -170,6 +170,8 @@ mod tests {
             channel_capacity: 64,
             max_buffer_size: 256,
             max_connections: 5,
+            connection_timeout_secs: 10,
+            rate_burst: 50,
         }
     }
 

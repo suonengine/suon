@@ -4,6 +4,6 @@ pub mod writer;
 
 pub use self::{
     command::Command,
-    reader::{PacketReader, ProcessError},
+    reader::{PacketReader, ProcessError, ProcessOutcome},
     writer::PacketWriter,
 };

@@ -6,15 +6,15 @@ use serde::{Deserialize, Serialize};
 pub const SIZE_FIELD_LEN: usize = 2;
 
 /// Number of bytes in the crypto sequence / flags field.
-pub const SEQ_FIELD_LEN: usize = 4;
+pub const SEQUENCE_FIELD_LEN: usize = 4;
 
 /// Minimum number of bytes in an XTEA frame body (= seq header + 1 encrypted byte).
-pub const MIN_XTEA_BODY: usize = SEQ_FIELD_LEN + 1;
+pub const MIN_XTEA_BODY: usize = SEQUENCE_FIELD_LEN + 1;
 
 /// Number of bytes of XTEA key material extracted from an RSA handshake.
 pub const XTEA_KEY_BYTES: usize = 16;
 
-/// RSA key size in bytes for a 1024-bit key.
+/// 128 bytes = 1024-bit RSA key.
 pub const RSA_KEY_SIZE: usize = 128;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]

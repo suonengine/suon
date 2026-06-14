@@ -1,5 +1,6 @@
 pub(crate) mod acceptor;
 mod connection;
+mod connection_accept;
 mod connection_begin;
 mod connection_end;
 mod encryption;
@@ -13,8 +14,8 @@ mod writer_session;
 pub use self::{
     encryption::EncryptionSettings,
     protocol::{
-        ProtocolSettings, RSA_KEY_SIZE, SEQ_FIELD_LEN, SIZE_FIELD_LEN, XTEA_KEY_BYTES, xtea_pad,
-        xtea_unpad,
+        ProtocolSettings, RSA_KEY_SIZE, SEQUENCE_FIELD_LEN, SIZE_FIELD_LEN, XTEA_KEY_BYTES,
+        xtea_pad, xtea_unpad,
     },
     settings::TcpSettings,
 };

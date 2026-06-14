@@ -93,6 +93,7 @@ mod http_settings_tests {
                 channel_capacity: 128,
                 max_buffer_size: 4096,
                 max_connections: 100,
+                rate_burst: 50,
             },
             retry_delay: Duration::from_millis(15000),
         };
@@ -153,6 +154,7 @@ impl HttpAcceptor {
                     if !self.rate_limiter.allow(address) {
                         continue;
                     }
+
                     let Ok(permit) = self.limiter.try_acquire() else {
                         continue;
                     };

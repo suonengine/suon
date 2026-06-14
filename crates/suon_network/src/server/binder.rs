@@ -4,12 +4,16 @@ use suon_channel::{Channel, buffer_pool::BufferPool};
 use tokio::{net::TcpListener, runtime::Runtime};
 use tracing::warn;
 
-use crate::server::{runner::BoundServer, settings::ServerSettings, shutdown::Shutdown};
+use crate::{
+    connection::manager::ConnectionManager,
+    server::{runner::BoundServer, settings::ServerSettings, shutdown::Shutdown},
+};
 
 pub(crate) struct Binder {
     runtime: Arc<Runtime>,
     channel: Channel,
     buffer_pool: Arc<BufferPool>,
+    connection_manager: Arc<ConnectionManager>,
     settings: ServerSettings,
     shutdown: Shutdown,
     retry_delay: Duration,
@@ -23,11 +27,13 @@ impl Binder {
         shutdown: Shutdown,
         retry_delay: Duration,
         buffer_pool: Arc<BufferPool>,
+        connection_manager: Arc<ConnectionManager>,
     ) -> Self {
         Binder {
             runtime,
             channel,
             buffer_pool,
+            connection_manager,
             settings,
             shutdown,
             retry_delay,
@@ -43,6 +49,7 @@ impl Binder {
 
         let channel = self.channel.clone();
         let buffer_pool = self.buffer_pool.clone();
+        let connection_manager = self.connection_manager.clone();
         let settings = self.settings.clone();
         let shutdown = self.shutdown.clone();
         let retry_delay = self.retry_delay;
@@ -52,9 +59,16 @@ impl Binder {
         handle.spawn(async move {
             match TcpListener::bind(&address).await {
                 Ok(listener) => {
-                    BoundServer::new(listener, channel, settings, shutdown, buffer_pool)
-                        .into_server()
-                        .spawn();
+                    BoundServer::new(
+                        listener,
+                        channel,
+                        settings,
+                        shutdown,
+                        buffer_pool,
+                        connection_manager,
+                    )
+                    .into_server()
+                    .spawn();
                 }
                 Err(e) => {
                     let kind_str = settings.kind.as_str();
@@ -62,7 +76,16 @@ impl Binder {
 
                     tokio::spawn(async move {
                         tokio::time::sleep(retry_delay).await;
-                        Binder::new(runtime, channel, settings, shutdown, retry_delay, buffer_pool).launch();
+                        Binder::new(
+                            runtime,
+                            channel,
+                            settings,
+                            shutdown,
+                            retry_delay,
+                            buffer_pool,
+                            connection_manager,
+                        )
+                        .launch();
                     });
                 }
             }
@@ -73,11 +96,15 @@ impl Binder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::server::{
-        kind::ServerKind,
-        settings::ServerSettings,
-        tcp::{EncryptionSettings, ProtocolSettings},
+    use crate::{
+        connection::manager::ConnectionManager,
+        server::{
+            kind::ServerKind,
+            settings::ServerSettings,
+            tcp::{EncryptionSettings, ProtocolSettings},
+        },
     };
+    use std::sync::Arc;
 
     fn dummy_settings() -> ServerSettings {
         ServerSettings {
@@ -90,9 +117,14 @@ mod tests {
                 channel_capacity: 16,
                 max_buffer_size: 256,
                 max_connections: 5,
+                rate_burst: 50,
             },
             retry_delay: Duration::from_millis(100),
         }
+    }
+
+    fn test_manager() -> Arc<ConnectionManager> {
+        Arc::new(ConnectionManager::new(0))
     }
 
     #[test]
@@ -111,9 +143,9 @@ mod tests {
             shutdown,
             Duration::from_millis(100),
             crate::test_buffer_pool(),
+            test_manager(),
         )
         .launch();
-        // No panic means success
     }
 
     #[test]
@@ -133,9 +165,9 @@ mod tests {
             shutdown,
             Duration::from_millis(100),
             crate::test_buffer_pool(),
+            test_manager(),
         )
         .launch();
-        // Should return immediately without spawning
     }
 
     #[test]
@@ -163,6 +195,7 @@ mod tests {
             shutdown,
             Duration::from_millis(100),
             crate::test_buffer_pool(),
+            test_manager(),
         )
         .launch();
     }
@@ -187,11 +220,11 @@ mod tests {
                 channel_capacity: 16,
                 max_buffer_size: 256,
                 max_connections: 5,
+                rate_burst: 50,
             },
             retry_delay: Duration::from_millis(50),
         };
 
-        // Should not panic — logs bind error and schedules retry
         Binder::new(
             runtime,
             channel,
@@ -199,6 +232,7 @@ mod tests {
             shutdown,
             Duration::from_millis(50),
             crate::test_buffer_pool(),
+            test_manager(),
         )
         .launch();
         std::thread::sleep(Duration::from_millis(100));
@@ -225,6 +259,7 @@ mod tests {
                 channel_capacity: 16,
                 max_buffer_size: 256,
                 max_connections: 5,
+                rate_burst: 50,
             },
             retry_delay: Duration::from_millis(50),
         };
@@ -236,13 +271,11 @@ mod tests {
             shutdown.clone(),
             Duration::from_millis(50),
             crate::test_buffer_pool(),
+            test_manager(),
         )
         .launch();
-        // Let it try to bind and fail
         std::thread::sleep(Duration::from_millis(30));
-        // Free the port
         drop(occupied);
-        // Give time for retry to succeed — should not panic
         std::thread::sleep(Duration::from_millis(100));
     }
 }

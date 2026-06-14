@@ -5,7 +5,7 @@ use suon_rsa::Rsa;
 use suon_xtea::{ExpandedKey, expand};
 
 use crate::server::tcp::protocol::{
-    MIN_XTEA_BODY, ProtocolSettings, SEQ_FIELD_LEN, XTEA_KEY_BYTES,
+    MIN_XTEA_BODY, ProtocolSettings, SEQUENCE_FIELD_LEN, XTEA_KEY_BYTES,
 };
 
 /// Bit flag indicating the packet payload is zlib-compressed.
@@ -23,6 +23,17 @@ pub enum ProcessError {
     XteaError,
     #[error("not enough data")]
     NotEnoughData,
+}
+
+/// Outcome of [`PacketReader::process_in_place`].
+#[derive(Debug, PartialEq, Eq)]
+pub enum ProcessOutcome {
+    /// The buffer now contains the unwrapped payload (may be shorter
+    /// than the original).  Ready to dispatch.
+    Complete,
+    /// Intermediate state (e.g. RSA handshake); the buffer is
+    /// unchanged and should be skipped this iteration.
+    Skip,
 }
 
 pub struct PacketReader {
@@ -80,41 +91,55 @@ impl PacketReader {
         self.xtea_key = Some(expand(&key));
     }
 
-    pub fn process(&mut self, body: &[u8]) -> Result<Option<Vec<u8>>, ProcessError> {
+    /// Process a packet in-place, leaving `body` with the decrypted payload.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ProcessError::InvalidSize`] if the body is empty or the
+    /// unpadded result is empty, [`ProcessError::ChecksumMismatch`] if
+    /// the adler32 checksum doesn't match, [`ProcessError::RsaError`] if
+    /// RSA decryption fails, [`ProcessError::XteaError`] if XTEA
+    /// decryption fails, or [`ProcessError::NotEnoughData`] if the body
+    /// is too short for the expected protocol step.
+    pub fn process_in_place(&mut self, body: &mut Vec<u8>) -> Result<ProcessOutcome, ProcessError> {
         if body.is_empty() {
             return Err(ProcessError::InvalidSize);
         }
 
         if !self.rsa_done {
-            return self.process_rsa_handshake(body);
+            return self.process_rsa_handshake_in_place(body);
         }
 
         if self.xtea_enabled && self.protocol.uses_xtea {
-            return self.process_xtea_packet(body);
+            return self.process_xtea_in_place(body);
         }
 
         if self.protocol.has_checksum {
-            return self.process_checksum_body(body);
+            return self.process_checksum_in_place(body);
         }
 
-        Ok(Some(body.to_vec()))
+        Ok(ProcessOutcome::Complete)
     }
 
-    fn process_checksum_body(&self, body: &[u8]) -> Result<Option<Vec<u8>>, ProcessError> {
-        if body.len() < SEQ_FIELD_LEN {
+    /// Strip and verify the checksum prefix, shifting payload in-place.
+    fn process_checksum_in_place(
+        &self,
+        body: &mut Vec<u8>,
+    ) -> Result<ProcessOutcome, ProcessError> {
+        if body.len() < SEQUENCE_FIELD_LEN {
             return Err(ProcessError::NotEnoughData);
         }
 
         let stored_checksum = u32::from_le_bytes(
-            body[..SEQ_FIELD_LEN]
+            body[..SEQUENCE_FIELD_LEN]
                 .try_into()
-                .expect("SEQ_FIELD_LEN is 4 bytes, slice is guaranteed"),
+                .expect("SEQ_FIELD_LEN is 4 bytes"),
         );
 
-        let data = &body[SEQ_FIELD_LEN..];
+        let payload_len = body.len() - SEQUENCE_FIELD_LEN;
 
         if stored_checksum != 0 {
-            let computed = suon_adler32::generate(data);
+            let computed = suon_adler32::generate(&body[SEQUENCE_FIELD_LEN..]);
             if stored_checksum != computed {
                 return Err(ProcessError::ChecksumMismatch {
                     expected: stored_checksum,
@@ -123,90 +148,98 @@ impl PacketReader {
             }
         }
 
-        if data.is_empty() {
+        if payload_len == 0 {
             return Err(ProcessError::InvalidSize);
         }
 
-        Ok(Some(data.to_vec()))
+        body.copy_within(SEQUENCE_FIELD_LEN.., 0);
+        body.truncate(payload_len);
+        Ok(ProcessOutcome::Complete)
     }
 
-    fn process_rsa_handshake(&mut self, body: &[u8]) -> Result<Option<Vec<u8>>, ProcessError> {
+    /// RSA handshake — runs once per connection, sets XTEA key if found.
+    fn process_rsa_handshake_in_place(
+        &mut self,
+        body: &mut Vec<u8>,
+    ) -> Result<ProcessOutcome, ProcessError> {
         let rsa = self.rsa_key.as_ref().ok_or(ProcessError::RsaError)?;
-        let mut encrypted = body.to_vec();
+        let mut decrypted = body.clone();
 
-        if suon_rsa::decrypt(rsa, &mut encrypted).is_ok() {
-            if encrypted.is_empty() || encrypted[0] != 0 {
+        if suon_rsa::decrypt(rsa, &mut decrypted).is_ok() {
+            if decrypted.is_empty() || decrypted[0] != 0 {
                 self.rsa_done = true;
-                return Ok(Some(body.to_vec()));
+                return Ok(ProcessOutcome::Complete);
             }
 
-            if encrypted.len() > XTEA_KEY_BYTES {
-                let k0 = u32::from_le_bytes(
-                    encrypted[1..5]
-                        .try_into()
-                        .expect("XTEA_KEY_BYTES=16 bytes, 1..5 is 4 bytes"),
-                );
-                let k1 = u32::from_le_bytes(encrypted[5..9].try_into().expect("5..9 is 4 bytes"));
-                let k2 = u32::from_le_bytes(encrypted[9..13].try_into().expect("9..13 is 4 bytes"));
+            // First byte is 0 → XTEA key exchange.
+            if decrypted.len() > XTEA_KEY_BYTES {
+                let k0 = u32::from_le_bytes(decrypted[1..5].try_into().expect("XTEA_KEY_BYTES=16"));
+                let k1 = u32::from_le_bytes(decrypted[5..9].try_into().expect("5..9 is 4 bytes"));
+                let k2 = u32::from_le_bytes(decrypted[9..13].try_into().expect("9..13 is 4 bytes"));
                 let k3 =
-                    u32::from_le_bytes(encrypted[13..17].try_into().expect("13..17 is 4 bytes"));
+                    u32::from_le_bytes(decrypted[13..17].try_into().expect("13..17 is 4 bytes"));
                 self.set_xtea_key([k0, k1, k2, k3]);
             }
 
             self.rsa_done = true;
-            return Ok(None);
+            return Ok(ProcessOutcome::Skip);
         }
 
         self.rsa_done = true;
-        Ok(Some(body.to_vec()))
+        Ok(ProcessOutcome::Complete)
     }
 
-    fn process_xtea_packet(&mut self, body: &[u8]) -> Result<Option<Vec<u8>>, ProcessError> {
+    /// Decrypt and unpad an XTEA packet in-place, then handle
+    /// optional zlib decompression.
+    fn process_xtea_in_place(
+        &mut self,
+        body: &mut Vec<u8>,
+    ) -> Result<ProcessOutcome, ProcessError> {
         if body.len() < MIN_XTEA_BODY {
             return Err(ProcessError::NotEnoughData);
         }
 
         let seq_field = u32::from_le_bytes(
-            body[..SEQ_FIELD_LEN]
+            body[..SEQUENCE_FIELD_LEN]
                 .try_into()
-                .expect("SEQ_FIELD_LEN is 4 bytes, slice is guaranteed"),
+                .expect("SEQ_FIELD_LEN is 4 bytes"),
         );
 
-        let encrypted = &body[SEQ_FIELD_LEN..];
-        if encrypted.is_empty() || !encrypted.len().is_multiple_of(8) {
+        let encrypted_len = body.len() - SEQUENCE_FIELD_LEN;
+        if encrypted_len == 0 || !encrypted_len.is_multiple_of(8) {
             return Err(ProcessError::NotEnoughData);
         }
 
-        let mut buf = Vec::with_capacity(encrypted.len());
-        buf.extend_from_slice(encrypted);
-
         let key = self.xtea_key.as_ref().ok_or(ProcessError::XteaError)?;
-        suon_xtea::decrypt(&mut buf, key).map_err(|_| ProcessError::XteaError)?;
+        suon_xtea::decrypt(&mut body[SEQUENCE_FIELD_LEN..], key)
+            .map_err(|_| ProcessError::XteaError)?;
 
-        let padding = buf[0] as usize;
-        let data_end = buf.len().saturating_sub(padding);
-        if data_end <= 1 {
+        let padding = body[SEQUENCE_FIELD_LEN] as usize;
+
+        let data_end = body.len().saturating_sub(padding);
+        if data_end <= SEQUENCE_FIELD_LEN + 1 {
             return Err(ProcessError::InvalidSize);
         }
 
-        buf.copy_within(1..data_end, 0);
-        let unpadded_len = data_end - 1;
-        buf.truncate(unpadded_len);
+        let unpadded_len = data_end - SEQUENCE_FIELD_LEN - 1;
+        body.copy_within(SEQUENCE_FIELD_LEN + 1..data_end, 0);
+        body.truncate(unpadded_len);
 
-        if buf.is_empty() {
+        if body.is_empty() {
             return Err(ProcessError::InvalidSize);
         }
 
+        // Optional zlib decompression (only allocation in this path).
         if seq_field & COMPRESSION_FLAG != 0 {
-            let mut decoder = DeflateDecoder::new(&buf[..]);
+            let mut decoder = DeflateDecoder::new(&body[..]);
             let mut decompressed = Vec::new();
             decoder
                 .read_to_end(&mut decompressed)
                 .map_err(|_| ProcessError::InvalidSize)?;
-            return Ok(Some(decompressed));
+            *body = decompressed;
         }
 
-        Ok(Some(buf))
+        Ok(ProcessOutcome::Complete)
     }
 }
 
@@ -240,8 +273,9 @@ mod tests {
             uses_xtea: false,
             uses_rsa: false,
         });
+        let mut buf = b"".to_vec();
         assert!(matches!(
-            reader.process(b""),
+            reader.process_in_place(&mut buf),
             Err(ProcessError::InvalidSize)
         ));
     }
@@ -254,8 +288,9 @@ mod tests {
             uses_xtea: true,
             uses_rsa: true,
         });
+        let mut buf = b"".to_vec();
         assert!(matches!(
-            reader.process(b""),
+            reader.process_in_place(&mut buf),
             Err(ProcessError::InvalidSize)
         ));
     }
@@ -268,10 +303,14 @@ mod tests {
             uses_xtea: false,
             uses_rsa: false,
         });
-        let result = reader
-            .process(b"hello")
-            .expect("reader should process plaintext successfully");
-        assert_eq!(result.expect("reader should return Some data"), b"hello");
+        let mut buf = b"hello".to_vec();
+        assert_eq!(
+            reader
+                .process_in_place(&mut buf)
+                .expect("reader should process plaintext successfully"),
+            ProcessOutcome::Complete
+        );
+        assert_eq!(&buf[..], b"hello");
     }
 
     #[test]
@@ -283,10 +322,14 @@ mod tests {
             uses_rsa: false,
         });
         let data = &[0x00, 0xFF, 0xAB, 0x7F];
-        let result = reader
-            .process(data)
-            .expect("reader should process binary data successfully");
-        assert_eq!(result.expect("reader should return Some binary data"), data);
+        let mut buf = data.to_vec();
+        assert_eq!(
+            reader
+                .process_in_place(&mut buf)
+                .expect("reader should process binary data successfully"),
+            ProcessOutcome::Complete
+        );
+        assert_eq!(&buf[..], data);
     }
 
     #[test]
@@ -297,13 +340,14 @@ mod tests {
             uses_xtea: false,
             uses_rsa: false,
         });
-        let result = reader
-            .process(b"\x01")
-            .expect("reader should process single byte successfully");
+        let mut buf = b"\x01".to_vec();
         assert_eq!(
-            result.expect("reader should return Some single byte"),
-            b"\x01"
+            reader
+                .process_in_place(&mut buf)
+                .expect("reader should process single byte successfully"),
+            ProcessOutcome::Complete
         );
+        assert_eq!(&buf[..], b"\x01");
     }
 
     #[test]
@@ -315,10 +359,14 @@ mod tests {
             uses_rsa: false,
         });
         let data = vec![0xABu8; 4096];
-        let result = reader
-            .process(&data)
-            .expect("reader should process large data successfully");
-        assert_eq!(result.expect("reader should return Some large data"), data);
+        let mut buf = data.clone();
+        assert_eq!(
+            reader
+                .process_in_place(&mut buf)
+                .expect("reader should process large data successfully"),
+            ProcessOutcome::Complete
+        );
+        assert_eq!(&buf[..], &data[..]);
     }
 
     #[test]
@@ -334,13 +382,14 @@ mod tests {
         let mut body = Vec::with_capacity(4 + data.len());
         body.extend_from_slice(&checksum.to_le_bytes());
         body.extend_from_slice(data);
-        let result = reader
-            .process(&body)
-            .expect("reader should process checksum body successfully");
+        let mut proc_buf = body.clone();
         assert_eq!(
-            result.expect("reader should return Some checksum data"),
-            data
+            reader
+                .process_in_place(&mut proc_buf)
+                .expect("reader should process checksum body successfully"),
+            ProcessOutcome::Complete
         );
+        assert_eq!(&proc_buf[..], &data[..]);
     }
 
     #[test]
@@ -357,8 +406,11 @@ mod tests {
         let mut body = Vec::with_capacity(4 + data.len());
         body.extend_from_slice(&checksum.to_le_bytes());
         body.extend_from_slice(data);
-        let result = reader.process(&body);
-        assert!(matches!(result, Err(ProcessError::ChecksumMismatch { .. })));
+        let mut proc_buf = body.clone();
+        assert!(matches!(
+            reader.process_in_place(&mut proc_buf),
+            Err(ProcessError::ChecksumMismatch { .. })
+        ));
     }
 
     #[test]
@@ -370,13 +422,14 @@ mod tests {
             uses_rsa: false,
         });
         let body = [0u8; 8];
-        let result = reader
-            .process(&body)
-            .expect("reader should process zero-checksum body successfully");
+        let mut proc_buf = body.to_vec();
         assert_eq!(
-            result.expect("reader should return Some zero-checksum data"),
-            &body[4..]
+            reader
+                .process_in_place(&mut proc_buf)
+                .expect("reader should process zero-checksum body successfully"),
+            ProcessOutcome::Complete
         );
+        assert_eq!(&proc_buf[..], &body[4..]);
     }
 
     #[test]
@@ -389,13 +442,14 @@ mod tests {
         });
         reader.xtea_enabled = false;
         let data = b"login packet";
-        let result = reader
-            .process(data)
-            .expect("reader should process login packet without encryption");
+        let mut buf = data.to_vec();
         assert_eq!(
-            result.expect("reader should return Some login packet"),
-            data
+            reader
+                .process_in_place(&mut buf)
+                .expect("reader should process login packet without encryption"),
+            ProcessOutcome::Complete
         );
+        assert_eq!(&buf[..], data);
     }
 
     #[test]
@@ -412,11 +466,14 @@ mod tests {
         reader.set_xtea_key(key);
         reader.rsa_done = true;
 
-        let result = reader
-            .process(&body)
-            .expect("reader should process encrypted login data")
-            .expect("reader should return Some encrypted login data");
-        assert_eq!(&result, b"login data");
+        let mut proc_buf = body.clone();
+        assert_eq!(
+            reader
+                .process_in_place(&mut proc_buf)
+                .expect("reader should process encrypted login data"),
+            ProcessOutcome::Complete
+        );
+        assert_eq!(&proc_buf[..], b"login data");
     }
 
     #[test]
@@ -433,11 +490,14 @@ mod tests {
         reader.set_xtea_key(key);
         reader.rsa_done = true;
 
-        let result = reader
-            .process(&body)
-            .expect("reader should process XTEA roundtrip data")
-            .expect("reader should return Some XTEA data");
-        assert_eq!(&result, b"test data!");
+        let mut proc_buf = body.clone();
+        assert_eq!(
+            reader
+                .process_in_place(&mut proc_buf)
+                .expect("reader should process XTEA roundtrip data"),
+            ProcessOutcome::Complete
+        );
+        assert_eq!(&proc_buf[..], b"test data!");
     }
 
     #[test]
@@ -455,11 +515,14 @@ mod tests {
         reader.set_xtea_key(key);
         reader.rsa_done = true;
 
-        let result = reader
-            .process(&body)
-            .expect("reader should process XTEA with seq field")
-            .expect("reader should return Some XTEA data");
-        assert_eq!(&result, plaintext);
+        let mut proc_buf = body.clone();
+        assert_eq!(
+            reader
+                .process_in_place(&mut proc_buf)
+                .expect("reader should process XTEA with seq field"),
+            ProcessOutcome::Complete
+        );
+        assert_eq!(&proc_buf[..], plaintext);
     }
 
     #[test]
@@ -477,11 +540,14 @@ mod tests {
         reader.set_xtea_key(key);
         reader.rsa_done = true;
 
-        let result = reader
-            .process(&body)
-            .expect("reader should process large XTEA packet")
-            .expect("reader should return Some large XTEA data");
-        assert_eq!(result, plaintext);
+        let mut proc_buf = body.clone();
+        assert_eq!(
+            reader
+                .process_in_place(&mut proc_buf)
+                .expect("reader should process large XTEA packet"),
+            ProcessOutcome::Complete
+        );
+        assert_eq!(&proc_buf[..], &plaintext[..]);
     }
 
     #[test]
@@ -496,7 +562,7 @@ mod tests {
         reader.rsa_done = true;
 
         assert!(matches!(
-            reader.process(&[0; 3]),
+            reader.process_in_place(&mut vec![0; 3]),
             Err(ProcessError::NotEnoughData)
         ));
     }
@@ -513,7 +579,7 @@ mod tests {
         reader.rsa_done = true;
 
         assert!(matches!(
-            reader.process(&[0; 4]),
+            reader.process_in_place(&mut vec![0; 4]),
             Err(ProcessError::NotEnoughData)
         ));
     }
@@ -529,7 +595,7 @@ mod tests {
         reader.set_xtea_key(test_key());
         reader.rsa_done = true;
 
-        assert!(reader.process(&[0; 5]).is_err());
+        assert!(reader.process_in_place(&mut vec![0; 5]).is_err());
     }
 
     #[test]
@@ -543,8 +609,7 @@ mod tests {
         reader.set_xtea_key(test_key());
         reader.rsa_done = true;
 
-        let result = reader.process(&[0; 6]);
-        assert!(result.is_err());
+        assert!(reader.process_in_place(&mut vec![0; 6]).is_err());
     }
 
     #[test]
@@ -559,7 +624,7 @@ mod tests {
         reader.rsa_done = true;
 
         assert!(matches!(
-            reader.process(&[0; 4]),
+            reader.process_in_place(&mut vec![0; 4]),
             Err(ProcessError::NotEnoughData)
         ));
     }
@@ -580,8 +645,9 @@ mod tests {
         reader.set_xtea_key(wrong_key);
         reader.rsa_done = true;
 
+        let mut proc_buf = body.clone();
         assert!(matches!(
-            reader.process(&body),
+            reader.process_in_place(&mut proc_buf),
             Err(ProcessError::InvalidSize)
         ));
     }
@@ -600,11 +666,14 @@ mod tests {
         reader.set_xtea_key(key);
         reader.rsa_done = true;
 
-        let result = reader
-            .process(&body)
-            .expect("reader should process XTEA with non-zero seq field")
-            .expect("reader should return Some non-zero seq data");
-        assert_eq!(&result, b"hello");
+        let mut proc_buf = body.clone();
+        assert_eq!(
+            reader
+                .process_in_place(&mut proc_buf)
+                .expect("reader should process XTEA with non-zero seq field"),
+            ProcessOutcome::Complete
+        );
+        assert_eq!(&proc_buf[..], b"hello");
     }
 
     #[test]
@@ -621,11 +690,14 @@ mod tests {
         reader.set_xtea_key(key);
         reader.rsa_done = true;
 
-        let result = reader
-            .process(&body)
-            .expect("reader should process XTEA with zero seq field")
-            .expect("reader should return Some zero seq data");
-        assert_eq!(&result, b"hello");
+        let mut proc_buf = body.clone();
+        assert_eq!(
+            reader
+                .process_in_place(&mut proc_buf)
+                .expect("reader should process XTEA with zero seq field"),
+            ProcessOutcome::Complete
+        );
+        assert_eq!(&proc_buf[..], b"hello");
     }
 
     #[test]
@@ -638,8 +710,11 @@ mod tests {
         });
         reader.rsa_done = true;
 
-        let body = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
-        assert!(matches!(reader.process(body), Err(ProcessError::XteaError)));
+        let mut buf = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00".to_vec();
+        assert!(matches!(
+            reader.process_in_place(&mut buf),
+            Err(ProcessError::XteaError)
+        ));
     }
 
     #[test]
@@ -654,10 +729,14 @@ mod tests {
         reader.rsa_done = true;
 
         let data = b"raw packet";
-        let result = reader
-            .process(data)
-            .expect("reader should skip XTEA decrypt when disabled");
-        assert_eq!(result.expect("reader should return Some raw data"), data);
+        let mut buf = data.to_vec();
+        assert_eq!(
+            reader
+                .process_in_place(&mut buf)
+                .expect("reader should skip XTEA decrypt when disabled"),
+            ProcessOutcome::Complete
+        );
+        assert_eq!(&buf[..], data);
     }
 
     #[test]
@@ -715,7 +794,7 @@ mod tests {
             uses_rsa: true,
         });
         assert!(matches!(
-            reader.process(b"\x01\x02"),
+            reader.process_in_place(&mut b"\x01\x02".to_vec()),
             Err(ProcessError::RsaError)
         ));
     }
@@ -760,10 +839,13 @@ tO6vywVbLiOFudajEttnKgRV7AWJENyfTbhcuW1AXJvlEA==
         });
         reader.set_rsa_key(rsa);
 
-        let result = reader
-            .process(&encrypted_data)
-            .expect("RSA handshake should succeed");
-        assert!(result.is_none(), "RSA handshake should return Ok(None)");
+        let mut proc_buf = encrypted_data.clone();
+        assert_eq!(
+            reader
+                .process_in_place(&mut proc_buf)
+                .expect("RSA handshake should succeed"),
+            ProcessOutcome::Skip
+        );
         assert!(reader.rsa_done, "rsa_done should be set after handshake");
     }
 
@@ -781,14 +863,15 @@ tO6vywVbLiOFudajEttnKgRV7AWJENyfTbhcuW1AXJvlEA==
         });
         reader.set_rsa_key(rsa);
 
-        let result = reader
-            .process(invalid_data)
-            .expect("RSA handshake should fallthrough on short data");
-        assert!(reader.rsa_done, "rsa_done should be set after fallthrough");
+        let mut proc_buf = invalid_data.to_vec();
         assert_eq!(
-            result.expect("RSA fallthrough should return Some data"),
-            invalid_data
+            reader
+                .process_in_place(&mut proc_buf)
+                .expect("RSA handshake should fallthrough on short data"),
+            ProcessOutcome::Complete
         );
+        assert!(reader.rsa_done, "rsa_done should be set after fallthrough");
+        assert_eq!(&proc_buf[..], invalid_data);
     }
 
     #[test]
@@ -802,7 +885,7 @@ tO6vywVbLiOFudajEttnKgRV7AWJENyfTbhcuW1AXJvlEA==
             uses_xtea: true,
             uses_rsa: true,
         });
-        drop(reader.process(b"some data"));
+        drop(reader.process_in_place(&mut b"some data".to_vec()));
         assert!(!reader.rsa_done);
     }
 
@@ -821,7 +904,117 @@ tO6vywVbLiOFudajEttnKgRV7AWJENyfTbhcuW1AXJvlEA==
         assert!(reader.xtea_key.is_some());
 
         let body = build_xtea_body(&key, b"first", 0);
-        drop(reader.process(&body));
+        let mut proc_buf = body.clone();
+        drop(reader.process_in_place(&mut proc_buf));
         assert!(reader.xtea_key.is_some());
+    }
+
+    fn check_process_invariants(settings: ProtocolSettings, input: &[u8]) {
+        let mut reader = PacketReader::new(settings);
+        let mut buf = input.to_vec();
+        let _ = reader.process_in_place(&mut buf);
+    }
+
+    #[test]
+    fn invariance_passthrough() {
+        let settings = ProtocolSettings {
+            header_size: 2,
+            has_checksum: false,
+            uses_xtea: false,
+            uses_rsa: false,
+        };
+        check_process_invariants(settings, b"hello world");
+        check_process_invariants(settings, b"");
+        check_process_invariants(settings, b"\x00\xFF\xAB");
+        check_process_invariants(settings, &[0xABu8; 4096]);
+    }
+
+    #[test]
+    fn invariance_checksum() {
+        let settings = ProtocolSettings {
+            header_size: 2,
+            has_checksum: true,
+            uses_xtea: false,
+            uses_rsa: false,
+        };
+        let data = b"verified data";
+        let checksum = suon_adler32::generate(data);
+        let mut body = Vec::with_capacity(4 + data.len());
+        body.extend_from_slice(&checksum.to_le_bytes());
+        body.extend_from_slice(data);
+        check_process_invariants(settings, &body);
+
+        // zero-checksum skip
+        let zero_body = [0u8; 8];
+        check_process_invariants(settings, &zero_body);
+
+        // mismatched checksum
+        let bad_checksum = 0xDEAD_BEEFu32;
+        let mut bad_body = Vec::with_capacity(4 + data.len());
+        bad_body.extend_from_slice(&bad_checksum.to_le_bytes());
+        bad_body.extend_from_slice(data);
+        check_process_invariants(settings, &bad_body);
+    }
+
+    #[test]
+    fn invariance_xtea() {
+        let key = test_key();
+        let settings = ProtocolSettings {
+            header_size: 6,
+            has_checksum: true,
+            uses_xtea: true,
+            uses_rsa: true,
+        };
+
+        let test_cases: &[&[u8]] = &[b"", b"a", b"hello", b"test data!", &[0xABu8; 256]];
+        for plaintext in test_cases {
+            let body = build_xtea_body(&key, plaintext, 0);
+
+            let mut reader = PacketReader::new(settings);
+            reader.set_xtea_key(key);
+            reader.rsa_done = true;
+            let mut buf = body.clone();
+            let _ = reader.process_in_place(&mut buf);
+        }
+    }
+
+    #[test]
+    fn invariance_xtea_seq_field() {
+        let key = test_key();
+        let settings = ProtocolSettings {
+            header_size: 6,
+            has_checksum: true,
+            uses_xtea: true,
+            uses_rsa: true,
+        };
+
+        for seq in [0u32, 1, 42, u32::MAX >> 1] {
+            let body = build_xtea_body(&key, b"payload", seq);
+            check_process_invariants(settings, &body);
+        }
+    }
+
+    #[test]
+    fn invariance_xtea_error_paths() {
+        let settings = ProtocolSettings {
+            header_size: 6,
+            has_checksum: true,
+            uses_xtea: true,
+            uses_rsa: true,
+        };
+        check_process_invariants(settings, &[0u8; 3]); // too short
+        check_process_invariants(settings, &[0u8; 4]); // seq only
+        check_process_invariants(settings, &[0u8; 5]); // seq + 1 byte (not 8-aligned)
+    }
+
+    #[test]
+    fn invariance_empty_body() {
+        let settings = ProtocolSettings {
+            header_size: 2,
+            has_checksum: false,
+            uses_xtea: false,
+            uses_rsa: false,
+        };
+        check_process_invariants(settings, b"");
     }
 }

@@ -1,4 +1,5 @@
 pub mod connection;
+pub mod connections;
 pub mod error;
 pub mod manager;
 mod plugin;

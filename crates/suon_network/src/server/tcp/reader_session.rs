@@ -6,7 +6,7 @@ use tokio::io::AsyncReadExt;
 
 use crate::{
     connection::{id::ConnectionId, manager::ConnectionManager},
-    protocol::reader::PacketReader,
+    protocol::reader::{PacketReader, ProcessOutcome},
     server::tcp::settings::TcpSettings,
 };
 
@@ -91,15 +91,13 @@ impl ReaderSession {
             }
 
             trace!(target: "TCP", "Reader session {} processing {} bytes", self.id, size);
-            match reader.process(&body_buf[..size]) {
-                Ok(Some(plaintext)) => {
-                    self.buffer_pool.release(std::mem::take(&mut body_buf));
-                    self.reader_channel.send(RawPacket {
-                        id: self.id,
-                        data: plaintext,
-                    });
+            match reader.process_in_place(&mut body_buf) {
+                Ok(ProcessOutcome::Complete) => {
+                    let data = std::mem::take(&mut body_buf);
+                    self.reader_channel.send(RawPacket { id: self.id, data });
+                    body_buf = self.buffer_pool.acquire();
                 }
-                Ok(None) => {}
+                Ok(ProcessOutcome::Skip) => {}
                 Err(e) => {
                     error!(target: "TCP", "Reader session {} processing error: {e}", self.id);
                     break;
@@ -137,6 +135,8 @@ mod tests {
             channel_capacity: 64,
             max_buffer_size: 256,
             max_connections: 5,
+            connection_timeout_secs: 10,
+            rate_burst: 50,
         }
     }
 

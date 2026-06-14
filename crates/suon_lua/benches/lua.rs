@@ -54,7 +54,7 @@ fn bench_dispatch_no_events(criterion: &mut Criterion) {
 
     criterion.bench_function("lua/dispatch_no_events", |bencher| {
         bencher.iter(|| {
-            let result = vm.dispatch("BenchEvent", black_box(42));
+            let result = vm.trigger_event("NonExistent", black_box(42));
             black_box(result);
         });
     });
@@ -64,26 +64,26 @@ fn bench_dispatch_with_events(criterion: &mut Criterion) {
     let vm = LuaVm::new();
 
     vm.execute(|lua| {
-        let events = lua
+        let class = lua
             .create_table()
-            .expect("bench: failed to create Events table");
+            .expect("bench: failed to create event class table");
 
         let trigger = lua
             .create_function(|_, ()| Ok(true))
             .expect("bench: failed to create trigger function");
 
-        events
+        class
             .set("trigger", trigger)
             .expect("bench: failed to set trigger");
 
         lua.globals()
-            .set("Events", events)
-            .expect("bench: failed to set Events global");
+            .set("BenchEvent", class)
+            .expect("bench: failed to set BenchEvent global");
     });
 
     criterion.bench_function("lua/dispatch_with_events", |bencher| {
         bencher.iter(|| {
-            let result = vm.dispatch("BenchEvent", black_box(42));
+            let result = vm.trigger_event("BenchEvent", ());
             black_box(result);
         });
     });

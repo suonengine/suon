@@ -106,9 +106,11 @@ mod tests {
         handle
             .send(vec![1, 2, 3])
             .expect("failed to send command in handle_send_receives_command_send");
+
         let cmd = receiver
             .try_recv()
             .expect("failed to receive command in handle_send_receives_command_send");
+
         assert!(matches!(cmd, Command::Send(data) if data == vec![1, 2, 3]));
     }
 
@@ -120,9 +122,11 @@ mod tests {
         handle
             .close()
             .expect("failed to close handle in handle_close_receives_command_close");
+
         let cmd = receiver
             .try_recv()
             .expect("failed to receive Close command in test");
+
         assert!(matches!(cmd, Command::Close));
     }
 
@@ -134,6 +138,7 @@ mod tests {
         handle
             .send(vec![1])
             .expect("failed to send first command in backpressure test");
+
         let result = handle.send(vec![2]);
         assert!(result.is_err());
         drop(rx);

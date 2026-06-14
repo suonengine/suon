@@ -1,7 +1,7 @@
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use std::hint::black_box;
 use suon_network::{
-    protocol::{PacketReader, ProcessError},
+    protocol::{PacketReader, ProcessError, ProcessOutcome},
     server::tcp::{ProtocolSettings, RSA_KEY_SIZE, XTEA_KEY_BYTES, xtea_pad},
 };
 use suon_xtea::{Key, encrypt, expand};
@@ -58,8 +58,9 @@ fn xtea_decrypt(criterion: &mut Criterion) {
             reader.set_rsa_done(true);
 
             bencher.iter(|| {
-                let result = reader.process(black_box(&body)).ok().flatten();
-                black_box(result);
+                let mut proc_buf = body.clone();
+                let outcome = reader.process_in_place(&mut proc_buf);
+                black_box(outcome);
             });
         });
     }
@@ -90,8 +91,9 @@ fn rsa_handshake(criterion: &mut Criterion) {
                 uses_rsa: true,
             });
             reader.set_rsa_key(rsa);
-            let result = reader.process(black_box(&rsa_buf)).ok().flatten();
-            black_box(result);
+            let mut proc_buf = rsa_buf.clone();
+            let outcome = reader.process_in_place(&mut proc_buf);
+            black_box(outcome);
         });
     });
 
@@ -118,8 +120,9 @@ fn checksum_only(criterion: &mut Criterion) {
             });
 
             bencher.iter(|| {
-                let result = reader.process(black_box(&body)).ok().flatten();
-                black_box(result);
+                let mut proc_buf = body.clone();
+                let outcome = reader.process_in_place(&mut proc_buf);
+                black_box(outcome);
             });
         });
     }
@@ -143,8 +146,9 @@ fn plaintext(criterion: &mut Criterion) {
             });
 
             bencher.iter(|| {
-                let result = reader.process(black_box(&data)).ok().flatten();
-                black_box(result);
+                let mut proc_buf = data.clone();
+                let outcome = reader.process_in_place(&mut proc_buf);
+                black_box(outcome);
             });
         });
     }

@@ -26,6 +26,12 @@ impl ConnectionId {
     pub fn as_u64(&self) -> u64 {
         self.0
     }
+
+    /// Reconstruct a [`ConnectionId`] from the raw 64-bit value returned
+    /// by [`as_u64`](Self::as_u64).
+    pub const fn from_u64(id: u64) -> Self {
+        ConnectionId(id)
+    }
 }
 
 impl fmt::Display for ConnectionId {

@@ -27,7 +27,6 @@ impl Default for BufferPoolSettings {
 pub struct NetworkSettings {
     pub worker_threads: usize,
     pub server: Vec<ServerSettings>,
-    #[serde(default)]
     pub buffer_pool: BufferPoolSettings,
 }
 
@@ -52,6 +51,7 @@ impl Default for NetworkSettings {
                         channel_capacity: 1024,
                         max_buffer_size: 4096,
                         max_connections: 100,
+                        rate_burst: 50,
                     },
                     retry_delay: Duration::from_millis(15000),
                 },
@@ -70,6 +70,7 @@ impl Default for NetworkSettings {
                         channel_capacity: 1024,
                         max_buffer_size: 4096,
                         max_connections: 100,
+                        rate_burst: 50,
                     },
                     retry_delay: Duration::from_millis(15000),
                 },

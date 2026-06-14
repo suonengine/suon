@@ -3,7 +3,7 @@ use std::time::Duration;
 use crossbeam_channel::TryRecvError;
 use suon_network::{
     connection::{ConnectionHandle, ConnectionId},
-    protocol::{Command as TcpCommand, PacketReader, PacketWriter},
+    protocol::{Command as TcpCommand, PacketReader, PacketWriter, ProcessOutcome},
     server::tcp::ProtocolSettings,
 };
 use tokio::{
@@ -104,10 +104,14 @@ fn packet_reader_status_passthrough() {
     let mut body = Vec::with_capacity(4 + data.len());
     body.extend_from_slice(&checksum.to_le_bytes());
     body.extend_from_slice(data);
-    let result = reader
-        .process(&body)
-        .expect("reader should process status checksum body");
-    assert_eq!(result, Some(data.to_vec()));
+    let mut proc_buf = body.clone();
+    assert_eq!(
+        reader
+            .process_in_place(&mut proc_buf)
+            .expect("reader should process status checksum body"),
+        ProcessOutcome::Complete
+    );
+    assert_eq!(&proc_buf[..], &data[..]);
 }
 
 #[test]
@@ -126,10 +130,14 @@ fn packet_reader_writer_xtea_roundtrip() {
     reader.set_xtea_key(key);
     reader.set_xtea_enabled(true);
     reader.set_rsa_done(true);
-    let result = reader
-        .process(body)
-        .expect("reader should process XTEA roundtrip");
-    assert_eq!(result, Some(b"secret data".to_vec()));
+    let mut proc_buf = body.to_vec();
+    assert_eq!(
+        reader
+            .process_in_place(&mut proc_buf)
+            .expect("reader should process XTEA roundtrip"),
+        ProcessOutcome::Complete
+    );
+    assert_eq!(&proc_buf[..], b"secret data");
 }
 
 #[test]
@@ -246,10 +254,14 @@ async fn tcp_status_echo_roundtrip() {
 
     // Strip the 2-byte size header before passing to reader
     let body = &response[2..];
-    let result = reader
-        .process(body)
-        .expect("reader should process echoed data");
-    assert_eq!(result, Some(payload.to_vec()));
+    let mut proc_buf = body.to_vec();
+    assert_eq!(
+        reader
+            .process_in_place(&mut proc_buf)
+            .expect("reader should process echoed data"),
+        ProcessOutcome::Complete
+    );
+    assert_eq!(&proc_buf[..], &payload[..]);
 }
 
 #[tokio::test]
@@ -314,11 +326,14 @@ async fn tcp_multiple_connections() {
             .await
             .expect("failed to read response in multi test");
         let body = &buf[2..n];
-        let result = r
-            .process(body)
-            .expect("reader should process multi-connection data");
+        let mut proc_buf = body.to_vec();
+        assert_eq!(
+            r.process_in_place(&mut proc_buf)
+                .expect("reader should process multi-connection data"),
+            ProcessOutcome::Complete
+        );
         let expected = format!("response-{i}");
-        assert_eq!(result, Some(expected.into_bytes()));
+        assert_eq!(&proc_buf[..], expected.as_bytes());
     }
 
     accept_task
@@ -383,10 +398,14 @@ async fn tcp_large_payload_roundtrip() {
         .await
         .expect("failed to read response in large payload test");
     let body = &buf[2..n];
-    let result = reader
-        .process(body)
-        .expect("reader should process large payload data");
-    assert_eq!(result, Some(payload));
+    let mut proc_buf = body.to_vec();
+    assert_eq!(
+        reader
+            .process_in_place(&mut proc_buf)
+            .expect("reader should process large payload data"),
+        ProcessOutcome::Complete
+    );
+    assert_eq!(&proc_buf[..], &payload[..]);
 }
 
 #[test]
