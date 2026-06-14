@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use tracing::info;
 
-use suon_channel::buffer_pool::BufferPool;
+use suon_channel::BufferPool;
 use tokio::net::TcpListener;
 
 use crate::{
@@ -138,6 +138,7 @@ mod bound_server_tests {
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("failed to bind TCP listener for test");
+
         let channel = suon_channel::Channel::default();
         let shutdown = Shutdown::new();
         let settings = test_tcp_settings();
@@ -162,6 +163,7 @@ mod bound_server_tests {
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("failed to bind TCP listener for HTTP test");
+
         let channel = suon_channel::Channel::default();
         let shutdown = Shutdown::new();
         let settings = test_http_settings();
@@ -191,9 +193,11 @@ mod bound_server_tests {
         let server = std::thread::spawn(move || {
             let rt =
                 tokio::runtime::Runtime::new().expect("failed to create tokio runtime for test");
+
             rt.block_on(async {
                 let listener = TcpListener::from_std(listener)
                     .expect("failed to convert std listener to tokio listener");
+
                 let channel = suon_channel::Channel::default();
                 let server = BoundServer::new(
                     listener,
@@ -204,8 +208,11 @@ mod bound_server_tests {
                     test_manager(),
                 )
                 .into_server();
+
                 server.spawn();
+
                 tokio::time::sleep(Duration::from_millis(50)).await;
+
                 shutdown.trigger();
             });
         });
@@ -245,6 +252,7 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("failed to bind TCP listener for dispatch test");
+
         let channel = suon_channel::Channel::default();
         let shutdown = Shutdown::new();
 

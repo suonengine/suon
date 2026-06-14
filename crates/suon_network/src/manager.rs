@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use tracing::info;
 
-use suon_channel::{Channel, buffer_pool::BufferPool};
+use suon_channel::{BufferPool, Channel};
 use suon_macros::Resource;
 use tokio::runtime::Runtime;
 use tracing::error;
@@ -182,8 +182,8 @@ mod tests {
     #[test]
     fn status_after_spawn_server() {
         let (mut manager, ..) = make_manager();
-        let cm = Arc::new(ConnectionManager::new(0));
-        let result = manager.spawn_server(dummy_settings(), cm);
+        let connection_manager = Arc::new(ConnectionManager::new(0));
+        let result = manager.spawn_server(dummy_settings(), connection_manager);
         assert!(result.is_ok());
         assert!(!manager.status().is_empty());
     }
@@ -193,9 +193,14 @@ mod tests {
         let (mut manager, ..) = make_manager();
         let mut cfg = dummy_settings();
         cfg.port = 9999;
-        let cm = Arc::new(ConnectionManager::new(0));
-        assert!(manager.spawn_server(cfg.clone(), cm.clone()).is_ok());
-        let result = manager.spawn_server(cfg, cm);
+        let connection_manager = Arc::new(ConnectionManager::new(0));
+        assert!(
+            manager
+                .spawn_server(cfg.clone(), connection_manager.clone())
+                .is_ok()
+        );
+
+        let result = manager.spawn_server(cfg, connection_manager);
         assert!(matches!(result, Err(NetworkError::AlreadyRunning(9999))));
     }
 
@@ -204,10 +209,12 @@ mod tests {
         let (mut manager, ..) = make_manager();
         let mut cfg = dummy_settings();
         cfg.port = 8888;
-        let cm = Arc::new(ConnectionManager::new(0));
+
+        let connection_manager = Arc::new(ConnectionManager::new(0));
         manager
-            .spawn_server(cfg, cm)
+            .spawn_server(cfg, connection_manager)
             .expect("test server spawn should succeed");
+
         assert!(manager.is_running(8888));
     }
 
@@ -222,9 +229,10 @@ mod tests {
         let (mut manager, ..) = make_manager();
         let mut cfg = dummy_settings();
         cfg.port = 7777;
-        let cm = Arc::new(ConnectionManager::new(0));
+
+        let connection_manager = Arc::new(ConnectionManager::new(0));
         manager
-            .spawn_server(cfg, cm)
+            .spawn_server(cfg, connection_manager)
             .expect("test server spawn should succeed");
         assert!(manager.stop(7777).is_ok());
         assert!(!manager.is_running(7777));
@@ -244,15 +252,19 @@ mod tests {
         let (mut manager, ..) = make_manager();
         let mut cfg1 = dummy_settings();
         cfg1.port = 10001;
+
         let mut cfg2 = dummy_settings();
         cfg2.port = 10002;
-        let cm = Arc::new(ConnectionManager::new(0));
+
+        let connection_manager = Arc::new(ConnectionManager::new(0));
         manager
-            .spawn_server(cfg1, cm.clone())
+            .spawn_server(cfg1, connection_manager.clone())
             .expect("test server spawn should succeed");
+
         manager
-            .spawn_server(cfg2, cm)
+            .spawn_server(cfg2, connection_manager)
             .expect("test server spawn should succeed");
+
         assert_eq!(manager.status().len(), 2);
         manager.shutdown_all();
         assert!(manager.status().is_empty());

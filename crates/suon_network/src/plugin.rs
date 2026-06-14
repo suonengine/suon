@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use mlua::{Error, Lua, Table};
 use suon_app::{App, plugin::Plugin};
-use suon_channel::buffer_pool::BufferPool;
+use suon_channel::BufferPool;
 use suon_lua::LuaVm;
 use tracing::error;
 

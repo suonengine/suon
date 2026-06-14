@@ -44,16 +44,18 @@ fn single_field_type(input: &DeriveInput) -> syn::Type {
                 .expect("guarded by len == 1")
                 .ty
                 .clone(),
+
             Fields::Named(fields) if fields.named.len() == 1 => fields
                 .named
                 .first()
                 .expect("guarded by len == 1")
                 .ty
                 .clone(),
-            Fields::Unit => panic!("Deref/DerefMut requires a struct with exactly one field"),
-            _ => panic!("Deref/DerefMut requires a struct with exactly one field"),
+
+            Fields::Unit => panic!("Deref requires a struct with exactly one field"),
+            _ => panic!("Deref requires a struct with exactly one field"),
         },
-        _ => panic!("Deref/DerefMut can only be derived on structs"),
+        _ => panic!("Deref can only be derived on structs"),
     }
 }
 
@@ -69,6 +71,7 @@ fn field_accessor(input: &DeriveInput) -> proc_macro2::TokenStream {
                     .ident
                     .as_ref()
                     .expect("named field always has an ident");
+
                 quote! { self.#name }
             }
             Fields::Unit => unreachable!(),

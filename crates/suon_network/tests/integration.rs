@@ -200,9 +200,11 @@ async fn tcp_status_echo_roundtrip() {
     let listener = TcpListener::bind("127.0.0.1:0")
         .await
         .expect("failed to bind listener for echo test");
+
     let addr = listener
         .local_addr()
         .expect("failed to get listener local address");
+
     let proto = status_settings();
 
     tokio::spawn(async move {
@@ -210,16 +212,20 @@ async fn tcp_status_echo_roundtrip() {
             .accept()
             .await
             .expect("failed to accept connection in echo test");
+
         let mut buf = vec![0u8; 1024];
         let n = stream
             .read(&mut buf)
             .await
             .expect("failed to read from stream in echo test");
+
         buf.truncate(n);
+
         stream
             .write_all(&buf)
             .await
             .expect("failed to write to stream in echo test");
+
         stream
             .flush()
             .await
@@ -231,14 +237,17 @@ async fn tcp_status_echo_roundtrip() {
     let mut client = tokio::net::TcpStream::connect(addr)
         .await
         .expect("failed to connect client in echo test");
+
     let mut writer = PacketWriter::new(proto, 4096);
     let payload = b"ping";
     writer.send(payload);
+
     let framed = writer.take_buffer();
     client
         .write_all(&framed)
         .await
         .expect("failed to write framed data in echo test");
+
     client
         .flush()
         .await
@@ -250,6 +259,7 @@ async fn tcp_status_echo_roundtrip() {
         .read(&mut buf)
         .await
         .expect("failed to read response in echo test");
+
     let response = &buf[..n];
 
     // Strip the 2-byte size header before passing to reader
@@ -269,9 +279,11 @@ async fn tcp_multiple_connections() {
     let listener = TcpListener::bind("127.0.0.1:0")
         .await
         .expect("failed to bind listener for multi-connection test");
+
     let addr = listener
         .local_addr()
         .expect("failed to get listener local address");
+
     let proto = status_settings();
 
     let accept_task = tokio::spawn(async move {
@@ -280,20 +292,25 @@ async fn tcp_multiple_connections() {
                 .accept()
                 .await
                 .expect("failed to accept connection in multi test");
+
             let mut buf = vec![0u8; 1024];
             let n = stream
                 .read(&mut buf)
                 .await
                 .expect("failed to read from stream in multi test");
+
             buf.truncate(n);
+
             let payload = format!("response-{i}");
             let mut w = PacketWriter::new(proto, 4096);
             w.send(payload.as_bytes());
+
             let framed = w.take_buffer();
             stream
                 .write_all(&framed)
                 .await
                 .expect("failed to write response in multi test");
+
             stream
                 .flush()
                 .await
@@ -307,6 +324,7 @@ async fn tcp_multiple_connections() {
         let mut client = tokio::net::TcpStream::connect(addr)
             .await
             .expect("failed to connect client in multi test");
+
         let mut w = PacketWriter::new(proto, 4096);
         let payload = format!("hello-{i}");
         w.send(payload.as_bytes());
@@ -314,6 +332,7 @@ async fn tcp_multiple_connections() {
             .write_all(&w.take_buffer())
             .await
             .expect("failed to write payload in multi test");
+
         client
             .flush()
             .await
@@ -325,6 +344,7 @@ async fn tcp_multiple_connections() {
             .read(&mut buf)
             .await
             .expect("failed to read response in multi test");
+
         let body = &buf[2..n];
         let mut proc_buf = body.to_vec();
         assert_eq!(
@@ -332,6 +352,7 @@ async fn tcp_multiple_connections() {
                 .expect("reader should process multi-connection data"),
             ProcessOutcome::Complete
         );
+
         let expected = format!("response-{i}");
         assert_eq!(&proc_buf[..], expected.as_bytes());
     }
@@ -346,9 +367,11 @@ async fn tcp_large_payload_roundtrip() {
     let listener = TcpListener::bind("127.0.0.1:0")
         .await
         .expect("failed to bind listener for large payload test");
+
     let addr = listener
         .local_addr()
         .expect("failed to get listener local address");
+
     let proto = status_settings();
 
     tokio::spawn(async move {
@@ -356,16 +379,20 @@ async fn tcp_large_payload_roundtrip() {
             .accept()
             .await
             .expect("failed to accept connection in large payload test");
+
         let mut buf = vec![0u8; 4096];
         let n = stream
             .read(&mut buf)
             .await
             .expect("failed to read in large payload test");
+
         buf.truncate(n);
+
         stream
             .write_all(&buf)
             .await
             .expect("failed to write in large payload test");
+
         stream
             .flush()
             .await
@@ -380,10 +407,12 @@ async fn tcp_large_payload_roundtrip() {
     let mut writer = PacketWriter::new(proto, 4096);
     let payload = vec![0xABu8; 1500];
     writer.send(&payload);
+
     client
         .write_all(&writer.take_buffer())
         .await
         .expect("failed to write large payload");
+
     client
         .flush()
         .await
@@ -397,6 +426,7 @@ async fn tcp_large_payload_roundtrip() {
         .read(&mut buf)
         .await
         .expect("failed to read response in large payload test");
+
     let body = &buf[2..n];
     let mut proc_buf = body.to_vec();
     assert_eq!(

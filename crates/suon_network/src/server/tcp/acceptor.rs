@@ -1,5 +1,5 @@
 use std::{sync::Arc, time::Duration};
-use suon_channel::{Channel, buffer_pool::BufferPool};
+use suon_channel::{BufferPool, Channel};
 use tokio::net::TcpListener;
 use tracing::info;
 
@@ -187,8 +187,11 @@ mod tests {
             Arc::new(ConnectionManager::new(0)),
         )
         .spawn();
+
         tokio::time::sleep(Duration::from_millis(50)).await;
+
         shutdown.trigger();
+
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
 
@@ -241,6 +244,7 @@ mod tests {
         let client = tokio::net::TcpStream::connect(addr)
             .await
             .expect("failed to connect test client");
+
         tokio::time::sleep(Duration::from_millis(100)).await;
 
         // Drain and run tasks (ConnectionBegin) so the accept loop
@@ -248,6 +252,7 @@ mod tests {
         let mut buf = Vec::new();
         channel.wait_and_drain(&mut buf);
         assert!(!buf.is_empty(), "expected at least ConnectionBegin");
+
         let mut resources = Resources::default();
         resources.insert(suon_lua::LuaVm::new());
         resources.insert(suon_channel::Channel::default());
@@ -256,6 +261,7 @@ mod tests {
         }
 
         drop(client);
+
         tokio::time::sleep(Duration::from_millis(500)).await;
 
         let mut buf2 = Vec::new();

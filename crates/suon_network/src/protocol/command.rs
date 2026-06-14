@@ -44,12 +44,14 @@ mod tests {
         let (tx, rx) = crossbeam_channel::bounded(16);
         tx.send(Command::Send(vec![42]))
             .expect("failed to send Send command in roundtrip test");
+
         tx.send(Command::Close)
             .expect("failed to send Close command in roundtrip test");
 
         assert!(
             matches!(rx.recv().expect("failed to receive Send command"), Command::Send(d) if d == vec![42])
         );
+
         assert!(matches!(
             rx.recv().expect("failed to receive Close command"),
             Command::Close
@@ -61,8 +63,10 @@ mod tests {
         let (tx, rx) = crossbeam_channel::bounded(2);
         tx.send(Command::Send(vec![1]))
             .expect("failed to send first command in backpressure test");
+
         tx.send(Command::Send(vec![2]))
             .expect("failed to send second command in backpressure test");
+
         assert!(tx.try_send(Command::Send(vec![3])).is_err());
         drop(rx);
     }
@@ -73,6 +77,7 @@ mod tests {
         let key = [0x01, 0x23, 0x45, 0x67];
         tx.send(Command::SetXteaKey(key))
             .expect("failed to send SetXteaKey command");
+
         assert!(
             matches!(rx.recv().expect("failed to receive SetXteaKey command"), Command::SetXteaKey(k) if k == key)
         );
@@ -83,6 +88,7 @@ mod tests {
         let (tx, rx) = crossbeam_channel::bounded(16);
         tx.send(Command::CloseWithReason("shutdown".into()))
             .expect("failed to send CloseWithReason command");
+
         assert!(
             matches!(rx.recv().expect("failed to receive CloseWithReason command"), Command::CloseWithReason(r) if r == "shutdown")
         );

@@ -202,9 +202,12 @@ mod tests {
         settings
             .write(&path)
             .expect("failed to write default settings to temp file");
+
         let loaded = NetworkSettings::read(&path).expect("failed to read settings from temp file");
+
         assert_eq!(loaded.worker_threads, settings.worker_threads);
         assert_eq!(loaded.server.len(), settings.server.len());
+
         std::fs::remove_file(&path).expect("failed to remove settings file after test");
     }
 
@@ -219,7 +222,9 @@ mod tests {
     fn network_settings_read_invalid_toml() {
         let dir = std::env::temp_dir().join("suon_test_settings_invalid");
         let path = dir.join("NetworkSettings.toml");
+
         std::fs::create_dir_all(&dir).expect("failed to create temp directory for test");
+
         std::fs::write(&path, b"invalid toml {{{")
             .expect("failed to write invalid toml to temp file");
 

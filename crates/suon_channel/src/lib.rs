@@ -27,8 +27,6 @@
 //! [`Resources`] and accessed by tasks or startup systems via the
 //! standard `resources.get::<Channel>()` API.
 
-pub mod buffer_pool;
-
 use crossbeam_channel::{Receiver, RecvTimeoutError, Sender};
 use parking_lot::Mutex;
 use std::{
@@ -42,6 +40,10 @@ use std::{
 use suon_macros::Resource;
 use suon_resource::Resources;
 use tracing::{error, warn};
+
+pub use buffer_pool::BufferPool;
+
+mod buffer_pool;
 
 /// Unit of asynchronous work.
 ///
@@ -596,6 +598,7 @@ mod tests {
                 panic!("timed out waiting for all tasks");
             }
         }
+
         assert_eq!(
             resources.get::<Num>().0,
             2,
@@ -639,6 +642,7 @@ mod tests {
                 panic!("timed out waiting for all tasks");
             }
         }
+
         assert_eq!(resources.get::<Num>().0, 3);
     }
 
@@ -650,6 +654,7 @@ mod tests {
 
         let mut resources = Resources::default();
         resources.insert(Num(0));
+
         let mut buffer = Vec::new();
         let start = std::time::Instant::now();
         loop {
@@ -666,6 +671,7 @@ mod tests {
                 panic!("timed out");
             }
         }
+
         assert_eq!(resources.get::<Num>().0, 2);
     }
 
@@ -677,6 +683,7 @@ mod tests {
 
         let mut resources = Resources::default();
         resources.insert(Num(0));
+
         let mut buffer = Vec::new();
         let start = std::time::Instant::now();
         loop {
@@ -693,6 +700,7 @@ mod tests {
                 panic!("timed out");
             }
         }
+
         assert_eq!(resources.get::<Num>().0, 2);
     }
 
@@ -706,6 +714,7 @@ mod tests {
 
         let mut resources = Resources::default();
         resources.insert(Num(0));
+
         let mut buffer = Vec::new();
         let start = std::time::Instant::now();
         loop {
@@ -722,6 +731,7 @@ mod tests {
                 panic!("timed out with {} tasks", resources.get::<Num>().0);
             }
         }
+
         assert_eq!(resources.get::<Num>().0, N as i32);
     }
 
@@ -736,6 +746,7 @@ mod tests {
 
         let mut resources = Resources::default();
         resources.insert(Num(0));
+
         let mut buffer = Vec::new();
         let start = std::time::Instant::now();
         loop {
@@ -752,6 +763,7 @@ mod tests {
                 panic!("timed out with {} tasks", resources.get::<Num>().0);
             }
         }
+
         assert_eq!(resources.get::<Num>().0, (N * 2) as i32);
     }
 
@@ -765,6 +777,7 @@ mod tests {
 
         let mut resources = Resources::default();
         resources.insert(Num(0));
+
         let mut buffer = Vec::new();
         let start = std::time::Instant::now();
         loop {
@@ -781,6 +794,7 @@ mod tests {
                 panic!("timed out");
             }
         }
+
         assert_eq!(resources.get::<Num>().0, 3);
     }
 
@@ -793,6 +807,7 @@ mod tests {
 
         let mut resources = Resources::default();
         resources.insert(Num(0));
+
         let mut buffer = Vec::new();
         let start = std::time::Instant::now();
         loop {
@@ -809,6 +824,7 @@ mod tests {
                 panic!("timed out with {} tasks", resources.get::<Num>().0);
             }
         }
+
         assert_eq!(resources.get::<Num>().0, 100);
     }
 

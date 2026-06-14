@@ -159,13 +159,13 @@ impl App {
         self.resources.insert(self.channel.clone());
 
         let startup_count = self.startup_systems.len();
-        info!(target: "App", "Running {startup_count} startup systems");
+        debug!(target: "App", "Running {startup_count} startup systems");
         for system in std::mem::take(&mut self.startup_systems) {
             system.run(&mut self.resources);
         }
-        info!(target: "App", "Startup systems complete");
+        debug!(target: "App", "Startup systems complete");
 
-        info!(target: "App", "Entering task dispatch loop");
+        debug!(target: "App", "Entering task dispatch loop");
         let mut buffer = Vec::new();
         loop {
             self.channel.wait_and_drain(&mut buffer);
@@ -181,12 +181,11 @@ impl App {
         }
 
         let shutdown_count = self.shutdown_systems.len();
-        info!(target: "App", "Running {shutdown_count} shutdown systems");
-
+        debug!(target: "App", "Running {shutdown_count} shutdown systems");
         for system in std::mem::take(&mut self.shutdown_systems) {
             system.run(&mut self.resources);
         }
-        info!(target: "App", "Shutdown complete");
+        debug!(target: "App", "Shutdown complete");
     }
 }
 
@@ -301,6 +300,7 @@ mod tests {
     }
 
     struct AddNumPlugin;
+
     impl Plugin for AddNumPlugin {
         fn build(&self, app: &mut App) {
             app.add_resource(Num(10));
@@ -308,6 +308,7 @@ mod tests {
     }
 
     struct StartupPlugin;
+
     impl Plugin for StartupPlugin {
         fn build(&self, app: &mut App) {
             app.add_resource(Num(0));
@@ -337,6 +338,7 @@ mod tests {
     #[test]
     fn multiple_plugins() {
         struct PluginA;
+
         impl Plugin for PluginA {
             fn build(&self, app: &mut App) {
                 app.add_resource(Num(1));
@@ -344,6 +346,7 @@ mod tests {
         }
 
         struct PluginB;
+
         impl Plugin for PluginB {
             fn build(&self, app: &mut App) {
                 app.add_resource(Label(String::from("b")));
@@ -361,6 +364,7 @@ mod tests {
     fn task_sends_task() {
         #[derive(Task)]
         struct FirstStep;
+
         impl TaskHandler for FirstStep {
             fn run(&mut self, resources: &mut Resources) {
                 **resources.get_mut::<Num>() = 1;
@@ -371,6 +375,7 @@ mod tests {
 
         #[derive(Task)]
         struct SecondStep;
+
         impl TaskHandler for SecondStep {
             fn run(&mut self, resources: &mut Resources) {
                 **resources.get_mut::<Num>() = 2;

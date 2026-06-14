@@ -35,8 +35,9 @@ fn bench_encrypt(criterion: &mut Criterion) {
 }
 
 fn bench_decrypt(criterion: &mut Criterion) {
-    let expanded = &EXPANDED_KEY;
     let mut group = criterion.benchmark_group("decrypt");
+
+    let expanded = &EXPANDED_KEY;
 
     for &size in PACKET_SIZES {
         let padded = xtea_pad(&vec![0xABu8; size]);

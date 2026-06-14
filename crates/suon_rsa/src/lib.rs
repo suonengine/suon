@@ -289,15 +289,15 @@ fn base64_decode(input: &[u8]) -> Result<Vec<u8>, RsaError> {
 fn skip_der_length(data: &[u8], offset: usize) -> Result<usize, RsaError> {
     let len_byte = data.get(offset).copied().ok_or(RsaError::InvalidKey)?;
     if len_byte < DER_LONG_FLAG {
-        Ok(offset + 1)
-    } else {
-        let byte_count = (len_byte & DER_LENGTH_MASK) as usize;
-        if byte_count == 0 || offset + 1 + byte_count > data.len() {
-            return Err(RsaError::InvalidKey);
-        }
-
-        Ok(offset + 1 + byte_count)
+        return Ok(offset + 1);
     }
+
+    let byte_count = (len_byte & DER_LENGTH_MASK) as usize;
+    if byte_count == 0 || offset + 1 + byte_count > data.len() {
+        return Err(RsaError::InvalidKey);
+    }
+
+    Ok(offset + 1 + byte_count)
 }
 
 fn read_der_integer<'a>(data: &'a [u8], offset: &mut usize) -> Result<&'a [u8], RsaError> {
@@ -645,6 +645,7 @@ mod tests {
         for chunk in buffer.chunks_mut(key.key_size) {
             encrypt(&key, chunk).expect("encrypt of each block should succeed");
         }
+
         assert_ne!(
             buffer, original_buffer,
             "ciphertext must differ from plaintext"

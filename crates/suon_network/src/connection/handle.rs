@@ -152,9 +152,11 @@ mod tests {
         handle
             .set_xtea_key([1, 2, 3, 4])
             .expect("failed to set XTEA key in test");
+
         let cmd = receiver
             .try_recv()
             .expect("failed to receive SetXteaKey command in test");
+
         assert!(matches!(cmd, Command::SetXteaKey(_)));
     }
 
@@ -166,9 +168,11 @@ mod tests {
         handle
             .close_with_reason("timeout".into())
             .expect("failed to close with reason in test");
+
         let cmd = receiver
             .try_recv()
             .expect("failed to receive CloseWithReason command in test");
+
         assert!(matches!(cmd, Command::CloseWithReason(r) if r == "timeout"));
     }
 }

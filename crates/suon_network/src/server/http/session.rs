@@ -186,12 +186,15 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("failed to bind TCP listener for HTTP session test");
+
         let addr = listener
             .local_addr()
             .expect("failed to get listener local address");
+
         let channel = Channel::default();
         let shutdown = Shutdown::new();
         let limiter = ConnectionLimiter::new(5);
+
         let permit = limiter
             .try_acquire()
             .expect("failed to acquire connection permit for test");
@@ -201,12 +204,14 @@ mod tests {
                 .accept()
                 .await
                 .expect("failed to accept incoming connection");
+
             HttpSession::new(1, stream, channel, make_config(), shutdown, permit).spawn();
         });
 
         let mut client = tokio::net::TcpStream::connect(addr)
             .await
             .expect("failed to connect test client");
+
         tokio::io::AsyncWriteExt::write_all(
             &mut client,
             b"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n",

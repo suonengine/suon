@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use tracing::{error, trace};
 
-use suon_channel::{Channel, buffer_pool::BufferPool};
+use suon_channel::{BufferPool, Channel};
 use tokio::io::AsyncReadExt;
 
 use crate::{
@@ -146,6 +146,7 @@ mod tests {
         let permit = limiter
             .try_acquire()
             .expect("failed to acquire connection permit for test");
+
         (manager, permit)
     }
 
@@ -154,9 +155,11 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("failed to bind TCP listener for cleanup test");
+
         let addr = listener
             .local_addr()
             .expect("failed to get listener local address");
+
         let channel = Channel::default();
         let shutdown = Shutdown::new();
         let (manager, permit) = setup();
@@ -167,6 +170,7 @@ mod tests {
                 .accept()
                 .await
                 .expect("failed to accept incoming connection");
+
             let (reader_half, ..) = stream.into_split();
             let (sender, ..) = crossbeam_channel::bounded(64);
             let id = manager.register(addr, config.protocol, sender);
@@ -187,7 +191,9 @@ mod tests {
         let client = tokio::net::TcpStream::connect(addr)
             .await
             .expect("failed to connect test client");
+
         tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
         drop(client);
         drop(server.await);
     }
@@ -197,9 +203,11 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("failed to bind TCP listener for EOF test");
+
         let addr = listener
             .local_addr()
             .expect("failed to get listener local address");
+
         let channel = Channel::default();
         let shutdown = Shutdown::new();
         let (manager, permit) = setup();
@@ -210,6 +218,7 @@ mod tests {
                 .accept()
                 .await
                 .expect("failed to accept incoming connection");
+
             let (reader_half, ..) = stream.into_split();
             let (sender, ..) = crossbeam_channel::bounded(64);
             let id = manager.register(addr, config.protocol, sender);
@@ -230,6 +239,7 @@ mod tests {
         let client = tokio::net::TcpStream::connect(addr)
             .await
             .expect("failed to connect test client");
+
         tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
         drop(client);
         drop(server.await);
@@ -240,9 +250,11 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("failed to bind TCP listener for partial read test");
+
         let addr = listener
             .local_addr()
             .expect("failed to get listener local address");
+
         let channel = Channel::default();
         let shutdown = Shutdown::new();
         let (manager, permit) = setup();
@@ -253,6 +265,7 @@ mod tests {
                 .accept()
                 .await
                 .expect("failed to accept incoming connection");
+
             let (reader_half, ..) = stream.into_split();
             let (sender, ..) = crossbeam_channel::bounded(64);
             let id = manager.register(addr, config.protocol, sender);
@@ -273,14 +286,19 @@ mod tests {
         let mut client = tokio::net::TcpStream::connect(addr)
             .await
             .expect("failed to connect test client");
+
         tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
         use tokio::io::AsyncWriteExt;
         client
             .write_all(b"\x00\x05")
             .await
             .expect("failed to write partial data in test");
+
         client.flush().await.expect("failed to flush test client");
+
         tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
         drop(client);
         drop(server.await);
     }

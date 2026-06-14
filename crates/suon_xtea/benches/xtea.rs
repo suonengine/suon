@@ -177,6 +177,7 @@ fn roundtrip(criterion: &mut Criterion) {
         bencher.iter(|| {
             encrypt(black_box(&mut buffer), &EXPANDED_KEYS)
                 .expect("encryption in roundtrip benchmark must succeed");
+
             decrypt(black_box(&mut buffer), &EXPANDED_KEYS)
                 .expect("decryption in roundtrip benchmark must succeed");
         });

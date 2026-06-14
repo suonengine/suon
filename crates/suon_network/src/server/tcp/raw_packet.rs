@@ -29,7 +29,7 @@ impl TaskHandler for RawPacket {
 mod tests {
     use std::sync::Arc;
 
-    use suon_channel::buffer_pool::BufferPool;
+    use suon_channel::BufferPool;
 
     use super::*;
 

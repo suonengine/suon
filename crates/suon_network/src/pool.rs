@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use suon_channel::buffer_pool::BufferPool;
+use suon_channel::BufferPool;
 use suon_macros::Resource;
 
 #[cfg(test)]

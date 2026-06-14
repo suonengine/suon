@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use suon_channel::{Channel, buffer_pool::BufferPool};
+use suon_channel::{BufferPool, Channel};
 use tokio::{net::TcpListener, runtime::Runtime};
 use tracing::warn;
 

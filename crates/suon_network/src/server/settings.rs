@@ -31,8 +31,10 @@ mod tests {
             max_connections = 100
             retry_delay_ms = 15000
         "#;
+
         let settings: ServerSettings =
             toml::from_str(toml_str).expect("failed to deserialize TCP settings from TOML");
+
         assert_eq!(settings.address, "0.0.0.0");
         assert_eq!(settings.port, 7171);
         assert_eq!(settings.retry_delay, Duration::from_millis(15000));
@@ -50,8 +52,10 @@ mod tests {
             max_headers = 32
             retry_delay_ms = 15000
         "#;
+
         let settings: ServerSettings =
             toml::from_str(toml_str).expect("failed to deserialize HTTP settings from TOML");
+
         assert_eq!(settings.port, 8080);
         assert!(matches!(settings.kind, ServerKind::Http { .. }));
     }

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use suon_channel::buffer_pool::BufferPool;
+use suon_channel::BufferPool;
 use tokio::io::{AsyncWriteExt, BufWriter};
 use tracing::{error, trace};
 
@@ -180,9 +180,11 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("failed to bind TCP listener for writer send test");
+
         let addr = listener
             .local_addr()
             .expect("failed to get listener local address");
+
         let shutdown = Shutdown::new();
         let config = make_config();
 
@@ -191,6 +193,7 @@ mod tests {
                 .accept()
                 .await
                 .expect("failed to accept incoming connection");
+
             let (.., writer_half) = stream.into_split();
             let (_, rx) = crossbeam_channel::bounded(16);
             WriterSession::new(rx, writer_half, config, shutdown, crate::test_buffer_pool())
@@ -200,12 +203,16 @@ mod tests {
         let mut client = tokio::net::TcpStream::connect(addr)
             .await
             .expect("failed to connect test client");
+
         tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
         client
             .write_all(b"test")
             .await
             .expect("failed to write test data");
+
         client.flush().await.expect("failed to flush test client");
+
         drop(client);
         drop(server.await);
     }
@@ -215,9 +222,11 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("failed to bind TCP listener for writer close test");
+
         let addr = listener
             .local_addr()
             .expect("failed to get listener local address");
+
         let shutdown = Shutdown::new();
         let config = make_config();
 
@@ -226,6 +235,7 @@ mod tests {
                 .accept()
                 .await
                 .expect("failed to accept incoming connection");
+
             let (.., writer_half) = stream.into_split();
             let (_, rx) = crossbeam_channel::bounded(16);
             WriterSession::new(rx, writer_half, config, shutdown, crate::test_buffer_pool())
@@ -235,7 +245,9 @@ mod tests {
         let client = tokio::net::TcpStream::connect(addr)
             .await
             .expect("failed to connect test client");
+
         tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
         drop(client);
         drop(server.await);
     }
@@ -245,9 +257,11 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("failed to bind TCP listener for shutdown test");
+
         let addr = listener
             .local_addr()
             .expect("failed to get listener local address");
+
         let shutdown = Shutdown::new();
         let config = make_config();
 
@@ -260,14 +274,17 @@ mod tests {
             let (tx, rx) = crossbeam_channel::bounded(16);
             WriterSession::new(rx, writer_half, config, shutdown, crate::test_buffer_pool())
                 .spawn();
+
             // Wait for client to connect, then send Close
             tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+
             tx.send(Command::Close).ok();
         });
 
         let mut client = tokio::net::TcpStream::connect(addr)
             .await
             .expect("failed to connect test client");
+
         // Give the writer time to process the Close command
         tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
 
@@ -297,9 +314,11 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("failed to bind TCP listener for send/flush test");
+
         let addr = listener
             .local_addr()
             .expect("failed to get listener local address");
+
         let shutdown = Shutdown::new();
         let config = make_config();
 
@@ -308,19 +327,24 @@ mod tests {
                 .accept()
                 .await
                 .expect("failed to accept incoming connection");
+
             let (.., writer_half) = stream.into_split();
             let (tx, rx) = crossbeam_channel::bounded(16);
             WriterSession::new(rx, writer_half, config, shutdown, crate::test_buffer_pool())
                 .spawn();
+
             // Send data through the command channel
             tx.send(Command::Send(b"hello".to_vec())).ok();
+
             tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+
             tx.send(Command::Close).ok();
         });
 
         let mut client = tokio::net::TcpStream::connect(addr)
             .await
             .expect("failed to connect test client");
+
         tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
 
         // Read the framed data the writer should have sent

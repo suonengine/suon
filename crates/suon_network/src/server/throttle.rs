@@ -115,9 +115,11 @@ mod tests {
         let p1 = limiter
             .try_acquire()
             .expect("first test permit should not fail with max=2");
+
         let p2 = limiter
             .try_acquire()
             .expect("second test permit should not fail with max=2");
+
         assert!(limiter.try_acquire().is_err());
 
         assert_eq!(limiter.active_count(), 2);
@@ -127,6 +129,7 @@ mod tests {
         let p3 = limiter
             .try_acquire()
             .expect("third permit after dropping one should succeed");
+
         assert!(limiter.try_acquire().is_err());
 
         drop(p2);

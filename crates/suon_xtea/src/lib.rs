@@ -141,6 +141,7 @@ pub fn encrypt(data: &mut [u8], expanded: &ExpandedKey) -> Result<(), XteaError>
             "XTEA encrypt: invalid data length {} (not multiple of 8)",
             data_len
         );
+
         return Err(XteaError::InvalidDataLength(data_len));
     }
 
@@ -149,6 +150,7 @@ pub fn encrypt(data: &mut [u8], expanded: &ExpandedKey) -> Result<(), XteaError>
         data_len,
         data_len / BLOCK_SIZE
     );
+
     // Iterate over the 32 round pairs (64 entries, step 2).
     let mut key_index = 0;
     while key_index < ROUNDS * 2 {
@@ -203,6 +205,7 @@ pub fn decrypt(data: &mut [u8], expanded: &ExpandedKey) -> Result<(), XteaError>
         data_len,
         data_len / BLOCK_SIZE
     );
+
     // Empty data trivially decrypts to empty data.
     if data_len == 0 {
         return Ok(());
@@ -257,6 +260,7 @@ mod tests {
         let original_buffer = buffer.clone();
         encrypt(&mut buffer, &expanded_keys).expect("encrypt should succeed for 24-byte input");
         assert_ne!(buffer, original_buffer);
+
         decrypt(&mut buffer, &expanded_keys).expect("decrypt should succeed for valid ciphertext");
         assert_eq!(buffer, original_buffer);
     }
@@ -279,6 +283,7 @@ mod tests {
         let expanded_keys = expand(&key);
         let mut plaintext_a = vec![0u8; 8];
         encrypt(&mut plaintext_a, &expanded_keys).expect("first encrypt should succeed");
+
         let mut plaintext_b = vec![0u8; 8];
         encrypt(&mut plaintext_b, &expanded_keys).expect("second encrypt should succeed");
         assert_eq!(
@@ -348,6 +353,7 @@ mod tests {
             buffer.iter().any(|&byte| byte != 0),
             "zero-key encryption must produce non-zero ciphertext"
         );
+
         decrypt(&mut buffer, &expanded_keys)
             .expect("decrypt after zero-key encrypt should succeed");
         assert_eq!(buffer, vec![0u8; 8]);
@@ -364,6 +370,7 @@ mod tests {
             vec![0xd8, 0xd4, 0xe9, 0xde, 0xd9, 0x1e, 0x13, 0xf7],
             "zero-key KAT ciphertext mismatch"
         );
+
         decrypt(&mut buffer, &expanded_keys).expect("decrypt for zero-key KAT should succeed");
         assert_eq!(
             buffer,
@@ -383,6 +390,7 @@ mod tests {
             vec![0x5c, 0x25, 0x02, 0xff, 0xad, 0x19, 0x2a, 0xd0],
             "non-zero key KAT ciphertext mismatch"
         );
+
         decrypt(&mut buffer, &expanded_keys).expect("decrypt for non-zero KAT should succeed");
         assert_eq!(
             buffer, b"ABCDEFGH",
@@ -413,6 +421,7 @@ mod tests {
         let mut data: Vec<u8> = vec![];
         encrypt(&mut data, &expanded_keys).expect("encrypt on empty data should succeed");
         assert_eq!(data.len(), 0, "encrypt must not change empty data length");
+
         decrypt(&mut data, &expanded_keys).expect("decrypt on empty data should succeed");
         assert_eq!(data.len(), 0, "decrypt must not change empty data length");
     }
@@ -429,19 +438,24 @@ mod tests {
 
         encrypt(&mut buffer_a, &expanded_keys)
             .expect("first encrypt with reused key should succeed");
+
         encrypt(&mut buffer_b, &expanded_keys)
             .expect("second encrypt with reused key should succeed");
+
         assert_ne!(buffer_a, original_a, "first buffer must be encrypted");
         assert_ne!(buffer_b, original_b, "second buffer must be encrypted");
 
         decrypt(&mut buffer_a, &expanded_keys)
             .expect("first decrypt with reused key should succeed");
+
         decrypt(&mut buffer_b, &expanded_keys)
             .expect("second decrypt with reused key should succeed");
+
         assert_eq!(
             buffer_a, original_a,
             "first buffer roundtrip must restore original"
         );
+
         assert_eq!(
             buffer_b, original_b,
             "second buffer roundtrip must restore original"
@@ -467,6 +481,7 @@ mod tests {
             data, original_data,
             "one-shot encrypt must produce ciphertext"
         );
+
         decrypt(&mut data, &expand(&key)).expect("one-shot decrypt should succeed");
         assert_eq!(
             data, original_data,

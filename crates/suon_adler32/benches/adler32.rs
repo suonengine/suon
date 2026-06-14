@@ -21,6 +21,7 @@ const PATTERN: u8 = 0xAB;
 
 fn bench_adler32(c: &mut Criterion) {
     let mut group = c.benchmark_group("adler32");
+
     for &size in PACKET_SIZES {
         let data = vec![PATTERN; size];
         group.throughput(Throughput::Bytes(size as u64));
@@ -31,6 +32,7 @@ fn bench_adler32(c: &mut Criterion) {
             });
         });
     }
+
     group.finish();
 }
 

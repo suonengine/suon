@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use tracing::trace;
 
-use suon_channel::{Channel, buffer_pool::BufferPool};
+use suon_channel::{BufferPool, Channel};
 use tokio::net::TcpStream;
 
 use crate::{
@@ -83,14 +83,17 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("failed to bind TCP listener for test");
+
         let addr = listener
             .local_addr()
             .expect("failed to get listener local address");
+
         let channel = Channel::default();
         let shutdown = Shutdown::new();
         let manager = Arc::new(ConnectionManager::new(0));
         let config = make_config();
         let limiter = ConnectionLimiter::new(5);
+
         let permit = limiter
             .try_acquire()
             .expect("failed to acquire connection permit for test");
@@ -100,6 +103,7 @@ mod tests {
                 .accept()
                 .await
                 .expect("failed to accept incoming connection");
+
             let (_, rx) = crossbeam_channel::bounded(16);
             Connection::spawn(
                 stream,
@@ -117,6 +121,7 @@ mod tests {
         let client = tokio::net::TcpStream::connect(addr)
             .await
             .expect("failed to connect test client");
+
         drop(accept.await);
         drop(client);
     }
@@ -126,9 +131,11 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("failed to bind TCP listener for multi-client test");
+
         let addr = listener
             .local_addr()
             .expect("failed to get listener local address");
+
         let channel = Channel::default();
         let shutdown = Shutdown::new();
         let manager = Arc::new(ConnectionManager::new(0));
@@ -140,10 +147,12 @@ mod tests {
                 let permit = limiter
                     .try_acquire()
                     .expect("failed to acquire connection permit for multi-client test");
+
                 let (stream, _) = listener
                     .accept()
                     .await
                     .expect("failed to accept incoming connection");
+
                 let (_, rx) = crossbeam_channel::bounded(16);
                 Connection::spawn(
                     stream,
@@ -163,7 +172,9 @@ mod tests {
             let client = tokio::net::TcpStream::connect(addr)
                 .await
                 .expect("failed to connect test client");
+
             tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
             drop(client);
         }
         drop(accept.await);

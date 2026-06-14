@@ -45,6 +45,7 @@ fn manager_register(criterion: &mut Criterion) {
         uses_xtea: true,
         uses_rsa: true,
     };
+
     let peer = "127.0.0.1:7000"
         .parse()
         .expect("benchmark address should parse");
@@ -66,6 +67,7 @@ fn manager_register_unregister(criterion: &mut Criterion) {
         uses_xtea: true,
         uses_rsa: true,
     };
+
     let peer = "127.0.0.1:7000"
         .parse()
         .expect("benchmark address should parse");
@@ -87,6 +89,7 @@ fn manager_active_connections(criterion: &mut Criterion) {
         uses_xtea: true,
         uses_rsa: true,
     };
+
     let peer = "127.0.0.1:7000"
         .parse()
         .expect("benchmark address should parse");
@@ -119,6 +122,7 @@ fn manager_concurrent_register(criterion: &mut Criterion) {
         uses_xtea: true,
         uses_rsa: true,
     };
+
     let peer = "127.0.0.1:7000"
         .parse()
         .expect("benchmark address should parse");
