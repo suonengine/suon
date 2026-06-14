@@ -154,7 +154,7 @@ mod bound_server_tests {
         .into_server()
         .spawn();
 
-        tokio::time::sleep(Duration::from_millis(50)).await;
+        tokio::time::sleep(Duration::from_millis(15)).await;
         shutdown.trigger();
     }
 
@@ -179,7 +179,7 @@ mod bound_server_tests {
         .into_server()
         .spawn();
 
-        tokio::time::sleep(Duration::from_millis(50)).await;
+        tokio::time::sleep(Duration::from_millis(15)).await;
         shutdown.trigger();
     }
 
@@ -211,13 +211,13 @@ mod bound_server_tests {
 
                 server.spawn();
 
-                tokio::time::sleep(Duration::from_millis(50)).await;
+                tokio::time::sleep(Duration::from_millis(15)).await;
 
                 shutdown.trigger();
             });
         });
 
-        std::thread::sleep(Duration::from_millis(200));
+        std::thread::sleep(Duration::from_millis(50));
         drop(server);
     }
 }
@@ -285,7 +285,7 @@ mod tests {
         .into_server()
         .spawn();
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(15)).await;
         shutdown.trigger();
     }
 
@@ -314,7 +314,7 @@ mod tests {
         .into_server()
         .spawn();
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(15)).await;
         shutdown.trigger();
     }
 }

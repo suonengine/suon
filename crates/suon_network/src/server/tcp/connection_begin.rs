@@ -98,14 +98,14 @@ impl TaskHandler for ConnectionBegin {
             )
             .is_ok();
 
-        if let Some(sender) = self.response.take() {
-            if let Err(error) = sender.send(accepted) {
-                tracing::error!(
-                    target: "TCP",
-                    "Failed to send ConnectionBegin response for {}: {error}",
-                    self.id,
-                );
-            }
+        if let Some(sender) = self.response.take()
+            && let Err(error) = sender.send(accepted)
+        {
+            tracing::error!(
+                target: "TCP",
+                "Failed to send ConnectionBegin response for {}: {error}",
+                self.id,
+            );
         }
     }
 }

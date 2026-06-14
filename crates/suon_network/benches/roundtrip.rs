@@ -46,8 +46,10 @@ fn bench_roundtrip(criterion: &mut Criterion) {
 
                 let body = &framed[2..];
                 let mut proc_buf = body.to_vec();
-                let outcome = reader.process_in_place(&mut proc_buf);
-                black_box(outcome);
+                black_box(
+                reader.process_in_place(&mut proc_buf)
+                    .expect("bench process must succeed"),
+            );
             });
         });
     }

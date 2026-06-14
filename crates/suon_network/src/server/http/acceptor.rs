@@ -207,9 +207,9 @@ mod http_acceptor_tests {
         let settings = make_settings();
 
         HttpAcceptor::new(listener, channel, &settings, shutdown.clone()).spawn();
-        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(15)).await;
         shutdown.trigger();
-        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(15)).await;
     }
 
     #[tokio::test]
@@ -228,13 +228,13 @@ mod http_acceptor_tests {
 
         HttpAcceptor::new(listener, channel.clone(), &settings, shutdown.clone()).spawn();
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(15)).await;
 
         let client = tokio::net::TcpStream::connect(addr)
             .await
             .expect("failed to connect test client");
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
         drop(client);
         shutdown.trigger();
     }

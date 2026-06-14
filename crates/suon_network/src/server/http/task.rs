@@ -3,6 +3,7 @@ use suon_resource::Resources;
 
 use super::request::HttpRequest;
 
+#[allow(dead_code)]
 pub(crate) struct HttpRequestTask(pub HttpRequest);
 
 impl TaskHandler for HttpRequestTask {

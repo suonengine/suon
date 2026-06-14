@@ -75,6 +75,7 @@ pub fn xtea_unpad(data: &[u8]) -> &[u8] {
     &data[start..end]
 }
 
+#[allow(dead_code)]
 pub fn read_u16_le(data: &[u8]) -> Option<(u16, &[u8])> {
     if data.len() < 2 {
         return None;
@@ -84,6 +85,7 @@ pub fn read_u16_le(data: &[u8]) -> Option<(u16, &[u8])> {
     Some((value, &data[2..]))
 }
 
+#[allow(dead_code)]
 pub fn read_u32_le(data: &[u8]) -> Option<(u32, &[u8])> {
     if data.len() < 4 {
         return None;

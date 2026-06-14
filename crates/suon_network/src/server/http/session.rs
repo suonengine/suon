@@ -219,7 +219,7 @@ mod tests {
         .await
         .expect("failed to send HTTP request from test client");
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
 
         drop(client);
         drop(server.await);

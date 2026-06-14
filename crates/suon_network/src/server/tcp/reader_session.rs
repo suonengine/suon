@@ -25,6 +25,7 @@ pub(crate) struct ReaderSession {
 }
 
 impl ReaderSession {
+    #[expect(clippy::too_many_arguments)]
     pub fn new(
         id: ConnectionId,
         reader_half: tokio::net::tcp::OwnedReadHalf,
@@ -192,7 +193,7 @@ mod tests {
             .await
             .expect("failed to connect test client");
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(15)).await;
 
         drop(client);
         drop(server.await);
@@ -240,7 +241,7 @@ mod tests {
             .await
             .expect("failed to connect test client");
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(15)).await;
         drop(client);
         drop(server.await);
     }
@@ -287,7 +288,7 @@ mod tests {
             .await
             .expect("failed to connect test client");
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(15)).await;
 
         use tokio::io::AsyncWriteExt;
         client
@@ -297,7 +298,7 @@ mod tests {
 
         client.flush().await.expect("failed to flush test client");
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(15)).await;
 
         drop(client);
         drop(server.await);

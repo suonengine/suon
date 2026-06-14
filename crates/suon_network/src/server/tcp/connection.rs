@@ -173,7 +173,7 @@ mod tests {
                 .await
                 .expect("failed to connect test client");
 
-            tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(15)).await;
 
             drop(client);
         }

@@ -120,7 +120,7 @@ struct ScheduledTask {
 
 impl PartialOrd for ScheduledTask {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        other.at.partial_cmp(&self.at)
+        Some(self.cmp(other))
     }
 }
 

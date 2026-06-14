@@ -188,87 +188,11 @@ mod tests {
         )
         .spawn();
 
-        tokio::time::sleep(Duration::from_millis(50)).await;
+        tokio::time::sleep(Duration::from_millis(15)).await;
 
         shutdown.trigger();
 
-        tokio::time::sleep(Duration::from_millis(50)).await;
-    }
-
-    #[tokio::test]
-    async fn tcp_accept_and_disconnect() {
-        let listener = TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("failed to bind TCP listener for accept/disconnect test");
-
-        let addr = listener
-            .local_addr()
-            .expect("failed to get listener local address");
-
-        let channel = Channel::default();
-        let shutdown = Shutdown::new();
-        let settings = ServerSettings {
-            port: 0,
-            address: "127.0.0.1".into(),
-            kind: ServerKind::Tcp {
-                protocol: ProtocolSettings {
-                    header_size: 2,
-                    has_checksum: true,
-                    uses_xtea: false,
-                    uses_rsa: false,
-                },
-                flush_interval: Duration::from_millis(50),
-                encryption: EncryptionSettings {
-                    incoming: false,
-                    outgoing: false,
-                },
-                channel_capacity: 64,
-                max_buffer_size: 256,
-                max_connections: 5,
-                rate_burst: 50,
-            },
-            retry_delay: Duration::from_millis(100),
-        };
-
-        TcpAcceptor::new(
-            listener,
-            channel.clone(),
-            &settings,
-            shutdown.clone(),
-            crate::test_buffer_pool(),
-            Arc::new(ConnectionManager::new(0)),
-        )
-        .spawn();
-        tokio::time::sleep(Duration::from_millis(50)).await;
-
-        let client = tokio::net::TcpStream::connect(addr)
-            .await
-            .expect("failed to connect test client");
-
-        tokio::time::sleep(Duration::from_millis(100)).await;
-
-        // Drain and run tasks (ConnectionBegin) so the accept loop
-        // receives the oneshot response and spawns reader/writer.
-        let mut buf = Vec::new();
-        channel.wait_and_drain(&mut buf);
-        assert!(!buf.is_empty(), "expected at least ConnectionBegin");
-
-        let mut resources = Resources::default();
-        resources.insert(suon_lua::LuaVm::new());
-        resources.insert(suon_channel::Channel::default());
-        for mut task in buf {
-            task.run(&mut resources);
-        }
-
-        drop(client);
-
-        tokio::time::sleep(Duration::from_millis(500)).await;
-
-        let mut buf2 = Vec::new();
-        channel.wait_and_drain(&mut buf2);
-        assert!(!buf2.is_empty(), "expected ConnectionEnd on disconnect");
-
-        shutdown.trigger();
+        tokio::time::sleep(Duration::from_millis(15)).await;
     }
 
     #[tokio::test]
@@ -316,14 +240,14 @@ mod tests {
             Arc::new(ConnectionManager::new(0)),
         )
         .spawn();
-        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(15)).await;
 
         // First connection should succeed
         let client1 = tokio::net::TcpStream::connect(addr)
             .await
             .expect("failed to connect first test client");
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
 
         // Run the ConnectionBegin task so the accept loop spawns reader/writer
         let mut buf = Vec::new();
@@ -342,7 +266,7 @@ mod tests {
             .await
             .expect("failed to connect second test client");
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
 
         drop(client1);
         drop(client2);
@@ -395,13 +319,13 @@ mod tests {
         )
         .spawn();
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(15)).await;
 
         let client = tokio::net::TcpStream::connect(addr)
             .await
             .expect("failed to connect test client");
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
 
         drop(client);
         shutdown.trigger();

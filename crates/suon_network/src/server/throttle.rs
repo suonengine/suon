@@ -34,6 +34,7 @@ impl ConnectionLimiter {
         })
     }
 
+    #[allow(dead_code)]
     pub fn active_count(&self) -> usize {
         self.active.load(Ordering::Relaxed)
     }
@@ -88,6 +89,7 @@ impl PacketRateLimiter {
         true
     }
 
+    #[allow(dead_code)]
     pub fn remove(&self, addr: &SocketAddr) {
         drop(
             self.inner

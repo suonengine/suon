@@ -54,8 +54,8 @@ fn bench_dispatch_no_events(criterion: &mut Criterion) {
 
     criterion.bench_function("lua/dispatch_no_events", |bencher| {
         bencher.iter(|| {
-            let result = vm.trigger_event("NonExistent", black_box(42));
-            black_box(result);
+            vm.trigger_event("NonExistent", black_box(42))
+                .expect("bench dispatch must succeed");
         });
     });
 }
@@ -83,8 +83,8 @@ fn bench_dispatch_with_events(criterion: &mut Criterion) {
 
     criterion.bench_function("lua/dispatch_with_events", |bencher| {
         bencher.iter(|| {
-            let result = vm.trigger_event("BenchEvent", ());
-            black_box(result);
+            vm.trigger_event("BenchEvent", ())
+                .expect("bench dispatch must succeed");
         });
     });
 }

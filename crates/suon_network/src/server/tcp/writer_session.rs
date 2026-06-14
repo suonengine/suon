@@ -204,7 +204,7 @@ mod tests {
             .await
             .expect("failed to connect test client");
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(15)).await;
 
         client
             .write_all(b"test")
@@ -246,7 +246,7 @@ mod tests {
             .await
             .expect("failed to connect test client");
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(15)).await;
 
         drop(client);
         drop(server.await);
@@ -276,7 +276,7 @@ mod tests {
                 .spawn();
 
             // Wait for client to connect, then send Close
-            tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(15)).await;
 
             tx.send(Command::Close).ok();
         });
@@ -286,14 +286,14 @@ mod tests {
             .expect("failed to connect test client");
 
         // Give the writer time to process the Close command
-        tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
 
         // Writer received Close → called buf_writer.shutdown().await
         // Client should see EOF (read returns 0)
         use tokio::io::AsyncReadExt;
         let mut buf = vec![0u8; 16];
         let result = tokio::time::timeout(
-            tokio::time::Duration::from_millis(500),
+            tokio::time::Duration::from_millis(200),
             client.read(&mut buf),
         )
         .await;
@@ -336,7 +336,7 @@ mod tests {
             // Send data through the command channel
             tx.send(Command::Send(b"hello".to_vec())).ok();
 
-            tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(15)).await;
 
             tx.send(Command::Close).ok();
         });
@@ -345,13 +345,13 @@ mod tests {
             .await
             .expect("failed to connect test client");
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
 
         // Read the framed data the writer should have sent
         let mut buf = vec![0u8; 1024];
         use tokio::io::AsyncReadExt;
         match tokio::time::timeout(
-            tokio::time::Duration::from_millis(500),
+            tokio::time::Duration::from_millis(200),
             client.read(&mut buf),
         )
         .await

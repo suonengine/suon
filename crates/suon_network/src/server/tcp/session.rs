@@ -20,6 +20,7 @@ pub(crate) struct ConnectionSession {
     shutdown: Shutdown,
 }
 
+#[allow(dead_code)]
 impl ConnectionSession {
     pub fn new(
         id: ConnectionId,

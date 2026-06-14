@@ -235,7 +235,7 @@ mod tests {
             test_manager(),
         )
         .launch();
-        std::thread::sleep(Duration::from_millis(100));
+        std::thread::sleep(Duration::from_millis(10));
         drop(occupied);
     }
 
@@ -274,8 +274,8 @@ mod tests {
             test_manager(),
         )
         .launch();
-        std::thread::sleep(Duration::from_millis(30));
+        std::thread::sleep(Duration::from_millis(10));
         drop(occupied);
-        std::thread::sleep(Duration::from_millis(100));
+        std::thread::sleep(Duration::from_millis(10));
     }
 }

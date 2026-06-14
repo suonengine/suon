@@ -232,7 +232,7 @@ async fn tcp_status_echo_roundtrip() {
             .expect("failed to flush stream in echo test");
     });
 
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    tokio::time::sleep(Duration::from_millis(15)).await;
 
     let mut client = tokio::net::TcpStream::connect(addr)
         .await
@@ -318,7 +318,7 @@ async fn tcp_multiple_connections() {
         }
     });
 
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    tokio::time::sleep(Duration::from_millis(15)).await;
 
     for i in 0..3 {
         let mut client = tokio::net::TcpStream::connect(addr)
@@ -399,7 +399,7 @@ async fn tcp_large_payload_roundtrip() {
             .expect("failed to flush in large payload test");
     });
 
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    tokio::time::sleep(Duration::from_millis(10)).await;
 
     let mut client = tokio::net::TcpStream::connect(addr)
         .await
@@ -418,7 +418,7 @@ async fn tcp_large_payload_roundtrip() {
         .await
         .expect("failed to flush large payload client");
 
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    tokio::time::sleep(Duration::from_millis(15)).await;
 
     let mut reader = PacketReader::new(proto);
     let mut buf = [0u8; 4096];

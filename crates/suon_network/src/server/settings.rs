@@ -25,10 +25,13 @@ mod tests {
             port = 7171
             address = "0.0.0.0"
             type = "tcp"
+            protocol = { header_size = 6, has_checksum = true, uses_xtea = false, uses_rsa = false }
+            encryption = { incoming = true, outgoing = true }
             flush_interval_ms = 10
             channel_capacity = 1024
             max_buffer_size = 4096
             max_connections = 100
+            rate_burst = 50
             retry_delay_ms = 15000
         "#;
 
@@ -66,10 +69,13 @@ mod tests {
             port = 7171
             address = "0.0.0.0"
             type = "tcp"
+            protocol = { header_size = 6, has_checksum = true, uses_xtea = false, uses_rsa = false }
+            encryption = { incoming = true, outgoing = true }
             flush_interval_ms = 10
             channel_capacity = 512
             max_buffer_size = 8192
             max_connections = 50
+            rate_burst = 50
             retry_delay_ms = 15000
         "#;
         let settings: ServerSettings =

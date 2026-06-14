@@ -23,6 +23,7 @@ pub struct HttpManager {
     manager: Arc<ConnectionManager>,
 }
 
+#[allow(dead_code)]
 impl HttpManager {
     pub fn new(manager: Arc<ConnectionManager>) -> Self {
         HttpManager { manager }

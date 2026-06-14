@@ -4,6 +4,7 @@ use suon_channel::IntoTask;
 
 use super::task::HttpRequestTask;
 
+#[allow(dead_code)]
 pub(crate) struct HttpRequest {
     pub request_id: u64,
     pub method: String,

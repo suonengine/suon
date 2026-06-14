@@ -160,10 +160,10 @@ impl PacketReader {
     /// RSA handshake — runs once per connection, sets XTEA key if found.
     fn process_rsa_handshake_in_place(
         &mut self,
-        body: &mut Vec<u8>,
+        body: &mut [u8],
     ) -> Result<ProcessOutcome, ProcessError> {
         let rsa = self.rsa_key.as_ref().ok_or(ProcessError::RsaError)?;
-        let mut decrypted = body.clone();
+        let mut decrypted = body.to_owned();
 
         if suon_rsa::decrypt(rsa, &mut decrypted).is_ok() {
             if decrypted.is_empty() || decrypted[0] != 0 {
