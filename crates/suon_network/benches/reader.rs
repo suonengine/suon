@@ -60,7 +60,8 @@ fn xtea_decrypt(criterion: &mut Criterion) {
             bencher.iter(|| {
                 let mut proc_buf = body.clone();
                 black_box(
-                    reader.process_in_place(&mut proc_buf)
+                    reader
+                        .process_in_place(&mut proc_buf)
                         .expect("bench process must succeed"),
                 );
             });
@@ -124,7 +125,8 @@ fn checksum_only(criterion: &mut Criterion) {
             bencher.iter(|| {
                 let mut proc_buf = body.clone();
                 black_box(
-                    reader.process_in_place(&mut proc_buf)
+                    reader
+                        .process_in_place(&mut proc_buf)
                         .expect("bench process must succeed"),
                 );
             });
@@ -152,7 +154,8 @@ fn plaintext(criterion: &mut Criterion) {
             bencher.iter(|| {
                 let mut proc_buf = data.clone();
                 black_box(
-                    reader.process_in_place(&mut proc_buf)
+                    reader
+                        .process_in_place(&mut proc_buf)
                         .expect("bench process must succeed"),
                 );
             });
