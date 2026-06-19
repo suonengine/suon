@@ -39,6 +39,19 @@ impl Connections {
             .map_err(|error| format!("send failed: {error}"))
     }
 
+    /// Send raw bytes, bypassing protocol framing/encryption.
+    pub fn send_raw(&self, id: u64, data: Vec<u8>) -> Result<(), String> {
+        let identifier = ConnectionId::from_u64(id);
+        let handle = self
+            .manager
+            .get(identifier)
+            .ok_or_else(|| format!("connection {id} not found"))?;
+
+        handle
+            .send_raw(data)
+            .map_err(|error| format!("send_raw failed: {error}"))
+    }
+
     /// Gracefully close the connection.
     pub fn close(&self, id: u64) -> Result<(), String> {
         let id = ConnectionId::from_u64(id);

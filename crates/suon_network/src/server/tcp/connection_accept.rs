@@ -1,8 +1,6 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
-
-use tracing::warn;
-
 use tokio::net::TcpStream;
+use tracing::warn;
 
 use crate::{
     connection::{id::ConnectionId, manager::ConnectionManager},
@@ -55,12 +53,14 @@ impl ConnectionAccept {
             Ok(Ok(false)) => {
                 manager.unregister(identifier);
                 warn!(target: "TCP", "Lua rejected connection {identifier} from {peer}");
-                // stream + permit dropped at end of scope
                 AcceptOutcome::Reject
             }
             Ok(Err(_)) => {
                 manager.unregister(identifier);
-                warn!(target: "TCP", "Lua handler dropped the begin oneshot for {identifier}");
+                warn!(
+                    target: "TCP",
+                    "Lua handler dropped the begin oneshot for {identifier}"
+                );
                 AcceptOutcome::Reject
             }
             Err(_) => {

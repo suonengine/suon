@@ -13,11 +13,11 @@ pub struct RawPacket {
 
 impl TaskHandler for RawPacket {
     fn run(&mut self, resources: &mut Resources) {
-        let lua_vm = resources.get::<LuaVm>();
-        if let Err(error) =
-            lua_vm.trigger_event("RawPacketEvent", (self.id.as_u64(), self.data.as_slice()))
+        let vm = resources.get::<LuaVm>();
+        if let Err(err) =
+            vm.trigger_event("RawPacketEvent", (self.id.as_u64(), self.data.as_slice()))
         {
-            tracing::error!(target: "TCP", "RawPacket error: {error}");
+            tracing::error!(target: "TCP", "RawPacket error: {err}");
         }
 
         let buffer_pool = &resources.get::<NetworkBufferPool>().0;

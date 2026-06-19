@@ -13,50 +13,6 @@ use crate::{
 
 pub struct NetworkPlugin;
 
-impl NetworkPlugin {
-    fn register_lua_bindings(app: &mut App) {
-        let lua_vm = app.get_resource::<LuaVm>();
-        let connections = app.get_resource::<Connections>();
-
-        lua_vm.execute(move |lua: &Lua| {
-            if let Err(error) = Self::inject_bindings(lua, connections.clone()) {
-                error!(target: "App", "Failed to register Lua network bindings: {error}");
-            }
-        });
-    }
-
-    fn inject_bindings(lua: &Lua, connections: Connections) -> Result<(), Error> {
-        let globals = lua.globals();
-
-        let connection = globals
-            .get::<Table>("Connection")
-            .map_err(|_| Error::external("Connection global not found"))?;
-
-        connection.set("send", {
-            let connections_send = connections.clone();
-            lua.create_function(move |_, (table, data): (Table, String)| {
-                let id: u64 = table.raw_get("_id")?;
-                let bytes = data.as_bytes().to_vec();
-                connections_send
-                    .send(id, bytes)
-                    .map_err(|error| Error::external(format!("Connection:send failed: {error}")))
-            })?
-        })?;
-
-        connection.set("close", {
-            let connections_close = connections.clone();
-            lua.create_function(move |_, table: Table| {
-                let identifier: u64 = table.raw_get("_id")?;
-                connections_close
-                    .close(identifier)
-                    .map_err(|error| Error::external(format!("Connection:close failed: {error}")))
-            })?
-        })?;
-
-        Ok(())
-    }
-}
-
 impl Plugin for NetworkPlugin {
     fn build(&self, app: &mut App) {
         let settings = NetworkSettings::load();
@@ -65,7 +21,7 @@ impl Plugin for NetworkPlugin {
         let connections = Connections {
             manager: connection_manager.clone(),
         };
-        app.add_resource(connections);
+        app.add_resource(connections.clone());
 
         let runtime = Arc::new(
             tokio::runtime::Builder::new_multi_thread()
@@ -96,6 +52,83 @@ impl Plugin for NetworkPlugin {
 
         app.add_resource(manager);
 
-        Self::register_lua_bindings(app);
+        Self::register_connection_bindings(app, connections);
+    }
+}
+
+impl NetworkPlugin {
+    fn register_connection_bindings(app: &mut App, connections: Connections) {
+        let vm = app.get_resource::<LuaVm>();
+
+        vm.execute(move |lua: &Lua| {
+            let globals = lua.globals();
+
+            let Ok(connection) = globals.get::<Table>("Connection") else {
+                error!(target: "App", "Connection global not found.");
+                return;
+            };
+
+            let send_fn = {
+                let connection_send = connections.clone();
+                match lua.create_function(move |_, (table, data): (Table, String)| {
+                    let id: u64 = table.raw_get("_id")?;
+                    let bytes = data.as_bytes().to_vec();
+                    connection_send
+                        .send(id, bytes)
+                        .map_err(|e| Error::external(format!("Connection:send failed: {e}")))
+                }) {
+                    Ok(func) => func,
+                    Err(err) => {
+                        error!(target: "App", "Failed to create Connection:send function: {err}");
+                        return;
+                    }
+                }
+            };
+
+            if let Err(err) = connection.set("send", send_fn) {
+                error!(target: "App", "Failed to register Connection:send: {err}");
+            }
+
+            let close_fn = {
+                let connection_close = connections.clone();
+                match lua.create_function(move |_, table: Table| {
+                    let id: u64 = table.raw_get("_id")?;
+                    connection_close
+                        .close(id)
+                        .map_err(|e| Error::external(format!("Connection:close failed: {e}")))
+                }) {
+                    Ok(func) => func,
+                    Err(err) => {
+                        error!(target: "App", "Failed to create Connection:close function: {err}");
+                        return;
+                    }
+                }
+            };
+
+            if let Err(err) = connection.set("close", close_fn) {
+                error!(target: "App", "Failed to register Connection:close: {err}");
+            }
+
+            let send_raw_fn = {
+                let connection_send_raw = connections;
+                match lua.create_function(move |_, (table, data): (Table, String)| {
+                    let id: u64 = table.raw_get("_id")?;
+                    let bytes = data.as_bytes().to_vec();
+                    connection_send_raw
+                        .send_raw(id, bytes)
+                        .map_err(|e| Error::external(format!("Connection:sendRaw failed: {e}")))
+                }) {
+                    Ok(func) => func,
+                    Err(err) => {
+                        error!(target: "App", "Failed to create Connection:sendRaw function: {err}");
+                        return;
+                    }
+                }
+            };
+
+            if let Err(err) = connection.set("sendRaw", send_raw_fn) {
+                error!(target: "App", "Failed to register Connection:sendRaw: {err}");
+            }
+        });
     }
 }

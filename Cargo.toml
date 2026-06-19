@@ -33,6 +33,7 @@ winresource = "0.1"
 suon_app = { version = "0.1.0", path = "crates/suon_app" }
 suon_lua = { version = "0.1.0", path = "crates/suon_lua" }
 suon_network = { version = "0.1.0", path = "crates/suon_network" }
+suon_resource = { version = "0.1.0", path = "crates/suon_resource" }
 
 [[bin]]
 name = "suon"
@@ -71,6 +72,7 @@ serde_json = { version = "1.0.150", default-features = false }
 syn = { version = "2.0.117", default-features = false }
 dashmap = { version = "6.2.1", default-features = false }
 flate2 = { version = "1.1.9", default-features = false }
+ureq = { version = "3.3.0", default-features = false }
 thiserror = { version = "2.0.18", default-features = false }
 tracing = { version = "0.1.44", default-features = false }
 parking_lot = { version = "0.12", default-features = false }

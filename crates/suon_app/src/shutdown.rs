@@ -27,4 +27,10 @@ impl TaskHandler for Shutdown {
 ///
 /// [`App::run`]: crate::App::run
 #[derive(Resource, Deref, DerefMut, Default)]
-pub(crate) struct Exit(bool);
+pub struct Exit(bool);
+
+impl Exit {
+    pub fn trigger(&mut self) {
+        self.0 = true;
+    }
+}

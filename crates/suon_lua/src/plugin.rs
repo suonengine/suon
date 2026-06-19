@@ -1,10 +1,11 @@
-use std::path::PathBuf;
-
-use tracing::{error, info, warn};
+use mlua::Variadic;
+use suon_app::shutdown::Exit;
+use tracing::{debug, error, info, warn};
 
 use suon_app::{App, plugin::Plugin};
+use suon_resource::Resources;
 
-use crate::{LuaConfig, LuaVm};
+use crate::{DispatchError, LuaConfig, LuaVm};
 
 /// Registers Lua scripting support into a Suon [`App`].
 ///
@@ -42,7 +43,7 @@ impl Plugin for LuaPlugin {
             .cloned()
             .unwrap_or_default();
 
-        let dir: PathBuf = config.modules_path.clone();
+        let dir = config.modules_path.clone();
         let dir_str = dir.to_string_lossy().to_string();
 
         {
@@ -56,6 +57,33 @@ impl Plugin for LuaPlugin {
                     .set_name("path_setup")
                     .exec()
                     .expect("failed to set package.path");
+
+                let print_fn = lua
+                    .create_function(|_, args: Variadic<String>| {
+                        let line = args.join("\t");
+                        info!(target: "Lua", "{line}");
+                        Ok(())
+                    })
+                    .expect("failed to create print function");
+
+                lua.globals()
+                    .set("print", print_fn)
+                    .expect("failed to set print global");
+
+                let debug_fn = lua
+                    .create_function(|_, text: String| {
+                        warn!(target: "Lua", "Lua Script Error: {text}");
+                        Ok(())
+                    })
+                    .expect("failed to create debug function");
+
+                lua.globals()
+                    .set("debug", debug_fn)
+                    .expect("failed to set debug global");
+
+                if let Err(e) = crate::bindings::inject_bindings(lua) {
+                    error!(target: "Lua", "Failed to register Lua bindings: {e}");
+                }
             });
         }
 
@@ -106,7 +134,7 @@ impl Plugin for LuaPlugin {
                     });
 
                     match result {
-                        Ok(_) => info!(target: "Lua", "Loaded {dir_str}/{name}.lua"),
+                        Ok(_) => debug!(target: "Lua", "Loaded {dir_str}/{name}.lua"),
                         Err(e) => {
                             error!(target: "Lua", "Failed to load module {dir_str}/{name}.lua: {e}")
                         }
@@ -137,7 +165,7 @@ impl Plugin for LuaPlugin {
                 });
 
                 match result {
-                    Ok(_) => info!(target: "Lua", "Loaded {dir_str}/{name}/init.lua"),
+                    Ok(_) => debug!(target: "Lua", "Loaded {dir_str}/{name}/init.lua"),
                     Err(e) => {
                         error!(target: "Lua", "Failed to load module {dir_str}/{name}/init.lua: {e}")
                     }
@@ -146,6 +174,27 @@ impl Plugin for LuaPlugin {
         }
 
         app.add_resource(vm);
+
+        app.add_startup_system(|resources: &mut Resources| {
+            let vm = resources.get::<LuaVm>();
+            match vm.trigger_event("StartupEvent", ()) {
+                Err(DispatchError::Cancelled) => {
+                    info!(target: "Lua", "StartupEvent was cancelled, aborting startup");
+                    resources.get_mut::<Exit>().trigger();
+                }
+                Err(e) => {
+                    error!(target: "Lua", "StartupEvent error: {e}");
+                }
+                _ => {}
+            }
+        });
+
+        app.add_shutdown_system(|resources: &mut Resources| {
+            let vm = resources.get::<LuaVm>();
+            if let Err(e) = vm.trigger_event("ShutdownEvent", ()) {
+                error!(target: "Lua", "ShutdownEvent error: {e}");
+            }
+        });
     }
 }
 

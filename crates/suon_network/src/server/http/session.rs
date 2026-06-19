@@ -14,6 +14,7 @@ const MAX_BODY_SIZE: usize = 4 * 1024 * 1024;
 
 pub(crate) struct HttpSession {
     request_id: u64,
+    port: u16,
     stream: TcpStream,
     channel: suon_channel::Channel,
     config: HttpSettings,
@@ -32,6 +33,7 @@ impl HttpSession {
     ) -> Self {
         HttpSession {
             request_id,
+            port: config.port,
             stream,
             channel,
             config,
@@ -146,11 +148,12 @@ impl HttpSession {
         let (response_sender, response_receiver) = oneshot::channel::<Vec<u8>>();
         self.channel.send(HttpRequest {
             request_id: self.request_id,
+            port: self.port,
             method,
             path,
             headers,
             body,
-            response_sender,
+            response_sender: Some(response_sender),
         });
 
         let mut rx = self.shutdown.receiver();
@@ -178,6 +181,7 @@ mod tests {
             max_connections: 100,
             rate_burst: 50,
             max_headers: 32,
+            port: 8080,
         }
     }
 

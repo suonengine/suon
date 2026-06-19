@@ -55,8 +55,8 @@ mod tests {
         let flag = called.clone();
 
         let id = {
-            let vm_ref = resources.get::<LuaVm>();
-            vm_ref.execute(|lua| {
+            let vm = resources.get::<LuaVm>();
+            vm.execute(|lua| {
                 let func = lua
                     .create_function(move |_, ()| {
                         flag.store(true, Ordering::SeqCst);
@@ -64,7 +64,7 @@ mod tests {
                     })
                     .expect("failed to create test function");
 
-                vm_ref.store(func).expect("failed to store test function")
+                vm.store(func).expect("failed to store test function")
             })
         };
 
@@ -92,21 +92,21 @@ mod tests {
         resources.insert(LuaVm::new());
 
         let id = {
-            let vm_ref = resources.get::<LuaVm>();
-            vm_ref.execute(|lua| {
+            let vm = resources.get::<LuaVm>();
+            vm.execute(|lua| {
                 let func = lua
                     .create_function(|_, ()| -> Result<(), Error> { Ok(()) })
                     .expect("failed to create test function");
 
-                vm_ref.store(func).expect("failed to store test function")
+                vm.store(func).expect("failed to store test function")
             })
         };
 
         let mut task = Box::new(LuaCallback { id });
         task.run(&mut resources);
 
-        let vm_ref = resources.get::<LuaVm>();
-        let result = vm_ref.restore(id);
+        let vm = resources.get::<LuaVm>();
+        let result = vm.restore(id);
         assert!(
             result.is_err(),
             "callback should remove the function from the registry after execution"

@@ -12,9 +12,9 @@ pub(crate) struct ConnectionEnd {
 
 impl TaskHandler for ConnectionEnd {
     fn run(&mut self, resources: &mut Resources) {
-        let lua_vm = resources.get::<LuaVm>();
-        if let Err(error) = lua_vm.trigger_event("ConnectionEndEvent", (self.id.as_u64(),)) {
-            tracing::error!(target: "TCP", "ConnectionEnd error: {error}");
+        let vm = resources.get::<LuaVm>();
+        if let Err(err) = vm.trigger_event("ConnectionEndEvent", (self.id.as_u64(),)) {
+            tracing::error!(target: "TCP", "ConnectionEnd error: {err}");
         }
     }
 }

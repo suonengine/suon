@@ -28,7 +28,7 @@ use suon_resource::{Resource, Resources};
 use system::{IntoSystem, System};
 use tracing::{debug, info};
 
-use self::plugin::Plugin;
+use self::{plugin::Plugin, shutdown::Exit};
 
 pub mod plugin;
 pub mod shutdown;
@@ -155,7 +155,7 @@ impl App {
     /// 3. Enters the task-dispatch loop until an `Exit` signal is received.
     /// 4. Runs all shutdown systems.
     pub fn run(&mut self) {
-        self.resources.init::<crate::shutdown::Exit>();
+        self.resources.init::<Exit>();
         self.resources.insert(self.channel.clone());
 
         let startup_count = self.startup_systems.len();
@@ -174,7 +174,7 @@ impl App {
                 task.run(&mut self.resources);
             }
 
-            if **self.resources.get::<crate::shutdown::Exit>() {
+            if **self.resources.get::<Exit>() {
                 info!(target: "App", "Shutdown signal received, exiting task loop");
                 break;
             }

@@ -47,6 +47,8 @@ suon_xtea.workspace = true
 suon_rsa.workspace = true
 suon_lua.workspace = true
 mlua = { workspace = true, features = ["lua55", "vendored"] }
+parking_lot = { workspace = true }
+ureq = { workspace = true }
 
 [dev-dependencies]
 # Shared third-party dependencies

@@ -23,6 +23,8 @@ pub use error::DispatchError;
 pub use plugin::LuaPlugin;
 pub use vm::LuaVm;
 
+pub mod bindings;
+
 mod callback;
 mod config;
 mod error;

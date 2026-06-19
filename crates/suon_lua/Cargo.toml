@@ -19,10 +19,15 @@ bench = false
 [dependencies]
 mlua = { workspace = true, features = ["lua55", "vendored"] }
 tracing = { workspace = true, features = ["std", "attributes"] }
+serde_json = { workspace = true, features = ["std"] }
+suon_adler32.workspace = true
 suon_resource.workspace = true
 suon_macros.workspace = true
 suon_channel.workspace = true
 suon_app.workspace = true
+ureq = { workspace = true }
+parking_lot = { workspace = true }
+tokio = { workspace = true, features = ["rt", "sync", "time"] }
 
 [dev-dependencies]
 criterion = { workspace = true, features = ["rayon", "cargo_bench_support"] }

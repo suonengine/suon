@@ -2,7 +2,6 @@ pub(crate) mod acceptor;
 pub(crate) mod manager;
 pub(crate) mod request;
 pub(crate) mod session;
-pub(crate) mod task;
 
 use serde::{Deserialize, Serialize};
 
@@ -12,6 +11,7 @@ pub struct HttpSettings {
     pub max_connections: u32,
     pub rate_burst: u32,
     pub max_headers: usize,
+    pub port: u16,
 }
 
 impl Default for HttpSettings {
@@ -20,6 +20,7 @@ impl Default for HttpSettings {
             max_connections: 100,
             rate_burst: 50,
             max_headers: 32,
+            port: 0,
         }
     }
 }

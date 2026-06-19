@@ -49,7 +49,6 @@ fn fmt_ipv6(ip: Ipv6Addr, buf: &mut [u8; 48]) -> &str {
             buf[pos] = b':';
             pos += 1;
         }
-        // Write hex digits (no leading zeros for brevity, like Rust's Display)
         if seg == 0 {
             buf[pos] = b'0';
             pos += 1;
@@ -88,10 +87,10 @@ pub(crate) struct ConnectionBegin {
 
 impl TaskHandler for ConnectionBegin {
     fn run(&mut self, resources: &mut Resources) {
-        let lua_vm = resources.get::<LuaVm>();
+        let vm = resources.get::<LuaVm>();
         let mut ip_buf = [0u8; 48];
         let ip_str = fmt_ip(self.address.ip(), &mut ip_buf);
-        let accepted = lua_vm
+        let accepted = vm
             .trigger_event(
                 "ConnectionBeginEvent",
                 (self.id.as_u64(), ip_str, self.address.port()),

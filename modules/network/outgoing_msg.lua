@@ -12,6 +12,7 @@ end
 local function construct()
 	return setmetatable({
 		_buffer = {},
+		_length = 0,
 	}, M)
 end
 
@@ -26,6 +27,7 @@ local callable = setmetatable({}, {
 ---@param value integer
 function M:addU8(value)
 	table.insert(self._buffer, string.char(value & 0xFF))
+	self._length = self._length + 1
 end
 
 ---Signed 8-bit integer.
@@ -85,6 +87,7 @@ function M:addString(value)
 	value = value or ""
 	self:addU16(#value)
 	table.insert(self._buffer, value)
+	self._length = self._length + #value
 end
 
 ---Raw bytes appended directly.
@@ -92,6 +95,7 @@ end
 function M:addRaw(data)
 	if data and #data > 0 then
 		table.insert(self._buffer, data)
+		self._length = self._length + #data
 	end
 end
 
@@ -99,28 +103,32 @@ end
 ---@param value number
 function M:addFloat(value)
 	table.insert(self._buffer, string.pack("<f", value))
+	self._length = self._length + 4
 end
 
 ---Little-endian 64-bit double.
 ---@param value number
 function M:addDouble(value)
 	table.insert(self._buffer, string.pack("<d", value))
+	self._length = self._length + 8
 end
 
 ---Current byte length of the buffer.
 ---@return integer
 function M:getLength()
-	local total = 0
-	for _, part in ipairs(self._buffer) do
-		total = total + #part
-	end
-	return total
+	return self._length
+end
+
+---Returns the raw buffer as a string.
+---@return string
+function M:getBuffer()
+	return table.concat(self._buffer)
 end
 
 ---Sends the buffer through the given connection.
 ---@param connection Connection Connection object with `_id` field
 function M:send(connection)
-	connection:send(table.concat(self._buffer))
+	connection:send(self:getBuffer())
 end
 
 return callable

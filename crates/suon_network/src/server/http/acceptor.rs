@@ -18,6 +18,7 @@ pub(crate) struct HttpSettings {
     pub max_connections: usize,
     pub rate_burst: u32,
     pub max_headers: usize,
+    pub port: u16,
 }
 
 impl HttpSettings {
@@ -32,6 +33,7 @@ impl HttpSettings {
                 max_connections: *max_connections as usize,
                 rate_burst: *rate_burst,
                 max_headers: (*max_headers).min(MAX_HEADERS),
+                port: settings.port,
             },
             _ => unreachable!(),
         }
@@ -60,6 +62,7 @@ mod http_settings_tests {
         assert_eq!(http.max_connections, 200);
         assert_eq!(http.rate_burst, 100);
         assert_eq!(http.max_headers, 64);
+        assert_eq!(http.port, 8080);
     }
 
     #[test]

@@ -10,8 +10,9 @@ local ConnectionBeginEvent = require("events.network.connection_begin")
 local ConnectionEndEvent = require("events.network.connection_end")
 local RawPacketEvent = require("events.network.raw_packet")
 local PacketEvent = require("events.network.packet")
+local RawHttpRequestEvent = require("events.http.raw_request")
+local HttpRequestEvent = require("events.http.request")
 
----Accept all connections.
 ConnectionBeginEvent:on(function(event)
 end)
 
@@ -31,6 +32,11 @@ RawPacketEvent:on(function(event)
 	end
 
 	PacketEvent:trigger(connection, event:getData())
+end)
+
+---Feed raw HTTP requests into the method+path dispatcher.
+RawHttpRequestEvent:on(function(event)
+	HttpRequestEvent:trigger(event)
 end)
 
 return {
