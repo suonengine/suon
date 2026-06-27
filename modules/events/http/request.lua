@@ -1,20 +1,12 @@
-local HttpStatus = require("network.http_status")
-
----@type HttpRequestEvent
 ---Handles HTTP method+path dispatch. `RawHttpRequestEvent` feeds raw
 ---request data here; the method and path are parsed and routed to
 ---registered handlers.
----
----Usage:
----    HttpRequestEvent:on(8080, "POST", "/login", function(event)
----        local req = event:getRequest()
----        local res = event:getResponse()
----        res:ok('{"ok":true}')
----        res:send()
----    end)
 ---@class HttpRequestEvent
 local M = {}
 M.__index = M
+
+---@class HttpRequestEvent
+HttpRequestEvent = M
 
 ---@type table<string, { port: integer?, method: string, pattern: string, handler: fun(event: HttpRequestEvent) }[]>
 local routes = {}
@@ -46,17 +38,11 @@ function M:trigger(rawEvent)
 	local port = rawEvent:getPort()
 	local list = routes[method]
 	if not list then
-		rawEvent:send(404, "Not Found")
+		rawEvent:send(HttpStatus.NOT_FOUND, "Not Found")
 		return
 	end
 
-	local req = HttpRequest(
-		rawEvent:getRequestId(),
-		method,
-		path,
-		rawEvent:getBody(),
-		rawEvent:getHeaders()
-	)
+	local req = HttpRequest(rawEvent:getRequestId(), method, path, rawEvent:getBody(), rawEvent:getHeaders())
 
 	local res = HttpResponse(function(status, headers, body)
 		rawEvent:send(status, body)
@@ -68,8 +54,12 @@ function M:trigger(rawEvent)
 			if req:route(entry.pattern) then
 				matched = true
 				local ok, err = pcall(entry.handler, {
-					getRequest = function() return req end,
-					getResponse = function() return res end,
+					getRequest = function()
+						return req
+					end,
+					getResponse = function()
+						return res
+					end,
 				})
 				if not ok then
 					print(string.format("[HttpRequestEvent] Handler error for %s %s: %s", method, path, tostring(err)))
@@ -79,7 +69,7 @@ function M:trigger(rawEvent)
 	end
 
 	if not matched then
-		rawEvent:send(404, "Not Found")
+		rawEvent:send(HttpStatus.NOT_FOUND, "Not Found")
 	end
 end
 

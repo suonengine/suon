@@ -1,4 +1,3 @@
----@type OutgoingMessage
 ---Builder for outgoing network messages.
 ---@class OutgoingMessage
 ---@field _buffer string[]
@@ -7,6 +6,9 @@ M.__index = M
 M.__tostring = function(self)
 	return string.format("OutgoingMessage[%d]", self:getLength())
 end
+
+---@class OutgoingMessage
+OutgoingMessage = M
 
 ---@return OutgoingMessage
 local function construct()

@@ -1,6 +1,3 @@
-local Event = require("events.event")
-
----@type RawHttpRequestEvent
 ---Fired when a raw HTTP request arrives. Carries the port, method,
 ---path, headers, body and a respond function.
 ---
@@ -15,6 +12,9 @@ local Event = require("events.event")
 ---@field body string
 ---@field _respond fun(status: integer, body: string)
 local M = Event:define()
+
+---@class RawHttpRequestEvent : Event
+RawHttpRequestEvent = M
 
 local MT = getmetatable(M)
 ---@return RawHttpRequestEvent

@@ -68,7 +68,7 @@ fn json_from_table(table: Table) -> Result<serde_json::Value, Error> {
     let is_array = pairs
         .iter()
         .enumerate()
-        .all(|(i, (key, _))| key.parse::<usize>().map_or(false, |n| n == i + 1));
+        .all(|(i, (key, _))| key.parse::<usize>().is_ok_and(|n| n == i + 1));
 
     if is_array {
         let arr = pairs.into_iter().map(|(_, v)| v).collect();

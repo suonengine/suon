@@ -1,4 +1,3 @@
----@type HttpRequest
 ---HTTP request parser.
 ---@class HttpRequest
 ---@field id integer
@@ -10,6 +9,9 @@
 local M = {}
 M.__index = M
 
+---@class HttpRequest
+HttpRequest = M
+
 setmetatable(M, {
 	__call = function(_, id, method, path, body, headers)
 		return setmetatable({
@@ -19,10 +21,8 @@ setmetatable(M, {
 			body = body,
 			headers = headers,
 		}, M)
-	end
+	end,
 })
-
-HttpRequest = M
 
 ---@return integer
 function M:getId()

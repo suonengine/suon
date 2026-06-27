@@ -1,4 +1,3 @@
----@type Event
 ---Base event class.
 ---@class Event
 ---@field handlers { handler: fun(Event), priority: EventPriority, filter?: fun(Event): boolean }[]
@@ -6,14 +5,14 @@
 local M = {}
 M.__index = M
 
----@return Event
-local function construct(self, ...)
-	return setmetatable({ args = { ... } }, self)
-end
+---@class Event
+Event = M
 
 setmetatable(M, {
 	__index = M,
-	__call = construct,
+	__call = function(self, ...)
+		return setmetatable({ args = { ... } }, self)
+	end,
 	__tostring = function()
 		return "Event"
 	end,

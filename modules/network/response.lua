@@ -1,6 +1,5 @@
 local HttpStatus = require("network.http_status")
 
----@type HttpResponse
 ---HTTP response builder.
 ---@class HttpResponse
 ---@field status integer
@@ -11,6 +10,9 @@ local HttpStatus = require("network.http_status")
 local M = {}
 M.__index = M
 
+---@class HttpResponse
+HttpResponse = M
+
 setmetatable(M, {
 	__call = function(_, callback)
 		return setmetatable({
@@ -20,10 +22,8 @@ setmetatable(M, {
 			_sent = false,
 			callback = callback,
 		}, M)
-	end
+	end,
 })
-
-HttpResponse = M
 
 ---@param code integer
 ---@param message string?
@@ -115,7 +115,9 @@ end
 
 ---Sends the response through the callback.
 function M:send()
-	if self._sent then return end
+	if self._sent then
+		return
+	end
 	self._sent = true
 	self.callback(self.status, self.headers, self.body)
 end

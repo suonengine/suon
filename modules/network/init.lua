@@ -1,11 +1,9 @@
----@type Network
 ---Network module.  Provides connection management, message
 ---serialisation, and default event handlers.
 ---@class Network
 
 local Connection = require("network.connection")
 local IncomingMessage = require("network.incoming_msg")
-local OutgoingMessage = require("network.outgoing_msg")
 local ConnectionBeginEvent = require("events.network.connection_begin")
 local ConnectionEndEvent = require("events.network.connection_end")
 local RawPacketEvent = require("events.network.raw_packet")

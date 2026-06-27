@@ -1,6 +1,5 @@
 local storage = setmetatable({}, { __mode = "v" })
 
----@type Connection
 ---A remote TCP connection.
 ---@class Connection
 ---@field _id integer
@@ -17,6 +16,9 @@ local storage = setmetatable({}, { __mode = "v" })
 ---@field close fun(self: Connection)
 local M = {}
 M.__index = M
+
+---@class Connection
+Connection = M
 
 ---@overload fun(identifier: integer): Connection?
 ---@overload fun(identifier: integer, ip: string, port: integer): Connection

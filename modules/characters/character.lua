@@ -1,4 +1,3 @@
----@type Character
 ---A playable character on a world.
 ---@class Character
 ---@field _name string
@@ -16,6 +15,9 @@
 ---@field _isHidden boolean
 local M = {}
 M.__index = M
+
+---@class Character
+Character = M
 
 ---@overload fun(name: string): Character
 setmetatable(M, {

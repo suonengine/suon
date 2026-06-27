@@ -1,10 +1,10 @@
-local Event = require("events.event")
-
----@type CancellableEvent
 ---Base class for events that can be cancelled.
 ---@class CancellableEvent : Event
 ---@field cancelled boolean
 local M = Event:define()
+
+---@class CancellableEvent : Event
+CancellableEvent = M
 
 ---@return boolean isCancelled # true if a handler called setCancelled(true)
 function M:isCancelled()

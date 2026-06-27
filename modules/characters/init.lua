@@ -1,7 +1,10 @@
 local byId = {}
 
----@class CharacterManager
+---@class Characters
 local M = {}
+
+---@class Characters
+Characters = M
 
 ---Returns the character list for an account.
 ---@param accountId integer

@@ -1,4 +1,3 @@
----@type IncomingMessage
 ---Read-only binary buffer for decoding network packets.
 ---@class IncomingMessage
 ---@field _buffer string
@@ -10,20 +9,20 @@ M.__tostring = function(self)
 	return string.format("IncomingMessage[%d]", #self._buffer)
 end
 
----@return IncomingMessage
-local function construct(data)
-	return setmetatable({
-		_buffer = data or "",
-		_position = 1,
-		_length = #(data or ""),
-	}, M)
-end
+---@class IncomingMessage
+IncomingMessage = M
 
 ---@type IncomingMessage
 ---@overload fun(data: string): IncomingMessage
 local callable = setmetatable({}, {
 	__index = M,
-	__call = construct,
+	__call = function(data)
+		return setmetatable({
+			_buffer = data or "",
+			_position = 1,
+			_length = #(data or ""),
+		}, M)
+	end,
 })
 
 ---Unsigned 8-bit integer.

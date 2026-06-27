@@ -1,4 +1,3 @@
----@type HttpStatus
 ---HTTP status codes.
 ---@class HttpStatus
 ---@field OK integer
@@ -40,5 +39,8 @@ local M = {
 	NOT_IMPLEMENTED = 501,
 	SERVICE_UNAVAILABLE = 503,
 }
+
+---@class HttpStatus
+HttpStatus = M
 
 return M

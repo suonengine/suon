@@ -1,11 +1,10 @@
-local Event = require("events.event")
-local Connection = require("network.connection")
-
----@type ConnectionEvent
 ---Base class for events involving a network connection.
 ---@class ConnectionEvent : Event
 ---@field _connection Connection
 local M = Event:define()
+
+---@class ConnectionEvent : Event
+ConnectionEvent = M
 
 local MT = getmetatable(M)
 ---@return ConnectionEvent
@@ -14,7 +13,7 @@ MT.__call = function(self, id, ip, port)
 		args = {
 			id,
 			ip,
-			port
+			port,
 		},
 		_connection = Connection(id, ip, port),
 	}, self)
